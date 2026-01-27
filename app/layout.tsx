@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import GoogleAnalytics from "./components/GoogleAnalytics";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -45,6 +44,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <link rel="icon" href="/favicon.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/favicon.png" />
         <script async src="https://www.googletagmanager.com/gtag/js?id=G-PFR2X0QFJ2"></script>
         <script
           dangerouslySetInnerHTML={{
