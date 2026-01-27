@@ -21,21 +21,14 @@ export const metadata: Metadata = {
     url: "https://teaser.piilk.com",
     siteName: "PIILK",
     type: "website",
-    images: [
-      {
-        url: "https://teaser.piilk.com/og-image-v2.png",
-        width: 1200,
-        height: 630,
-        alt: "PIILK",
-      },
-    ],
+    // ❌ images intentionally removed
   },
 
   twitter: {
-    card: "summary_large_image",
+    card: "summary",
     title: "PIILK - Nothing after. Period.",
     description: "Clean protein, no compromise. NYC 2026",
-    images: ["https://teaser.piilk.com/og-image-v2.png"],
+    // ❌ images intentionally removed
   },
 };
 
@@ -46,22 +39,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <head>
-        <script
-          async
-          src="https://www.googletagmanager.com/gtag/js?id=G-PFR2X0QFJ2"
-        />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              gtag('js', new Date());
-              gtag('config', 'G-PFR2X0QFJ2');
-            `,
-          }}
-        />
-      </head>
       <body className={inter.className}>{children}</body>
     </html>
   );
