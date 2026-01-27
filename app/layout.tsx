@@ -20,20 +20,22 @@ export const metadata: Metadata = {
     description: "Clean protein, no compromise. NYC 2026",
     url: "https://teaser.piilk.com",
     siteName: "PIILK",
+    type: "website",
     images: [
       {
-        url: "/pillk-logo.png",
-        alt: "PIILK Logo",
+        url: "https://teaser.piilk.com/og-image-v2.png",
+        width: 1200,
+        height: 630,
+        alt: "PIILK",
       },
     ],
-    type: "website",
   },
 
   twitter: {
     card: "summary_large_image",
     title: "PIILK - Nothing after. Period.",
     description: "Clean protein, no compromise. NYC 2026",
-    images: ["/pillk-logo.png"],
+    images: ["https://teaser.piilk.com/og-image-v2.png"],
   },
 };
 
