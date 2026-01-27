@@ -21,22 +21,25 @@ export const metadata: Metadata = {
     url: "https://teaser.piilk.com",
     siteName: "PIILK",
     type: "website",
-    // ❌ images intentionally removed
+    images: [
+      {
+        url: "https://teaser.piilk.com/og-image-v2.png",
+        width: 1200,
+        height: 630,
+        alt: "PIILK",
+      },
+    ],
   },
 
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "PIILK - Nothing after. Period.",
     description: "Clean protein, no compromise. NYC 2026",
-    // ❌ images intentionally removed
+    images: ["https://teaser.piilk.com/og-image-v2.png"],
   },
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body className={inter.className}>{children}</body>
