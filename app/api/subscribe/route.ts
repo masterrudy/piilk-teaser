@@ -41,51 +41,78 @@ export async function POST(request: NextRequest) {
       throw dbError;
     }
 
-    // 2. Klaviyo에 추가
+    // 2. Klaviyo에 추가 (2단계: 프로필 생성 → 리스트 구독)
     if (KLAVIYO_API_KEY && KLAVIYO_LIST_ID) {
       try {
-        await fetch('https://a.klaviyo.com/api/profile-subscription-bulk-create-jobs/', {
+        const emailLower = email.toLowerCase().trim();
+        console.log('Klaviyo: Starting...', { email: emailLower, listId: KLAVIYO_LIST_ID });
+
+        // Step 1: 프로필 생성/업데이트
+        const profileResponse = await fetch('https://a.klaviyo.com/api/profiles/', {
           method: 'POST',
           headers: {
             'Authorization': `Klaviyo-API-Key ${KLAVIYO_API_KEY}`,
             'Content-Type': 'application/json',
-            'revision': '2024-02-15',
+            'revision': '2023-12-15',
           },
           body: JSON.stringify({
             data: {
-              type: 'profile-subscription-bulk-create-job',
+              type: 'profile',
               attributes: {
-                profiles: {
-                  data: [
-                    {
-                      type: 'profile',
-                      attributes: {
-                        email: email.toLowerCase().trim(),
-                        properties: {
-                          segment,
-                          sub_reason: subReason,
-                          source: 'piilk_teaser',
-                        },
-                      },
-                    },
-                  ],
-                },
-              },
-              relationships: {
-                list: {
-                  data: {
-                    type: 'list',
-                    id: KLAVIYO_LIST_ID,
-                  },
+                email: emailLower,
+                properties: {
+                  segment: segment,
+                  sub_reason: subReason,
+                  source: 'piilk_teaser',
                 },
               },
             },
           }),
         });
+
+        let profileId: string | null = null;
+        const profileResult = await profileResponse.text();
+        console.log('Klaviyo profile response:', profileResponse.status, profileResult);
+
+        if (profileResponse.status === 201) {
+          // 새 프로필 생성됨
+          const profileData = JSON.parse(profileResult);
+          profileId = profileData.data?.id;
+        } else if (profileResponse.status === 409) {
+          // 이미 존재 - ID 추출
+          const conflictData = JSON.parse(profileResult);
+          profileId = conflictData.errors?.[0]?.meta?.duplicate_profile_id;
+        }
+
+        // Step 2: 리스트에 구독
+        if (profileId) {
+          const subscribeResponse = await fetch(`https://a.klaviyo.com/api/lists/${KLAVIYO_LIST_ID}/relationships/profiles/`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Klaviyo-API-Key ${KLAVIYO_API_KEY}`,
+              'Content-Type': 'application/json',
+              'revision': '2023-12-15',
+            },
+            body: JSON.stringify({
+              data: [
+                {
+                  type: 'profile',
+                  id: profileId,
+                },
+              ],
+            }),
+          });
+
+          const subscribeResult = await subscribeResponse.text();
+          console.log('Klaviyo subscribe response:', subscribeResponse.status, subscribeResult);
+        } else {
+          console.error('Klaviyo: Could not get profile ID');
+        }
       } catch (klaviyoError) {
         console.error('Klaviyo error:', klaviyoError);
-        // Klaviyo 실패해도 Supabase 성공했으면 OK
       }
+    } else {
+      console.log('Klaviyo skipped - missing credentials');
     }
 
     return NextResponse.json({ success: true });
