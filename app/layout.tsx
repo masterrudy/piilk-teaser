@@ -10,8 +10,8 @@ export const metadata: Metadata = {
   title: "PIILK - Nothing after. Period.",
   description: "Clean protein, no compromise. NYC 2026",
   icons: {
-    icon: "/favicon.png",
-    apple: "/favicon.png",
+    icon: "/favicon-v2.png",
+    apple: "/favicon-v2.png",
   },
   openGraph: {
     title: "PIILK - Nothing after. Period.",
@@ -38,15 +38,16 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en">
       <head>
-        <link rel="icon" href="/favicon.png" type="image/png" />
-        <link rel="apple-touch-icon" href="/favicon.png" />
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-PFR2X0QFJ2"></script>
+        <script
+          async
+          src="https://www.googletagmanager.com/gtag/js?id=G-PFR2X0QFJ2"
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `
