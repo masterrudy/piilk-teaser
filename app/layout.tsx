@@ -2,17 +2,19 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
-  subsets: ["latin"],
-});
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://teaser.piilk.com"),
+
   title: "PIILK - Nothing after. Period.",
   description: "Clean protein, no compromise. NYC 2026",
+
   icons: {
     icon: "/favicon-v2.png",
     apple: "/favicon-v2.png",
   },
+
   openGraph: {
     title: "PIILK - Nothing after. Period.",
     description: "Clean protein, no compromise. NYC 2026",
@@ -20,19 +22,18 @@ export const metadata: Metadata = {
     siteName: "PIILK",
     images: [
       {
-        url: "https://teaser.piilk.com/og-image.png",
-        width: 1200,
-        height: 630,
-        alt: "PIILK",
+        url: "/pillk-logo.png",
+        alt: "PIILK Logo",
       },
     ],
     type: "website",
   },
+
   twitter: {
     card: "summary_large_image",
     title: "PIILK - Nothing after. Period.",
     description: "Clean protein, no compromise. NYC 2026",
-    images: ["https://teaser.piilk.com/og-image.png"],
+    images: ["/pillk-logo.png"],
   },
 };
 
@@ -59,9 +60,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={inter.className}>
-        {children}
-      </body>
+      <body className={inter.className}>{children}</body>
     </html>
   );
 }
