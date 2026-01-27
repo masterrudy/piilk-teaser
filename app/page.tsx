@@ -201,7 +201,7 @@ export default function TeaserPage() {
                     <button
                       key={option.value}
                       onClick={() => handleBranch(option.value)}
-                      className={`${btnDark} tracking-[0.15em]`}
+                      className={`${btnDark} tracking-[0.15em]`} 
                     >
                       {option.label}
                     </button>
