@@ -118,6 +118,18 @@ export default function TeaserPage() {
     </svg>
   );
 
+  // ✅ 공통 Footer 컴포넌트
+  const Footer = () => (
+    <>
+      <p className="text-center text-[9px] tracking-[0.25em] text-zinc-500 uppercase mt-3 font-medium">
+        PIILK™ by ARMORED FRESH
+      </p>
+      <p className="text-center text-[9px] tracking-[0.15em] text-zinc-500 mt-1 font-medium">
+        RTD High Protein Shake.
+      </p>
+    </>
+  );
+
   return (
     <main className="fixed inset-0 bg-black text-white overflow-hidden">
       {/* 배경 */}
@@ -175,9 +187,7 @@ export default function TeaserPage() {
                 <p className="text-center text-[10px] tracking-[0.2em] text-zinc-400 uppercase mt-3 font-medium">
                   Early access. Invite first.
                 </p>
-                <p className="text-center text-[9px] tracking-[0.25em] text-zinc-500 uppercase mt-1 font-medium">
-                  NYC 2026
-                </p>
+                <Footer />
               </section>
             )}
 
@@ -201,16 +211,14 @@ export default function TeaserPage() {
                     <button
                       key={option.value}
                       onClick={() => handleBranch(option.value)}
-                      className={`${btnDark} tracking-[0.15em]`} 
+                      className={`${btnDark} tracking-[0.15em]`}
                     >
                       {option.label}
                     </button>
                   ))}
                 </div>
 
-                <p className="text-center text-[9px] tracking-[0.25em] text-zinc-500 uppercase mt-5 font-medium">
-                  NYC 2026
-                </p>
+                <Footer />
               </section>
             )}
 
@@ -320,9 +328,7 @@ export default function TeaserPage() {
                   </form>
                 </div>
 
-                <p className="text-center text-[9px] tracking-[0.25em] text-zinc-500 uppercase mt-4 font-medium">
-                  NYC 2026
-                </p>
+                <Footer />
               </section>
             )}
 
@@ -347,12 +353,7 @@ export default function TeaserPage() {
                   </p>
                 </div>
 
-    <p className="text-center text-[9px] tracking-[0.25em] text-zinc-500 uppercase mt-2 font-medium">
-  PIILK™ by ARMORED FRESH
-</p>
-<p className="text-center text-[9px] tracking-[0.15em] text-zinc-500 mt-1 font-medium">
-  RTD High Protein Shake.
-</p>
+                <Footer />
               </section>
             )}
           </div>
