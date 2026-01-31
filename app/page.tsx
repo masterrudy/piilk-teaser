@@ -347,9 +347,12 @@ export default function TeaserPage() {
                   </p>
                 </div>
 
-                <p className="text-center text-[9px] tracking-[0.25em] text-zinc-500 uppercase mt-2 font-medium">
-                  NYC 2026
-                </p>
+    <p className="text-center text-[9px] tracking-[0.25em] text-zinc-500 uppercase mt-2 font-medium">
+  PIILK™ by ARMORED FRESH
+</p>
+<p className="text-center text-[9px] tracking-[0.15em] text-zinc-500 mt-1 font-medium">
+  RTD High Protein Shake.
+</p>
               </section>
             )}
           </div>
