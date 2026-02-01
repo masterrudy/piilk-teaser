@@ -39,7 +39,7 @@ export default function TeaserPage() {
         survey_question: 'protein_experience',
         survey_answer: labelMap[type] || type,
         survey_segment: type === 'A' ? 'A' : type === 'B_no' ? 'B' : 'C',
-        test_variant: 'B',  // ← 추가
+        test_variant: 'B',
       });
     }
 
@@ -133,14 +133,14 @@ export default function TeaserPage() {
 
   return (
     <main className="fixed inset-0 bg-black text-white overflow-hidden">
-      {/* 배경 */}
+      {/* 배경 — B variant: hero-bg-b.png, 병이 중앙에 위치하므로 center 40% */}
       <div className="absolute inset-0">
         <Image
           src="/hero-bg-b.png"
           alt="Background"
           fill
           className="object-cover scale-110"
-          style={{ objectPosition: 'center 35%' }}
+          style={{ objectPosition: 'center 40%' }}
           priority
           sizes="100vw"
         />
