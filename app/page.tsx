@@ -19,10 +19,10 @@ export default function TeaserPage() {
 
   // 공통 버튼 토큰 (중복 제거 + iOS 상태 고정)
   const btnDark =
-    'w-full py-4 border border-zinc-500 backdrop-blur-sm text-[13px] sm:text-[14px] font-medium bg-zinc-800/60 text-white transition-colors hover:bg-zinc-800/60 active:bg-zinc-800/60 focus:bg-zinc-800/60';
+    'w-full py-4 border border-zinc-500 backdrop-blur-sm text-[13px] sm:text-[14px] font-medium bg-zinc-800/60 text-white transition-colors hover:bg-white hover:text-black active:bg-zinc-800/60 active:text-white focus:bg-zinc-800/60 focus:text-white';
 
   const btnDarkUpper =
-    'w-full py-4 backdrop-blur-sm border border-zinc-500 text-[13px] sm:text-[14px] tracking-[0.2em] uppercase font-medium bg-zinc-800/60 text-white transition-colors hover:bg-zinc-800/60 active:bg-zinc-800/60 focus:bg-zinc-800/60';
+    'w-full py-4 backdrop-blur-sm border border-zinc-500 text-[13px] sm:text-[14px] tracking-[0.2em] uppercase font-medium bg-zinc-800/60 text-white transition-colors hover:bg-white hover:text-black active:bg-zinc-800/60 active:text-white focus:bg-zinc-800/60 focus:text-white';
 
   // ✅ "안 눌러도" 흰색 CTA가 기본 상태로 유지되도록 기본 클래스에 bg-white/text-black 포함
   const btnWhiteUpper =
