@@ -39,6 +39,7 @@ export default function TeaserPage() {
         survey_question: 'protein_experience',
         survey_answer: labelMap[type] || type,
         survey_segment: type === 'A' ? 'A' : type === 'B_no' ? 'B' : 'C',
+        test_variant: 'B',  // ← 추가
       });
     }
 
