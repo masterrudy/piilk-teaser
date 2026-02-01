@@ -19,10 +19,10 @@ export default function TeaserPage() {
 
   // 공통 버튼 토큰 (중복 제거 + iOS 상태 고정)
   const btnDark =
-    'w-full py-4 border border-zinc-500 backdrop-blur-sm text-[13px] sm:text-[14px] font-medium bg-zinc-800/60 text-white transition-colors hover:bg-white hover:text-black active:bg-zinc-800/60 active:text-white focus:bg-zinc-800/60 focus:text-white';
+    'btn-dark-hover w-full py-4 border border-zinc-500 backdrop-blur-sm text-[13px] sm:text-[14px] font-medium bg-zinc-800/60 text-white transition-colors';
 
   const btnDarkUpper =
-    'w-full py-4 backdrop-blur-sm border border-zinc-500 text-[13px] sm:text-[14px] tracking-[0.2em] uppercase font-medium bg-zinc-800/60 text-white transition-colors hover:bg-white hover:text-black active:bg-zinc-800/60 active:text-white focus:bg-zinc-800/60 focus:text-white';
+    'btn-dark-hover w-full py-4 backdrop-blur-sm border border-zinc-500 text-[13px] sm:text-[14px] tracking-[0.2em] uppercase font-medium bg-zinc-800/60 text-white transition-colors';
 
   // ✅ "안 눌러도" 흰색 CTA가 기본 상태로 유지되도록 기본 클래스에 bg-white/text-black 포함
   const btnWhiteUpper =
@@ -373,6 +373,25 @@ export default function TeaserPage() {
         }
         .animate-fadeIn {
           animation: fadeIn 0.5s ease-out forwards;
+        }
+
+        /* 데스크톱(마우스)에서만 hover 흰색 전환 */
+        @media (hover: hover) and (pointer: fine) {
+          .btn-dark-hover:hover {
+            background-color: rgba(255, 255, 255, 1) !important;
+            color: #000 !important;
+          }
+        }
+
+        /* 모바일 탭 시 색상 변화 완전 차단 */
+        .btn-dark-hover {
+          -webkit-tap-highlight-color: transparent;
+        }
+        .btn-dark-hover:active,
+        .btn-dark-hover:focus {
+          background-color: rgba(39, 39, 42, 0.6) !important;
+          color: #fff !important;
+          outline: none;
         }
       `}</style>
     </main>
