@@ -35,10 +35,10 @@ async function getSupabaseParticipants() {
     .from('piilk_subscribers')
     .select('id, email, segment, sub_reason');
 
-  if (error) {
+if (error) {
     console.error('[participants] Supabase error:', error);
-    return NextResponse.json({ success: false, error: error.message, data: [], total: 0 });
-  }
+    return NextResponse.json({ success: false, error: error.message, detail: error, data: [], total: 0 });
+}
 
   const data = (subscribers || []).map((row: any) => ({
     id: row.id?.toString() || '',
