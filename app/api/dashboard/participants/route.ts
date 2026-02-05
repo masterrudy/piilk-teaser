@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const KLAVIYO_API_KEY = process.env.KLAVIYO_API_KEY;
 
-// Klaviyo 세그먼트 ID (stats route와 동일)
 const KLAVIYO_SEGMENTS = {
   A_TOTAL: 'UZgK56',
   B_TOTAL: 'RUyw9p',
@@ -22,25 +19,60 @@ export async function GET(request: NextRequest) {
     if (source === 'supabase') return await getSupabaseParticipants();
     if (source === 'klaviyo') return await getKlaviyoParticipants();
     return NextResponse.json({ success: false, error: 'Invalid source' }, { status: 400 });
-  } catch (error) {
-    console.error(`[participants] Error fetching ${source}:`, error);
-    return NextResponse.json({ success: false, error: 'Internal server error', data: [], total: 0 }, { status: 500 });
+  } catch (error: any) {
+    return NextResponse.json({
+      success: false,
+      error: 'Caught exception',
+      message: error?.message || String(error),
+      stack: error?.stack?.split('\n').slice(0, 5),
+      data: [],
+      total: 0,
+    }, { status: 500 });
   }
 }
 
-/* ── Supabase: piilk_subscribers 테이블 ── */
-/* 실제 컬럼: id (uuid), email (text), segment (text), sub_reason (text) */
 async function getSupabaseParticipants() {
+  // 환경변수 확인
+  if (!supabaseUrl || !supabaseKey) {
+    return NextResponse.json({
+      success: false,
+      error: 'Missing env vars',
+      hasUrl: !!supabaseUrl,
+      hasKey: !!supabaseKey,
+      data: [],
+      total: 0,
+    });
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
   const { data: subscribers, error } = await supabase
     .from('piilk_subscribers')
     .select('id, email, segment, sub_reason');
 
-if (error) {
-    console.error('[participants] Supabase error:', error);
-    return NextResponse.json({ success: false, error: error.message, detail: error, data: [], total: 0 });
-}
+  if (error) {
+    return NextResponse.json({
+      success: false,
+      error: 'Supabase query error',
+      message: error.message,
+      code: error.code,
+      hint: error.hint,
+      details: error.details,
+      data: [],
+      total: 0,
+    });
+  }
 
-  const data = (subscribers || []).map((row: any) => ({
+  if (!subscribers) {
+    return NextResponse.json({
+      success: false,
+      error: 'No data returned',
+      data: [],
+      total: 0,
+    });
+  }
+
+  const data = subscribers.map((row: any) => ({
     id: row.id?.toString() || '',
     email: row.email || '',
     name: '',
@@ -53,7 +85,6 @@ if (error) {
   return NextResponse.json({ success: true, data, total: data.length });
 }
 
-/* ── Klaviyo: 세그먼트별 프로필 목록 조회 ── */
 async function getKlaviyoParticipants() {
   if (!KLAVIYO_API_KEY) {
     return NextResponse.json({ success: false, error: 'Klaviyo not configured', data: [], total: 0 });
@@ -65,7 +96,6 @@ async function getKlaviyoParticipants() {
     { id: KLAVIYO_SEGMENTS.C_TOTAL, segment: 'C' },
   ];
 
-  // 중복 제거용 Map
   const allProfiles = new Map<string, any>();
 
   for (const seg of mainSegments) {
