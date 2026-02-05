@@ -130,7 +130,7 @@ async function fetchSegmentProfiles(segmentId: string): Promise<any[]> {
 
   while (url && pageCount < 10) {
     try {
-      const res = await fetch(url, {
+      const res: Response = await fetch(url, {
         headers: {
           Authorization: `Klaviyo-API-Key ${KLAVIYO_API_KEY}`,
           Accept: 'application/json',
