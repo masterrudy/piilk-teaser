@@ -20,29 +20,36 @@ const KLAVIYO_SEGMENTS = {
   C_TOTAL: 'XbMadh',
 };
 
-// Klaviyo 세그먼트 카운트 조회
+// Klaviyo 세그먼트 프로필 수 조회 (프로필 목록을 가져와서 직접 카운트)
 async function getKlaviyoSegmentCount(segmentId: string): Promise<number> {
   if (!KLAVIYO_API_KEY) return 0;
-  
-  try {
-    const response = await fetch(
-      `https://a.klaviyo.com/api/segments/${segmentId}/?additional-fields[segment]=profile_count`,
-      {
+
+  let count = 0;
+  let url: string | null =
+    `https://a.klaviyo.com/api/segments/${segmentId}/profiles/?page[size]=100`;
+  let pageCount = 0;
+
+  while (url && pageCount < 20) {
+    try {
+      const res: Response = await fetch(url, {
         headers: {
-          'Authorization': `Klaviyo-API-Key ${KLAVIYO_API_KEY}`,
-          'Accept': 'application/json',
-          'revision': '2024-02-15',
+          Authorization: `Klaviyo-API-Key ${KLAVIYO_API_KEY}`,
+          Accept: 'application/json',
+          revision: '2024-02-15',
         },
         cache: 'no-store',
-      }
-    );
-
-    if (!response.ok) return 0;
-    const data = await response.json();
-    return data.data?.attributes?.profile_count || 0;
-  } catch {
-    return 0;
+      });
+      if (!res.ok) break;
+      const json = await res.json();
+      count += (json.data || []).length;
+      url = json.links?.next || null;
+      pageCount++;
+    } catch {
+      break;
+    }
   }
+
+  return count;
 }
 
 // Supabase 데이터 조회
@@ -89,7 +96,7 @@ async function getSupabaseStats() {
 
 // Klaviyo 데이터 조회
 async function getKlaviyoStats() {
-  const [aTotal, aResidue, aAftertaste, aHeaviness, aHabit, aLapsed, bTotal, cTotal] = 
+  const [aTotal, aResidue, aAftertaste, aHeaviness, aHabit, aLapsed, bTotal, cTotal] =
     await Promise.all([
       getKlaviyoSegmentCount(KLAVIYO_SEGMENTS.A_TOTAL),
       getKlaviyoSegmentCount(KLAVIYO_SEGMENTS.A_RESIDUE),
@@ -131,7 +138,6 @@ async function getKlaviyoStats() {
 
 export async function GET() {
   try {
-    // 양쪽 다 조회
     const [supabaseData, klaviyoData] = await Promise.all([
       getSupabaseStats(),
       getKlaviyoStats(),
