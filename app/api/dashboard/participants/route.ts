@@ -32,7 +32,6 @@ export async function GET(request: NextRequest) {
 }
 
 async function getSupabaseParticipants() {
-  // 환경변수 확인
   if (!supabaseUrl || !supabaseKey) {
     return NextResponse.json({
       success: false,
@@ -46,9 +45,10 @@ async function getSupabaseParticipants() {
 
   const supabase = createClient(supabaseUrl, supabaseKey);
 
+  // ✅ 새 트래킹 컬럼 전부 포함
   const { data: subscribers, error } = await supabase
     .from('piilk_subscribers')
-    .select('id, email, segment, sub_reason');
+    .select('id, email, segment, sub_reason, source, created_at, ip_address, device_type, language, timezone, referrer, country, region, city, utm_source, utm_medium, utm_campaign');
 
   if (error) {
     return NextResponse.json({
@@ -78,9 +78,24 @@ async function getSupabaseParticipants() {
     name: '',
     segment: row.segment || '',
     sub_reason: row.sub_reason || '',
-    signed_up_at: '',
-    source: 'supabase',
+    signed_up_at: row.created_at || '',
+    source: row.source || 'supabase',
+    // ✅ 새 트래킹 필드
+    ip_address: row.ip_address || '',
+    device_type: row.device_type || '',
+    language: row.language || '',
+    timezone: row.timezone || '',
+    referrer: row.referrer || '',
+    country: row.country || '',
+    region: row.region || '',
+    city: row.city || '',
+    utm_source: row.utm_source || '',
+    utm_medium: row.utm_medium || '',
+    utm_campaign: row.utm_campaign || '',
   }));
+
+  // ✅ 최신순 정렬
+  data.sort((a: any, b: any) => (b.signed_up_at || '').localeCompare(a.signed_up_at || ''));
 
   return NextResponse.json({ success: true, data, total: data.length });
 }
@@ -102,15 +117,28 @@ async function getKlaviyoParticipants() {
     const profiles = await fetchSegmentProfiles(seg.id);
     for (const profile of profiles) {
       const attrs = profile.attributes || {};
+      const props = attrs.properties || {};
       if (!allProfiles.has(profile.id)) {
         allProfiles.set(profile.id, {
           id: profile.id || '',
           email: attrs.email || '',
           name: [attrs.first_name, attrs.last_name].filter(Boolean).join(' ') || '',
           segment: seg.segment,
-          sub_reason: attrs.properties?.sub_reason || '',
+          sub_reason: props.sub_reason || '',
           signed_up_at: attrs.created || '',
           source: 'klaviyo',
+          // ✅ Klaviyo 프로필에서도 트래킹 데이터 가져오기
+          ip_address: '',
+          device_type: props.device_type || '',
+          language: props.language || '',
+          timezone: props.timezone || '',
+          referrer: '',
+          country: props.country || '',
+          region: props.region || '',
+          city: props.city || '',
+          utm_source: props.utm_source || '',
+          utm_medium: props.utm_medium || '',
+          utm_campaign: props.utm_campaign || '',
         });
       }
     }
