@@ -1237,6 +1237,124 @@ export default function DashboardPage() {
                   </div>
                 )}
 
+                {/* ✅ Period Breakdown: Daily / Weekly / Weekday / Monthly */}
+                <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">{'\u{1F4C5}'}</span>
+                      <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Period Breakdown</h3>
+                    </div>
+                  </div>
+
+                  {/* Daily table */}
+                  {analyticsData.daily && analyticsData.daily.length > 0 && (
+                    <div className="mb-6">
+                      <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-2">Daily</p>
+                      <div className="overflow-x-auto max-h-60 overflow-y-auto">
+                        <table className="w-full text-left">
+                          <thead className="sticky top-0 bg-zinc-900">
+                            <tr className="border-b border-zinc-800/80">
+                              <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Date</th>
+                              <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">Views</th>
+                              <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">CTA</th>
+                              <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">Submits</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {[...analyticsData.daily].reverse().map((d: any) => (
+                              <tr key={d.date} className="border-b border-zinc-800/30 hover:bg-zinc-800/20">
+                                <td className="px-3 py-1.5 text-xs text-zinc-300 font-mono">{d.date}</td>
+                                <td className="px-3 py-1.5 text-xs text-zinc-400 text-right font-mono">{d.page_view || 0}</td>
+                                <td className="px-3 py-1.5 text-xs text-zinc-400 text-right font-mono">{d.step1_cta_click || 0}</td>
+                                <td className="px-3 py-1.5 text-xs text-emerald-400 text-right font-mono font-bold">{d.step4_submit || 0}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Weekly */}
+                  {analyticsData.weekly && analyticsData.weekly.length > 0 && (
+                    <div className="mb-6">
+                      <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-2">Weekly</p>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                          <thead>
+                            <tr className="border-b border-zinc-800/80">
+                              <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Week</th>
+                              <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">Views</th>
+                              <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">Submits</th>
+                              <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">CVR</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {[...analyticsData.weekly].reverse().map((w: any) => (
+                              <tr key={w.week} className="border-b border-zinc-800/30 hover:bg-zinc-800/20">
+                                <td className="px-3 py-1.5 text-xs text-zinc-300 font-mono">{w.week}</td>
+                                <td className="px-3 py-1.5 text-xs text-zinc-400 text-right font-mono">{w.views}</td>
+                                <td className="px-3 py-1.5 text-xs text-emerald-400 text-right font-mono font-bold">{w.submits}</td>
+                                <td className="px-3 py-1.5 text-xs text-purple-400 text-right font-mono">{w.views > 0 ? ((w.submits / w.views) * 100).toFixed(1) : '0'}%</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {/* Weekday */}
+                    {analyticsData.weekday && (
+                      <div>
+                        <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-2">By Weekday</p>
+                        <div className="space-y-1">
+                          {analyticsData.weekday.map((wd: any) => {
+                            const maxViews = Math.max(...analyticsData.weekday.map((x: any) => x.views), 1);
+                            return (
+                              <div key={wd.day} className="flex items-center gap-2">
+                                <span className="text-[10px] text-zinc-400 w-8 text-right font-mono">{wd.day}</span>
+                                <div className="flex-1 h-5 bg-zinc-800/50 rounded-md overflow-hidden relative">
+                                  <div className="h-full rounded-md bg-sky-500/70 transition-all"
+                                    style={{ width: `${maxViews > 0 ? Math.max((wd.views / maxViews) * 100, wd.views > 0 ? 2 : 0) : 0}%` }} />
+                                  <span className="absolute inset-0 flex items-center px-2 text-[10px] text-white font-medium">
+                                    {wd.views}v / {wd.submits}s
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Monthly */}
+                    {analyticsData.monthly && analyticsData.monthly.length > 0 && (
+                      <div>
+                        <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-2">By Month</p>
+                        <div className="space-y-1">
+                          {analyticsData.monthly.map((m: any) => {
+                            const maxViews = Math.max(...analyticsData.monthly.map((x: any) => x.views), 1);
+                            return (
+                              <div key={m.month} className="flex items-center gap-2">
+                                <span className="text-[10px] text-zinc-400 w-16 text-right font-mono">{m.month}</span>
+                                <div className="flex-1 h-5 bg-zinc-800/50 rounded-md overflow-hidden relative">
+                                  <div className="h-full rounded-md bg-amber-500/70 transition-all"
+                                    style={{ width: `${maxViews > 0 ? Math.max((m.views / maxViews) * 100, m.views > 0 ? 2 : 0) : 0}%` }} />
+                                  <span className="absolute inset-0 flex items-center px-2 text-[10px] text-white font-medium">
+                                    {m.views}v / {m.submits}s
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {/* Segment & Reason distribution */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
                   {analyticsData.segmentDistribution && Object.keys(analyticsData.segmentDistribution).length > 0 && (
