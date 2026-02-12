@@ -12,6 +12,15 @@ const KLAVIYO_SEGMENTS = {
   C_TOTAL: 'XbMadh',
 };
 
+// ✅ Segment A 세부 세그먼트 ID → sub_reason 매핑
+const KLAVIYO_A_SUB_SEGMENTS: Record<string, string> = {
+  'Ypdfd9': 'residue',
+  'XeKqr5': 'aftertaste',
+  'UqKsBm': 'heaviness',
+  'VXSP82': 'habit',
+  'SW26qD': 'lapsed',
+};
+
 export async function GET(request: NextRequest) {
   const source = request.nextUrl.searchParams.get('source') || 'supabase';
 
@@ -45,7 +54,6 @@ async function getSupabaseParticipants() {
 
   const supabase = createClient(supabaseUrl, supabaseKey);
 
-  // ✅ 새 트래킹 컬럼 전부 포함
   const { data: subscribers, error } = await supabase
     .from('piilk_subscribers')
     .select('id, email, segment, sub_reason, source, created_at, ip_address, device_type, language, timezone, referrer, country, region, city, utm_source, utm_medium, utm_campaign');
@@ -80,7 +88,6 @@ async function getSupabaseParticipants() {
     sub_reason: row.sub_reason || '',
     signed_up_at: row.created_at || '',
     source: row.source || 'supabase',
-    // ✅ 새 트래킹 필드
     ip_address: row.ip_address || '',
     device_type: row.device_type || '',
     language: row.language || '',
@@ -94,7 +101,6 @@ async function getSupabaseParticipants() {
     utm_campaign: row.utm_campaign || '',
   }));
 
-  // ✅ 최신순 정렬
   data.sort((a: any, b: any) => (b.signed_up_at || '').localeCompare(a.signed_up_at || ''));
 
   return NextResponse.json({ success: true, data, total: data.length });
@@ -111,6 +117,19 @@ async function getKlaviyoParticipants() {
     { id: KLAVIYO_SEGMENTS.C_TOTAL, segment: 'C' },
   ];
 
+  // ✅ Segment A 세부 세그먼트 프로필도 가져와서 sub_reason 매핑
+  const subSegmentProfiles = new Map<string, string>(); // email -> sub_reason
+
+  for (const [segId, reason] of Object.entries(KLAVIYO_A_SUB_SEGMENTS)) {
+    const profiles = await fetchSegmentProfiles(segId);
+    for (const profile of profiles) {
+      const email = profile.attributes?.email?.toLowerCase();
+      if (email) {
+        subSegmentProfiles.set(email, reason);
+      }
+    }
+  }
+
   const allProfiles = new Map<string, any>();
 
   for (const seg of mainSegments) {
@@ -118,16 +137,25 @@ async function getKlaviyoParticipants() {
     for (const profile of profiles) {
       const attrs = profile.attributes || {};
       const props = attrs.properties || {};
+      const email = (attrs.email || '').toLowerCase();
+
       if (!allProfiles.has(profile.id)) {
+        // ✅ sub_reason: Klaviyo properties에 있으면 사용, 없으면 세부 세그먼트에서 역추적
+        let subReason = props.sub_reason || '';
+        if (!subReason && seg.segment === 'A' && email) {
+          subReason = subSegmentProfiles.get(email) || '';
+        }
+        if (!subReason && seg.segment === 'B') subReason = 'not_interested';
+        if (!subReason && seg.segment === 'C') subReason = 'curious';
+
         allProfiles.set(profile.id, {
           id: profile.id || '',
           email: attrs.email || '',
           name: [attrs.first_name, attrs.last_name].filter(Boolean).join(' ') || '',
           segment: seg.segment,
-          sub_reason: props.sub_reason || '',
+          sub_reason: subReason,
           signed_up_at: attrs.created || '',
           source: 'klaviyo',
-          // ✅ Klaviyo 프로필에서도 트래킹 데이터 가져오기
           ip_address: '',
           device_type: props.device_type || '',
           language: props.language || '',
