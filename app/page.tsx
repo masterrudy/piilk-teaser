@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 
 declare global {
@@ -29,6 +29,18 @@ function getUTMParams(): Record<string, string> {
   return utm;
 }
 
+/* ─── Session/Visitor ID 생성 ─── */
+function getOrCreateId(key: string, storage: 'session' | 'local'): string {
+  if (typeof window === 'undefined') return '';
+  const store = storage === 'session' ? sessionStorage : localStorage;
+  let id = store.getItem(key);
+  if (!id) {
+    id = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    store.setItem(key, id);
+  }
+  return id;
+}
+
 export default function TeaserPage() {
   const [step, setStep] = useState(1);
   const [branch, setBranch] = useState<string | null>(null);
@@ -39,6 +51,9 @@ export default function TeaserPage() {
 
   // ✅ 자동 수집 데이터 (한 번만 캡처)
   const trackingData = useRef<Record<string, string>>({});
+  const sessionId = useRef('');
+  const visitorId = useRef('');
+  const emailFocusTracked = useRef(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -52,6 +67,32 @@ export default function TeaserPage() {
       referrer: document.referrer || '',
       ...utmParams,
     };
+
+    sessionId.current = getOrCreateId('piilk_session', 'session');
+    visitorId.current = getOrCreateId('piilk_visitor', 'local');
+
+    // ✅ Track page_view
+    trackEvent('page_view');
+  }, []);
+
+  /* ─── ✅ Event tracking function ─── */
+  const trackEvent = useCallback((eventName: string, eventData?: Record<string, any>) => {
+    const td = trackingData.current;
+    fetch('/api/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event_name: eventName,
+        event_data: eventData || null,
+        session_id: sessionId.current,
+        visitor_id: visitorId.current,
+        device_type: td.device_type || null,
+        referrer: td.referrer || null,
+        utm_source: td.utm_source || null,
+        utm_medium: td.utm_medium || null,
+        utm_campaign: td.utm_campaign || null,
+      }),
+    }).catch(() => {}); // fire-and-forget
   }, []);
 
   // 공통 버튼 토큰
@@ -77,6 +118,10 @@ export default function TeaserPage() {
         survey_segment: type === 'A' ? 'A' : type === 'B_no' ? 'B' : 'C',
       });
     }
+
+    // ✅ Track step2_answer
+    const segMap: Record<string, string> = { A: 'A', B_no: 'B', B_never: 'C' };
+    trackEvent('step2_answer', { answer: type, segment: segMap[type] || 'C' });
 
     setBranch(type);
     setStep(3);
@@ -117,15 +162,19 @@ export default function TeaserPage() {
           email,
           segment,
           answers: { sub_reason: subReason },
-          // ✅ 트래킹 데이터 전송
           tracking: trackingData.current,
         }),
       });
 
       const data = await response.json();
 
-      if (data.success) setStep(4);
-      else alert(data.error || 'Something went wrong. Please try again.');
+      if (data.success) {
+        // ✅ Track step4_submit
+        trackEvent('step4_submit', { segment, sub_reason: subReason, email_domain: email.split('@')[1] || '' });
+        setStep(4);
+      } else {
+        alert(data.error || 'Something went wrong. Please try again.');
+      }
     } catch (error) {
       console.error('Error:', error);
       alert('Something went wrong. Please try again.');
@@ -214,7 +263,11 @@ export default function TeaserPage() {
                   </p>
                 </div>
 
-                <button onClick={() => setStep(2)} className={btnDarkUpper}>
+                <button onClick={() => {
+                  // ✅ Track step1_cta_click
+                  trackEvent('step1_cta_click');
+                  setStep(2);
+                }} className={btnDarkUpper}>
                   Get in line
                 </button>
 
@@ -285,7 +338,19 @@ export default function TeaserPage() {
                         </label>
                         <select
                           value={selectedReason}
-                          onChange={(e) => setSelectedReason(e.target.value)}
+                          onChange={(e) => {
+                            setSelectedReason(e.target.value);
+                            // ✅ Track step3_reason_select
+                            if (e.target.value) {
+                              let reason = '';
+                              if (e.target.value.includes('left something behind')) reason = 'residue';
+                              else if (e.target.value.includes('aftertaste')) reason = 'aftertaste';
+                              else if (e.target.value.includes('heavy')) reason = 'heaviness';
+                              else if (e.target.value.includes('effort')) reason = 'habit';
+                              else if (e.target.value.includes('stopped')) reason = 'lapsed';
+                              trackEvent('step3_reason_select', { reason });
+                            }
+                          }}
                           className="w-full p-4 bg-zinc-800/60 backdrop-blur-sm border border-zinc-500 text-white text-[16px] appearance-none focus:outline-none focus:border-zinc-400 transition-all"
                         >
                           <option value="" disabled className="bg-zinc-900">
@@ -338,6 +403,13 @@ export default function TeaserPage() {
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      onFocus={() => {
+                        // ✅ Track step3_email_focus (only once per session)
+                        if (!emailFocusTracked.current) {
+                          emailFocusTracked.current = true;
+                          trackEvent('step3_email_focus');
+                        }
+                      }}
                       placeholder="Enter your email"
                       className="w-full p-4 bg-zinc-800/60 backdrop-blur-sm border border-zinc-500 text-white text-[16px] placeholder-zinc-400 focus:outline-none focus:border-zinc-400 transition-all"
                       required
