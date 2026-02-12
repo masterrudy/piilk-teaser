@@ -631,7 +631,8 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* Data Source Tabs */}
+        {/* Data Source Tabs - hide on Analytics */}
+        {viewMode !== 'analytics' && (
         <div className="flex gap-2">
           <button onClick={() => setActiveSource('klaviyo')}
             className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${activeSource === 'klaviyo' ? 'bg-purple-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>
@@ -642,6 +643,7 @@ export default function DashboardPage() {
             {'\u{1F5C4}\uFE0F'} Supabase{supabaseData && <span className="ml-2 text-xs opacity-70">({supabaseData.total})</span>}
           </button>
         </div>
+        )}
 
         {/* ══════ OVERVIEW ══════ */}
         {viewMode === 'overview' && data ? (
