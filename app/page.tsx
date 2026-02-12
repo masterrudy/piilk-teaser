@@ -1,12 +1,32 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 
 declare global {
   interface Window {
     gtag?: (...args: unknown[]) => void;
   }
+}
+
+/* ─── 디바이스/브라우저 자동 감지 유틸 ─── */
+function getDeviceType(): string {
+  if (typeof window === 'undefined') return 'unknown';
+  const ua = navigator.userAgent;
+  if (/tablet|ipad|playbook|silk/i.test(ua)) return 'tablet';
+  if (/mobile|iphone|ipod|android.*mobile|windows phone|blackberry/i.test(ua)) return 'mobile';
+  return 'desktop';
+}
+
+function getUTMParams(): Record<string, string> {
+  if (typeof window === 'undefined') return {};
+  const params = new URLSearchParams(window.location.search);
+  const utm: Record<string, string> = {};
+  ['utm_source', 'utm_medium', 'utm_campaign'].forEach((key) => {
+    const val = params.get(key);
+    if (val) utm[key] = val;
+  });
+  return utm;
 }
 
 export default function TeaserPage() {
@@ -17,14 +37,30 @@ export default function TeaserPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [textFaded, setTextFaded] = useState(false);
 
-  // 공통 버튼 토큰 (중복 제거 + iOS 상태 고정)
+  // ✅ 자동 수집 데이터 (한 번만 캡처)
+  const trackingData = useRef<Record<string, string>>({});
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const utmParams = getUTMParams();
+
+    trackingData.current = {
+      device_type: getDeviceType(),
+      language: navigator.language || '',
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+      referrer: document.referrer || '',
+      ...utmParams,
+    };
+  }, []);
+
+  // 공통 버튼 토큰
   const btnDark =
     'btn-dark-hover w-full py-4 border border-zinc-500 backdrop-blur-sm text-[13px] sm:text-[14px] font-medium bg-zinc-800/60 text-white transition-colors';
 
   const btnDarkUpper =
     'btn-dark-hover w-full py-4 backdrop-blur-sm border border-zinc-500 text-[13px] sm:text-[14px] tracking-[0.2em] uppercase font-medium bg-zinc-800/60 text-white transition-colors';
 
-  // ✅ "안 눌러도" 흰색 CTA가 기본 상태로 유지되도록 기본 클래스에 bg-white/text-black 포함
   const btnWhiteUpper =
     'w-full py-4 border border-white text-[13px] sm:text-[14px] tracking-[0.2em] uppercase font-semibold bg-white text-black transition-colors hover:bg-white active:bg-white focus:bg-white hover:text-black active:text-black focus:text-black disabled:opacity-70 flex items-center justify-center gap-2';
 
@@ -45,7 +81,6 @@ export default function TeaserPage() {
     setBranch(type);
     setStep(3);
 
-    // 질문 텍스트 페이드 처리
     setTextFaded(false);
     setTimeout(() => setTextFaded(true), 500);
   };
@@ -56,13 +91,11 @@ export default function TeaserPage() {
 
     setIsSubmitting(true);
 
-    // segment 결정
     let segment = 'C';
     if (branch === 'A') segment = 'A';
     else if (branch === 'B_no') segment = 'B';
     else if (branch === 'B_never') segment = 'C';
 
-    // sub_reason 결정
     let subReason = '';
     if (branch === 'A' && selectedReason) {
       if (selectedReason.includes('left something behind')) subReason = 'residue';
@@ -84,6 +117,8 @@ export default function TeaserPage() {
           email,
           segment,
           answers: { sub_reason: subReason },
+          // ✅ 트래킹 데이터 전송
+          tracking: trackingData.current,
         }),
       });
 
@@ -118,7 +153,6 @@ export default function TeaserPage() {
     </svg>
   );
 
-  // ✅ 공통 Footer 컴포넌트
   const Footer = () => (
     <>
       <p className="text-center text-[9px] tracking-[0.25em] text-zinc-500 uppercase mt-3 font-medium">
@@ -225,7 +259,6 @@ export default function TeaserPage() {
             {/* Step 3 */}
             {step === 3 && (
               <section className="animate-fadeIn">
-                {/* 상단 질문 페이드 */}
                 <div className="text-center mb-4">
                   <p
                     className={`text-[18px] sm:text-[22px] font-light leading-[1.2] italic transition-all duration-[5000ms] ease-out ${
@@ -239,7 +272,6 @@ export default function TeaserPage() {
                 </div>
 
                 <div className="border-t border-zinc-700 pt-5">
-                  {/* A */}
                   {branch === 'A' && (
                     <div className="text-center mb-4">
                       <h2 className="text-[24px] sm:text-[30px] font-light mb-1 leading-[1.1]">
@@ -279,7 +311,6 @@ export default function TeaserPage() {
                     </div>
                   )}
 
-                  {/* B_no */}
                   {branch === 'B_no' && (
                     <div className="text-center mb-4">
                       <h2 className="text-[24px] sm:text-[30px] font-light mb-1 leading-[1.1]">
@@ -291,7 +322,6 @@ export default function TeaserPage() {
                     </div>
                   )}
 
-                  {/* B_never */}
                   {branch === 'B_never' && (
                     <div className="text-center mb-4">
                       <h2 className="text-[24px] sm:text-[30px] font-light mb-1 leading-[1.1]">
@@ -303,7 +333,6 @@ export default function TeaserPage() {
                     </div>
                   )}
 
-                  {/* 이메일 폼 */}
                   <form onSubmit={handleSubmit} className="space-y-3 mt-4">
                     <input
                       type="email"
@@ -314,7 +343,6 @@ export default function TeaserPage() {
                       required
                     />
 
-                    {/* ✅ 기본 상태부터 흰색 CTA */}
                     <button type="submit" disabled={isSubmitting} className={btnWhiteUpper}>
                       {isSubmitting ? (
                         <>
@@ -375,7 +403,6 @@ export default function TeaserPage() {
           animation: fadeIn 0.5s ease-out forwards;
         }
 
-        /* 데스크톱(마우스)에서만 hover 흰색 전환 */
         @media (hover: hover) and (pointer: fine) {
           .btn-dark-hover:hover {
             background-color: rgba(255, 255, 255, 1) !important;
@@ -383,7 +410,6 @@ export default function TeaserPage() {
           }
         }
 
-        /* 모바일 탭 시 색상 변화 완전 차단 */
         .btn-dark-hover {
           -webkit-tap-highlight-color: transparent;
         }
