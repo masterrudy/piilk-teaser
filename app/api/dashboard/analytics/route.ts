@@ -116,6 +116,49 @@ export async function GET() {
     const uniqueVisitors = new Set(events.map(ev => ev.visitor_id).filter(Boolean));
     const uniqueSessions = new Set(events.map(ev => ev.session_id).filter(Boolean));
 
+    // ─── Weekly breakdown (ISO week) ───
+    const weeklyMap: Record<string, { views: number; submits: number }> = {};
+    events.forEach(ev => {
+      const d = new Date(ev.created_at);
+      const jan1 = new Date(d.getFullYear(), 0, 1);
+      const weekNum = Math.ceil(((d.getTime() - jan1.getTime()) / 86400000 + jan1.getDay() + 1) / 7);
+      const key = `${d.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+      if (!weeklyMap[key]) weeklyMap[key] = { views: 0, submits: 0 };
+      if (ev.event_name === 'page_view') weeklyMap[key].views++;
+      if (ev.event_name === 'step4_submit') weeklyMap[key].submits++;
+    });
+    const weekly = Object.entries(weeklyMap)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([week, data]) => ({ week, ...data }));
+
+    // ─── Weekday breakdown (0=Sun ~ 6=Sat) ───
+    const weekdayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const weekdayMap: Record<number, { views: number; submits: number }> = {};
+    for (let i = 0; i < 7; i++) weekdayMap[i] = { views: 0, submits: 0 };
+    events.forEach(ev => {
+      const dow = new Date(ev.created_at).getDay();
+      if (ev.event_name === 'page_view') weekdayMap[dow].views++;
+      if (ev.event_name === 'step4_submit') weekdayMap[dow].submits++;
+    });
+    const weekday = Array.from({ length: 7 }, (_, i) => ({
+      day: weekdayNames[i],
+      views: weekdayMap[i].views,
+      submits: weekdayMap[i].submits,
+    }));
+
+    // ─── Monthly breakdown ───
+    const monthlyMap: Record<string, { views: number; submits: number }> = {};
+    events.forEach(ev => {
+      const key = ev.created_at?.slice(0, 7); // YYYY-MM
+      if (!key) return;
+      if (!monthlyMap[key]) monthlyMap[key] = { views: 0, submits: 0 };
+      if (ev.event_name === 'page_view') monthlyMap[key].views++;
+      if (ev.event_name === 'step4_submit') monthlyMap[key].submits++;
+    });
+    const monthly = Object.entries(monthlyMap)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([month, data]) => ({ month, ...data }));
+
     return NextResponse.json({
       success: true,
       funnel,
@@ -126,6 +169,9 @@ export async function GET() {
       reasonDistribution,
       totalVisitors: uniqueVisitors.size,
       totalSessions: uniqueSessions.size,
+      weekly,
+      weekday,
+      monthly,
     });
   } catch (err: any) {
     console.error('Analytics API error:', err);
