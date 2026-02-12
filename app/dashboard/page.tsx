@@ -39,6 +39,17 @@ interface Participant {
   sub_reason?: string;
   signed_up_at?: string;
   source?: string;
+  ip_address?: string;
+  device_type?: string;
+  language?: string;
+  timezone?: string;
+  referrer?: string;
+  country?: string;
+  region?: string;
+  city?: string;
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
 }
 
 interface ParticipantsResponse {
@@ -50,39 +61,37 @@ interface ParticipantsResponse {
 /* ─────────────────────────── Component ─────────────────────── */
 
 export default function DashboardPage() {
-  // Auth
   const [authenticated, setAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
 
-  // Dashboard data
   const [supabaseData, setSupabaseData] = useState<DashboardData | null>(null);
   const [klaviyoData, setKlaviyoData] = useState<DashboardData | null>(null);
   const [activeSource, setActiveSource] = useState<'klaviyo' | 'supabase'>('klaviyo');
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState('');
 
-  // View mode
   const [viewMode, setViewMode] = useState<'overview' | 'participants'>('overview');
 
-  // Participant list
   const [participants, setParticipants] = useState<{ klaviyo: Participant[]; supabase: Participant[] }>({ klaviyo: [], supabase: [] });
   const [participantsLoading, setParticipantsLoading] = useState(false);
 
-  // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [segmentFilter, setSegmentFilter] = useState<string>('all');
   const [reasonFilter, setReasonFilter] = useState<string>('all');
   const [domainFilter, setDomainFilter] = useState<string>('');
+  const [countryFilter, setCountryFilter] = useState<string>('');
+  const [cityFilter, setCityFilter] = useState<string>('');
+  const [deviceFilter, setDeviceFilter] = useState<string>('');
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
-  // Sort
-  const [sortField, setSortField] = useState<'signed_up_at' | 'name' | 'email' | 'segment'>('signed_up_at');
+  const [sortField, setSortField] = useState<'signed_up_at' | 'name' | 'email' | 'segment' | 'country' | 'city'>('signed_up_at');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
-  // Saved auth
+  const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       if (localStorage.getItem('piilk_dash') === 'true') setAuthenticated(true);
@@ -145,14 +154,12 @@ export default function DashboardPage() {
 
   const currentParticipants = activeSource === 'klaviyo' ? participants.klaviyo : participants.supabase;
 
-  // Get unique sub_reasons for filter dropdown
   const uniqueReasons = useMemo(() => {
     const reasons = new Set<string>();
     currentParticipants.forEach(p => { if (p.sub_reason) reasons.add(p.sub_reason); });
     return Array.from(reasons).sort();
   }, [currentParticipants]);
 
-  // Get unique email domains
   const uniqueDomains = useMemo(() => {
     const domains = new Set<string>();
     currentParticipants.forEach(p => {
@@ -163,23 +170,77 @@ export default function DashboardPage() {
     return Array.from(domains).sort();
   }, [currentParticipants]);
 
-  // Active filter count
+  const uniqueCountries = useMemo(() => {
+    const countries = new Set<string>();
+    currentParticipants.forEach(p => { if (p.country) countries.add(p.country); });
+    return Array.from(countries).sort();
+  }, [currentParticipants]);
+
+  const uniqueCities = useMemo(() => {
+    const cities = new Set<string>();
+    currentParticipants.forEach(p => { if (p.city) cities.add(p.city); });
+    return Array.from(cities).sort();
+  }, [currentParticipants]);
+
+  const uniqueDevices = useMemo(() => {
+    const devices = new Set<string>();
+    currentParticipants.forEach(p => { if (p.device_type) devices.add(p.device_type); });
+    return Array.from(devices).sort();
+  }, [currentParticipants]);
+
+  const trackingAnalytics = useMemo(() => {
+    const p = currentParticipants;
+    if (p.length === 0) return null;
+
+    const countryCounts: Record<string, number> = {};
+    p.forEach(x => { const c = x.country || 'Unknown'; countryCounts[c] = (countryCounts[c] || 0) + 1; });
+
+    const cityCounts: Record<string, number> = {};
+    p.forEach(x => { const c = x.city || 'Unknown'; cityCounts[c] = (cityCounts[c] || 0) + 1; });
+
+    const deviceCounts: Record<string, number> = {};
+    p.forEach(x => { const d = x.device_type || 'Unknown'; deviceCounts[d] = (deviceCounts[d] || 0) + 1; });
+
+    const utmCounts: Record<string, number> = {};
+    p.forEach(x => { const u = x.utm_source || 'Direct'; utmCounts[u] = (utmCounts[u] || 0) + 1; });
+
+    const langCounts: Record<string, number> = {};
+    p.forEach(x => { const l = x.language ? x.language.split('-')[0] : 'Unknown'; langCounts[l] = (langCounts[l] || 0) + 1; });
+
+    const sortMap = (map: Record<string, number>) =>
+      Object.entries(map).sort((a, b) => b[1] - a[1]);
+
+    return {
+      countries: sortMap(countryCounts),
+      cities: sortMap(cityCounts).slice(0, 10),
+      devices: sortMap(deviceCounts),
+      utmSources: sortMap(utmCounts),
+      languages: sortMap(langCounts),
+      hasTrackingData: p.some(x => x.country || x.device_type || x.utm_source),
+    };
+  }, [currentParticipants]);
+
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (segmentFilter !== 'all') count++;
     if (reasonFilter !== 'all') count++;
     if (domainFilter) count++;
+    if (countryFilter) count++;
+    if (cityFilter) count++;
+    if (deviceFilter) count++;
     if (dateFrom) count++;
     if (dateTo) count++;
     return count;
-  }, [segmentFilter, reasonFilter, domainFilter, dateFrom, dateTo]);
+  }, [segmentFilter, reasonFilter, domainFilter, countryFilter, cityFilter, deviceFilter, dateFrom, dateTo]);
 
-  // Clear all filters
   const clearAllFilters = () => {
     setSearchQuery('');
     setSegmentFilter('all');
     setReasonFilter('all');
     setDomainFilter('');
+    setCountryFilter('');
+    setCityFilter('');
+    setDeviceFilter('');
     setDateFrom('');
     setDateTo('');
   };
@@ -187,50 +248,36 @@ export default function DashboardPage() {
   const filteredParticipants = useMemo(() => {
     let list = [...currentParticipants];
 
-    // Text search
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(p =>
         p.email?.toLowerCase().includes(q) ||
         p.name?.toLowerCase().includes(q) ||
         p.segment?.toLowerCase().includes(q) ||
-        p.sub_reason?.toLowerCase().includes(q)
+        p.sub_reason?.toLowerCase().includes(q) ||
+        p.country?.toLowerCase().includes(q) ||
+        p.city?.toLowerCase().includes(q) ||
+        p.ip_address?.includes(q)
       );
     }
 
-    // Segment filter
-    if (segmentFilter !== 'all') {
-      list = list.filter(p => p.segment === segmentFilter);
-    }
+    if (segmentFilter !== 'all') list = list.filter(p => p.segment === segmentFilter);
+    if (reasonFilter !== 'all') list = list.filter(p => p.sub_reason === reasonFilter);
+    if (domainFilter) list = list.filter(p => p.email?.toLowerCase().endsWith('@' + domainFilter.toLowerCase()));
+    if (countryFilter) list = list.filter(p => p.country === countryFilter);
+    if (cityFilter) list = list.filter(p => p.city === cityFilter);
+    if (deviceFilter) list = list.filter(p => p.device_type === deviceFilter);
 
-    // Reason filter
-    if (reasonFilter !== 'all') {
-      list = list.filter(p => p.sub_reason === reasonFilter);
-    }
-
-    // Domain filter
-    if (domainFilter) {
-      list = list.filter(p => p.email?.toLowerCase().endsWith('@' + domainFilter.toLowerCase()));
-    }
-
-    // Date range filter (only for Klaviyo which has signed_up_at)
     if (dateFrom) {
       const fromDate = new Date(dateFrom);
-      list = list.filter(p => {
-        if (!p.signed_up_at) return false;
-        return new Date(p.signed_up_at) >= fromDate;
-      });
+      list = list.filter(p => { if (!p.signed_up_at) return false; return new Date(p.signed_up_at) >= fromDate; });
     }
     if (dateTo) {
       const toDate = new Date(dateTo);
       toDate.setHours(23, 59, 59, 999);
-      list = list.filter(p => {
-        if (!p.signed_up_at) return false;
-        return new Date(p.signed_up_at) <= toDate;
-      });
+      list = list.filter(p => { if (!p.signed_up_at) return false; return new Date(p.signed_up_at) <= toDate; });
     }
 
-    // Sort
     list.sort((a, b) => {
       const aVal = (a[sortField] || '').toLowerCase();
       const bVal = (b[sortField] || '').toLowerCase();
@@ -240,7 +287,7 @@ export default function DashboardPage() {
     });
 
     return list;
-  }, [currentParticipants, searchQuery, segmentFilter, reasonFilter, domainFilter, dateFrom, dateTo, sortField, sortDir]);
+  }, [currentParticipants, searchQuery, segmentFilter, reasonFilter, domainFilter, countryFilter, cityFilter, deviceFilter, dateFrom, dateTo, sortField, sortDir]);
 
   const handleSort = (field: typeof sortField) => {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -268,6 +315,34 @@ export default function DashboardPage() {
         ' ' + dt.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
     } catch { return d; }
   };
+
+  const deviceIcon = (d?: string) => {
+    switch (d) {
+      case 'mobile': return '📱';
+      case 'desktop': return '💻';
+      case 'tablet': return '📟';
+      default: return '—';
+    }
+  };
+
+  const BarChart = ({ data, color, total }: { data: [string, number][]; color: string; total: number }) => (
+    <div className="space-y-1.5">
+      {data.map(([label, count]) => (
+        <div key={label} className="flex items-center gap-2">
+          <span className="text-[10px] sm:text-xs text-zinc-400 w-20 sm:w-24 truncate text-right shrink-0">{label}</span>
+          <div className="flex-1 h-5 sm:h-6 bg-zinc-800/50 rounded-md overflow-hidden relative">
+            <div
+              className={`h-full rounded-md ${color} transition-all duration-700`}
+              style={{ width: `${total > 0 ? Math.max((count / total) * 100, 2) : 0}%` }}
+            />
+            <span className="absolute inset-0 flex items-center px-2 text-[10px] sm:text-xs text-white font-medium">
+              {count} <span className="text-zinc-500 ml-1">({total > 0 ? ((count / total) * 100).toFixed(0) : 0}%)</span>
+            </span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 
   /* ─── LOGIN ─── */
   if (!authenticated) {
@@ -304,7 +379,6 @@ export default function DashboardPage() {
   /* ─── MAIN ─── */
   return (
     <main className="min-h-screen bg-gradient-to-br from-zinc-950 via-black to-zinc-900 text-white">
-      {/* Header */}
       <header className="sticky top-0 z-50 bg-black/90 backdrop-blur-xl border-b border-zinc-900">
         <div className="max-w-6xl mx-auto px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-3">
@@ -442,6 +516,43 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
+
+            {/* Audience Insights */}
+            {trackingAnalytics && trackingAnalytics.hasTrackingData && (
+              <div className="space-y-3 sm:space-y-4">
+                <h2 className="text-sm sm:text-base font-bold text-zinc-400 uppercase tracking-widest">Audience Insights</h2>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+                  <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5">
+                    <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                      <span className="text-base">🌍</span>
+                      <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Country</h3>
+                    </div>
+                    <BarChart data={trackingAnalytics.countries} color="bg-emerald-500" total={currentParticipants.length} />
+                  </div>
+                  <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5">
+                    <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                      <span className="text-base">🏙️</span>
+                      <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Top Cities</h3>
+                    </div>
+                    <BarChart data={trackingAnalytics.cities} color="bg-purple-500" total={currentParticipants.length} />
+                  </div>
+                  <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5">
+                    <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                      <span className="text-base">📱</span>
+                      <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Device</h3>
+                    </div>
+                    <BarChart data={trackingAnalytics.devices} color="bg-amber-500" total={currentParticipants.length} />
+                  </div>
+                  <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5">
+                    <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                      <span className="text-base">🔗</span>
+                      <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Traffic Source</h3>
+                    </div>
+                    <BarChart data={trackingAnalytics.utmSources} color="bg-sky-500" total={currentParticipants.length} />
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         ) : viewMode === 'overview' ? (
           <div className="text-center text-zinc-500 py-12">데이터를 불러올 수 없습니다.</div>
@@ -450,7 +561,6 @@ export default function DashboardPage() {
         {/* ════════ PARTICIPANTS ════════ */}
         {viewMode === 'participants' && (
           <div className="space-y-4">
-            {/* Summary cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
               <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-3 sm:p-4">
                 <p className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-widest mb-1">Total</p>
@@ -470,13 +580,12 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Search & Basic Filter */}
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
               <div className="relative flex-1">
                 <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                <input type="text" placeholder="Search by name, email, segment, reason..."
+                <input type="text" placeholder="Search email, country, city, IP..."
                   value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-white text-sm focus:outline-none focus:border-zinc-600 placeholder-zinc-600" />
                 {searchQuery && (
@@ -507,7 +616,7 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            {/* Advanced Filters Panel */}
+            {/* Advanced Filters */}
             {showAdvancedFilters && (
               <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 space-y-4">
                 <div className="flex items-center justify-between">
@@ -517,7 +626,6 @@ export default function DashboardPage() {
                   )}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  {/* Reason Filter */}
                   <div>
                     <label className="block text-[10px] text-zinc-500 uppercase tracking-widest mb-1.5">Reason</label>
                     <select value={reasonFilter} onChange={e => setReasonFilter(e.target.value)}
@@ -526,7 +634,30 @@ export default function DashboardPage() {
                       {uniqueReasons.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
                   </div>
-                  {/* Domain Filter */}
+                  <div>
+                    <label className="block text-[10px] text-zinc-500 uppercase tracking-widest mb-1.5">Country</label>
+                    <select value={countryFilter} onChange={e => setCountryFilter(e.target.value)}
+                      className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:border-zinc-600 cursor-pointer">
+                      <option value="">All Countries</option>
+                      {uniqueCountries.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-zinc-500 uppercase tracking-widest mb-1.5">City</label>
+                    <select value={cityFilter} onChange={e => setCityFilter(e.target.value)}
+                      className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:border-zinc-600 cursor-pointer">
+                      <option value="">All Cities</option>
+                      {uniqueCities.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-zinc-500 uppercase tracking-widest mb-1.5">Device</label>
+                    <select value={deviceFilter} onChange={e => setDeviceFilter(e.target.value)}
+                      className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:border-zinc-600 cursor-pointer">
+                      <option value="">All Devices</option>
+                      {uniqueDevices.map(d => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                  </div>
                   <div>
                     <label className="block text-[10px] text-zinc-500 uppercase tracking-widest mb-1.5">Email Domain</label>
                     <select value={domainFilter} onChange={e => setDomainFilter(e.target.value)}
@@ -535,13 +666,11 @@ export default function DashboardPage() {
                       {uniqueDomains.map(d => <option key={d} value={d}>@{d}</option>)}
                     </select>
                   </div>
-                  {/* Date From */}
                   <div>
                     <label className="block text-[10px] text-zinc-500 uppercase tracking-widest mb-1.5">Date From</label>
                     <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
                       className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:border-zinc-600" />
                   </div>
-                  {/* Date To */}
                   <div>
                     <label className="block text-[10px] text-zinc-500 uppercase tracking-widest mb-1.5">Date To</label>
                     <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
@@ -551,7 +680,6 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* Results count */}
             <div className="flex items-center justify-between">
               <p className="text-zinc-500 text-xs sm:text-sm">
                 {filteredParticipants.length === currentParticipants.length
@@ -563,7 +691,6 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            {/* Table / Cards */}
             {participantsLoading ? (
               <div className="flex items-center justify-center py-16">
                 <div className="w-8 h-8 border-2 border-zinc-800 border-t-emerald-500 rounded-full animate-spin" />
@@ -584,33 +711,44 @@ export default function DashboardPage() {
                     <table className="w-full text-left">
                       <thead>
                         <tr className="border-b border-zinc-800/80 bg-zinc-900/60">
-                          <th className="px-4 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold w-12">#</th>
-                          <th className="px-4 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold cursor-pointer hover:text-zinc-300 select-none" onClick={() => handleSort('email')}>
+                          <th className="px-3 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold w-10">#</th>
+                          <th className="px-3 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold cursor-pointer hover:text-zinc-300 select-none" onClick={() => handleSort('email')}>
                             <span className="flex items-center gap-1">Email{sortField === 'email' && <span className="text-white">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                           </th>
-                          <th className="px-4 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold cursor-pointer hover:text-zinc-300 select-none" onClick={() => handleSort('name')}>
-                            <span className="flex items-center gap-1">Name{sortField === 'name' && <span className="text-white">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                          <th className="px-3 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold cursor-pointer hover:text-zinc-300 select-none" onClick={() => handleSort('segment')}>
+                            <span className="flex items-center gap-1">Seg{sortField === 'segment' && <span className="text-white">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                           </th>
-                          <th className="px-4 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold cursor-pointer hover:text-zinc-300 select-none" onClick={() => handleSort('segment')}>
-                            <span className="flex items-center gap-1">Segment{sortField === 'segment' && <span className="text-white">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                          <th className="px-3 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Reason</th>
+                          <th className="px-3 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold cursor-pointer hover:text-zinc-300 select-none" onClick={() => handleSort('country')}>
+                            <span className="flex items-center gap-1">Location{sortField === 'country' && <span className="text-white">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                           </th>
-                          <th className="px-4 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Reason</th>
-                          <th className="px-4 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold cursor-pointer hover:text-zinc-300 select-none" onClick={() => handleSort('signed_up_at')}>
-                            <span className="flex items-center gap-1">Signed Up{sortField === 'signed_up_at' && <span className="text-white">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                          <th className="px-3 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Device</th>
+                          <th className="px-3 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold cursor-pointer hover:text-zinc-300 select-none" onClick={() => handleSort('signed_up_at')}>
+                            <span className="flex items-center gap-1">Date{sortField === 'signed_up_at' && <span className="text-white">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                           </th>
+                          <th className="px-3 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold w-10"></th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredParticipants.map((p, i) => (
                           <tr key={p.id || i} className="border-b border-zinc-800/40 hover:bg-zinc-800/30 transition-colors">
-                            <td className="px-4 py-3 text-xs text-zinc-600 font-mono">{i + 1}</td>
-                            <td className="px-4 py-3 text-sm text-white font-medium max-w-[200px] truncate">{p.email}</td>
-                            <td className="px-4 py-3 text-sm text-zinc-300">{p.name || '—'}</td>
-                            <td className="px-4 py-3">
+                            <td className="px-3 py-3 text-xs text-zinc-600 font-mono">{i + 1}</td>
+                            <td className="px-3 py-3 text-sm text-white font-medium max-w-[180px] truncate">{p.email}</td>
+                            <td className="px-3 py-3">
                               <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-md border ${segColor(p.segment)}`}>{segLabel(p.segment)}</span>
                             </td>
-                            <td className="px-4 py-3 text-xs text-zinc-400 max-w-[160px] truncate">{p.sub_reason || '—'}</td>
-                            <td className="px-4 py-3 text-xs text-zinc-500 font-mono whitespace-nowrap">{fmtDate(p.signed_up_at)}</td>
+                            <td className="px-3 py-3 text-xs text-zinc-400 max-w-[100px] truncate">{p.sub_reason || '—'}</td>
+                            <td className="px-3 py-3 text-xs text-zinc-300 whitespace-nowrap">
+                              {p.city && p.country ? `${p.city}, ${p.country}` : p.country || '—'}
+                            </td>
+                            <td className="px-3 py-3 text-sm whitespace-nowrap">{deviceIcon(p.device_type)}</td>
+                            <td className="px-3 py-3 text-xs text-zinc-500 font-mono whitespace-nowrap">{fmtDate(p.signed_up_at)}</td>
+                            <td className="px-3 py-3">
+                              <button onClick={() => setSelectedParticipant(p)}
+                                className="text-zinc-600 hover:text-white transition-colors">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                              </button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -621,11 +759,15 @@ export default function DashboardPage() {
                 {/* Mobile cards */}
                 <div className="sm:hidden space-y-2">
                   {filteredParticipants.map((p, i) => (
-                    <div key={p.id || i} className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-3 space-y-2">
+                    <div key={p.id || i} className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-3 space-y-2"
+                      onClick={() => setSelectedParticipant(p)}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-white truncate">{p.email}</p>
-                          {p.name && <p className="text-xs text-zinc-400">{p.name}</p>}
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {p.city && <span className="text-[10px] text-zinc-500">{p.city}, {p.country}</span>}
+                            {p.device_type && <span className="text-xs">{deviceIcon(p.device_type)}</span>}
+                          </div>
                         </div>
                         <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-md border shrink-0 ${segColor(p.segment)}`}>{segLabel(p.segment)}</span>
                       </div>
@@ -641,7 +783,55 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Footer */}
+        {/* Detail Modal */}
+        {selectedParticipant && (
+          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setSelectedParticipant(null)}>
+            <div className="bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto p-5 sm:p-6 space-y-4"
+              onClick={e => e.stopPropagation()}>
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-lg font-bold text-white">{selectedParticipant.email}</p>
+                  {selectedParticipant.name && <p className="text-sm text-zinc-400">{selectedParticipant.name}</p>}
+                </div>
+                <button onClick={() => setSelectedParticipant(null)} className="text-zinc-500 hover:text-white p-1">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className={`inline-flex items-center px-3 py-1 text-xs font-bold rounded-lg border ${segColor(selectedParticipant.segment)}`}>
+                  {segLabel(selectedParticipant.segment)}
+                </span>
+                {selectedParticipant.sub_reason && (
+                  <span className="text-sm text-zinc-400">{selectedParticipant.sub_reason}</span>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: 'Country', value: selectedParticipant.country },
+                  { label: 'Region', value: selectedParticipant.region },
+                  { label: 'City', value: selectedParticipant.city },
+                  { label: 'Device', value: selectedParticipant.device_type },
+                  { label: 'Language', value: selectedParticipant.language },
+                  { label: 'Timezone', value: selectedParticipant.timezone },
+                  { label: 'IP Address', value: selectedParticipant.ip_address },
+                  { label: 'Referrer', value: selectedParticipant.referrer },
+                  { label: 'UTM Source', value: selectedParticipant.utm_source },
+                  { label: 'UTM Medium', value: selectedParticipant.utm_medium },
+                  { label: 'UTM Campaign', value: selectedParticipant.utm_campaign },
+                  { label: 'Source', value: selectedParticipant.source },
+                  { label: 'Signed Up', value: fmtDate(selectedParticipant.signed_up_at) },
+                ].map((item) => (
+                  <div key={item.label} className="bg-zinc-800/50 rounded-lg p-2.5">
+                    <p className="text-[9px] text-zinc-500 uppercase tracking-widest font-semibold mb-0.5">{item.label}</p>
+                    <p className="text-xs text-white font-medium truncate">{item.value || '—'}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         <footer className="text-center pt-4 sm:pt-6 border-t border-zinc-900/50">
           <p className="text-[10px] sm:text-xs text-zinc-700">PIILK Internal - Confidential</p>
         </footer>
