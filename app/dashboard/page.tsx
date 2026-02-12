@@ -74,7 +74,11 @@ export default function DashboardPage() {
   const [lastUpdated, setLastUpdated] = useState('');
 
   // View mode
-  const [viewMode, setViewMode] = useState<'overview' | 'participants'>('overview');
+  const [viewMode, setViewMode] = useState<'overview' | 'participants' | 'analytics'>('overview');
+
+  // Analytics
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
   // Participant list
   const [participants, setParticipants] = useState<{ klaviyo: Participant[]; supabase: Participant[] }>({ klaviyo: [], supabase: [] });
@@ -150,6 +154,16 @@ export default function DashboardPage() {
     finally { setParticipantsLoading(false); }
   }, []);
 
+  const fetchAnalytics = useCallback(async () => {
+    setAnalyticsLoading(true);
+    try {
+      const res = await fetch('/api/dashboard/analytics');
+      const result = await res.json();
+      if (result.success) setAnalyticsData(result);
+    } catch (err) { console.error(err); }
+    finally { setAnalyticsLoading(false); }
+  }, []);
+
   useEffect(() => {
     if (authenticated) { fetchData(); const iv = setInterval(fetchData, 30000); return () => clearInterval(iv); }
   }, [authenticated]);
@@ -159,6 +173,12 @@ export default function DashboardPage() {
       fetchParticipants();
     }
   }, [authenticated, fetchParticipants]);
+
+  useEffect(() => {
+    if (authenticated && viewMode === 'analytics' && !analyticsData) {
+      fetchAnalytics();
+    }
+  }, [authenticated, viewMode, analyticsData, fetchAnalytics]);
 
   const currentParticipants = activeSource === 'klaviyo' ? participants.klaviyo : participants.supabase;
 
@@ -580,7 +600,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
             <span className="text-zinc-500 text-[10px] sm:text-xs font-mono">{lastUpdated}</span>
-            <button onClick={() => { fetchData(); fetchParticipants(); }}
+            <button onClick={() => { fetchData(); fetchParticipants(); fetchAnalytics(); }}
               className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center hover:bg-zinc-800 active:scale-95">
               <svg className="w-3 h-3 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
             </button>
@@ -603,6 +623,11 @@ export default function DashboardPage() {
             className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-semibold transition-all ${viewMode === 'participants' ? 'bg-white text-black shadow-lg shadow-white/5' : 'text-zinc-500 hover:text-zinc-300'}`}>
             <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
             Participants
+          </button>
+          <button onClick={() => setViewMode('analytics')}
+            className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-semibold transition-all ${viewMode === 'analytics' ? 'bg-white text-black shadow-lg shadow-white/5' : 'text-zinc-500 hover:text-zinc-300'}`}>
+            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+            Analytics
           </button>
         </div>
 
@@ -1044,6 +1069,234 @@ export default function DashboardPage() {
                 ))}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ══════ ANALYTICS ══════ */}
+        {viewMode === 'analytics' && (
+          <div className="space-y-4 sm:space-y-6">
+            {/* Refresh */}
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm sm:text-base font-bold text-zinc-400 uppercase tracking-widest">Funnel Analytics</h2>
+              <button onClick={fetchAnalytics} disabled={analyticsLoading}
+                className="px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-400 text-sm hover:bg-zinc-800 hover:text-white transition-colors disabled:opacity-50 flex items-center gap-2">
+                <svg className={`w-4 h-4 ${analyticsLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Refresh
+              </button>
+            </div>
+
+            {analyticsLoading && !analyticsData ? (
+              <div className="flex items-center justify-center py-16">
+                <div className="w-8 h-8 border-2 border-zinc-800 border-t-emerald-500 rounded-full animate-spin" />
+              </div>
+            ) : analyticsData ? (
+              <>
+                {/* Top metrics */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                  <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-3 sm:p-4">
+                    <p className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-widest mb-1">Visitors</p>
+                    <p className="text-xl sm:text-2xl font-black text-white">{analyticsData.totalVisitors}</p>
+                  </div>
+                  <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-3 sm:p-4">
+                    <p className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-widest mb-1">Sessions</p>
+                    <p className="text-xl sm:text-2xl font-black text-white">{analyticsData.totalSessions}</p>
+                  </div>
+                  <div className="bg-emerald-950/30 border border-emerald-900/30 rounded-xl p-3 sm:p-4">
+                    <p className="text-[10px] sm:text-xs text-emerald-500 uppercase tracking-widest mb-1">Submits</p>
+                    <p className="text-xl sm:text-2xl font-black text-emerald-400">{analyticsData.funnel?.step4_submit || 0}</p>
+                  </div>
+                  <div className="bg-purple-950/30 border border-purple-900/30 rounded-xl p-3 sm:p-4">
+                    <p className="text-[10px] sm:text-xs text-purple-500 uppercase tracking-widest mb-1">CVR</p>
+                    <p className="text-xl sm:text-2xl font-black text-purple-400">
+                      {analyticsData.funnel?.page_view > 0
+                        ? ((analyticsData.funnel.step4_submit / analyticsData.funnel.page_view) * 100).toFixed(1)
+                        : '0'}%
+                    </p>
+                  </div>
+                </div>
+
+                {/* Funnel visualization */}
+                <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-6">
+                  <div className="flex items-center gap-2 mb-4 sm:mb-6">
+                    <span className="text-base">{'\u{1F3AF}'}</span>
+                    <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Conversion Funnel</h3>
+                  </div>
+
+                  <div className="space-y-3">
+                    {[
+                      { key: 'page_view', label: 'Page View', desc: 'Landed on site', color: 'bg-zinc-500' },
+                      { key: 'step1_cta_click', label: 'Get in Line', desc: 'Clicked CTA', color: 'bg-sky-500' },
+                      { key: 'step2_answer', label: 'Answered', desc: 'Selected Yes/No/Never', color: 'bg-amber-500' },
+                      { key: 'step3_email_focus', label: 'Email Focus', desc: 'Started typing email', color: 'bg-purple-500' },
+                      { key: 'step4_submit', label: 'Submitted', desc: 'Completed signup', color: 'bg-emerald-500' },
+                    ].map((step, idx) => {
+                      const count = analyticsData.funnel?.[step.key] || 0;
+                      const pageViews = analyticsData.funnel?.page_view || 1;
+                      const prevCount = idx === 0 ? count : (analyticsData.funnel?.[
+                        ['page_view', 'step1_cta_click', 'step2_answer', 'step3_email_focus', 'step4_submit'][idx - 1]
+                      ] || 1);
+                      const pctOfTotal = pageViews > 0 ? (count / pageViews) * 100 : 0;
+                      const dropOff = idx > 0 && prevCount > 0 ? ((1 - count / prevCount) * 100).toFixed(0) : null;
+
+                      return (
+                        <div key={step.key}>
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                              <span className={`w-2 h-2 rounded-full ${step.color}`} />
+                              <span className="text-xs sm:text-sm font-semibold text-white">{step.label}</span>
+                              <span className="text-[10px] text-zinc-600 hidden sm:inline">{step.desc}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm sm:text-base font-black text-white">{count}</span>
+                              {dropOff && Number(dropOff) > 0 && (
+                                <span className="text-[10px] text-red-400 font-medium">-{dropOff}%</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="h-6 sm:h-8 bg-zinc-800/50 rounded-lg overflow-hidden">
+                            <div
+                              className={`h-full rounded-lg ${step.color} transition-all duration-700 flex items-center px-2`}
+                              style={{ width: `${Math.max(pctOfTotal, count > 0 ? 3 : 0)}%` }}
+                            >
+                              {pctOfTotal >= 10 && (
+                                <span className="text-[10px] sm:text-xs text-white font-bold">{pctOfTotal.toFixed(0)}%</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* UTM Performance */}
+                {analyticsData.utmPerformance && analyticsData.utmPerformance.length > 0 && (
+                  <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="text-base">{'\u{1F517}'}</span>
+                      <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">UTM Source Performance</h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="border-b border-zinc-800/80">
+                            <th className="px-3 py-2 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Source</th>
+                            <th className="px-3 py-2 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">Views</th>
+                            <th className="px-3 py-2 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">Submits</th>
+                            <th className="px-3 py-2 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">CVR</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {analyticsData.utmPerformance.map((utm: any) => (
+                            <tr key={utm.source} className="border-b border-zinc-800/40">
+                              <td className="px-3 py-2.5 text-sm text-white font-medium">{utm.source}</td>
+                              <td className="px-3 py-2.5 text-sm text-zinc-400 text-right font-mono">{utm.views}</td>
+                              <td className="px-3 py-2.5 text-sm text-emerald-400 text-right font-mono font-bold">{utm.submits}</td>
+                              <td className="px-3 py-2.5 text-right">
+                                <span className={`text-sm font-bold font-mono ${Number(utm.cvr) > 5 ? 'text-emerald-400' : Number(utm.cvr) > 0 ? 'text-amber-400' : 'text-zinc-500'}`}>
+                                  {utm.cvr}%
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Hourly distribution */}
+                {analyticsData.hourly && analyticsData.hourly.some((h: any) => h.count > 0) && (
+                  <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5">
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="text-base">{'\u{1F552}'}</span>
+                      <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Signup by Hour</h3>
+                    </div>
+                    <div className="h-24 sm:h-32 flex items-end gap-[2px]">
+                      {analyticsData.hourly.map((h: any) => {
+                        const maxH = Math.max(...analyticsData.hourly.map((x: any) => x.count), 1);
+                        const height = (h.count / maxH) * 100;
+                        return (
+                          <div key={h.hour} className="flex-1 flex flex-col items-center justify-end h-full group relative">
+                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-zinc-800 text-white text-[8px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none">
+                              {h.label}: {h.count}
+                            </div>
+                            <div
+                              className="w-full bg-purple-500/60 group-hover:bg-purple-400 rounded-t-sm transition-all"
+                              style={{ height: `${Math.max(height, h.count > 0 ? 3 : 0)}%` }}
+                            />
+                            {h.hour % 4 === 0 && (
+                              <span className="text-[7px] text-zinc-600 mt-0.5 font-mono">{h.hour}</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Segment & Reason distribution */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+                  {analyticsData.segmentDistribution && Object.keys(analyticsData.segmentDistribution).length > 0 && (
+                    <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-base">{'\u{1F4CA}'}</span>
+                        <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Segment Split (Events)</h3>
+                      </div>
+                      <div className="space-y-2">
+                        {Object.entries(analyticsData.segmentDistribution).sort((a: any, b: any) => b[1] - a[1]).map(([seg, count]: any) => {
+                          const total = Object.values(analyticsData.segmentDistribution).reduce((s: any, v: any) => s + v, 0) as number;
+                          const segNames: Record<string, string> = { A: 'Switcher', B: 'Skeptic', C: 'Newbie' };
+                          const segColors: Record<string, string> = { A: 'bg-emerald-500', B: 'bg-amber-500', C: 'bg-sky-500' };
+                          return (
+                            <div key={seg} className="flex items-center gap-2">
+                              <span className="text-xs text-zinc-400 w-16 text-right">{segNames[seg] || seg}</span>
+                              <div className="flex-1 h-5 bg-zinc-800/50 rounded-md overflow-hidden relative">
+                                <div className={`h-full rounded-md ${segColors[seg] || 'bg-zinc-500'}`}
+                                  style={{ width: `${total > 0 ? Math.max((count / total) * 100, 2) : 0}%` }} />
+                                <span className="absolute inset-0 flex items-center px-2 text-[10px] text-white font-medium">
+                                  {count} ({total > 0 ? ((count / total) * 100).toFixed(0) : 0}%)
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {analyticsData.reasonDistribution && Object.keys(analyticsData.reasonDistribution).length > 0 && (
+                    <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-base">{'\u{1F50D}'}</span>
+                        <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Pain Points (Seg A)</h3>
+                      </div>
+                      <div className="space-y-2">
+                        {Object.entries(analyticsData.reasonDistribution).sort((a: any, b: any) => b[1] - a[1]).map(([reason, count]: any) => {
+                          const total = Object.values(analyticsData.reasonDistribution).reduce((s: any, v: any) => s + v, 0) as number;
+                          return (
+                            <div key={reason} className="flex items-center gap-2">
+                              <span className="text-xs text-zinc-400 w-20 text-right capitalize">{reason}</span>
+                              <div className="flex-1 h-5 bg-zinc-800/50 rounded-md overflow-hidden relative">
+                                <div className="h-full rounded-md bg-emerald-500"
+                                  style={{ width: `${total > 0 ? Math.max((count / total) * 100, 2) : 0}%` }} />
+                                <span className="absolute inset-0 flex items-center px-2 text-[10px] text-white font-medium">
+                                  {count} ({total > 0 ? ((count / total) * 100).toFixed(0) : 0}%)
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="text-center text-zinc-500 py-12">No analytics data yet. Visit teaser site to start collecting.</div>
+            )}
           </div>
         )}
 
