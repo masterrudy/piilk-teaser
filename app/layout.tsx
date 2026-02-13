@@ -1,20 +1,19 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import GoogleAnalytics from "./components/GoogleAnalytics";
+import TrackingPixels from "./components/TrackingPixels";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://teaser.piilk.com"),
-
   title: "PIILK - Nothing after. Period.",
   description: "Clean protein, no compromise. NYC 2026",
-
   icons: {
     icon: "/favicon-v2.png",
     apple: "/favicon-v2.png",
   },
-
   openGraph: {
     title: "PIILK - Nothing after. Period.",
     description: "Clean protein, no compromise. NYC 2026",
@@ -30,7 +29,6 @@ export const metadata: Metadata = {
       },
     ],
   },
-
   twitter: {
     card: "summary_large_image",
     title: "PIILK - Nothing after. Period.",
@@ -42,7 +40,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        <GoogleAnalytics />
+        <TrackingPixels />
+        {children}
+      </body>
     </html>
   );
 }
