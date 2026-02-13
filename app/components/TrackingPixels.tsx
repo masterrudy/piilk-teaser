@@ -20,10 +20,6 @@ export default function TrackingPixels() {
           fbq('track', 'PageView');
         `}
       </Script>
-      <noscript>
-        <img height="1" width="1" style={{ display: 'none' }}
-          src="https://www.facebook.com/tr?id=1505401010140894&ev=PageView&noscript=1" />
-      </noscript>
 
       {/* TikTok Pixel */}
       <Script id="tiktok-pixel" strategy="afterInteractive">
