@@ -79,6 +79,7 @@ export default function DashboardPage() {
   // Analytics
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsPeriod, setAnalyticsPeriod] = useState<string>('all'); // all, this_week, this_month, last_month, YYYY-MM
 
   // Participant list
   const [participants, setParticipants] = useState<{ klaviyo: Participant[]; supabase: Participant[] }>({ klaviyo: [], supabase: [] });
@@ -391,6 +392,83 @@ export default function DashboardPage() {
   };
 
   // Helpers
+  /* ─── Analytics period filter ─── */
+  const availableMonths = useMemo(() => {
+    if (!analyticsData?.daily) return [];
+    const months = new Set<string>();
+    analyticsData.daily.forEach((d: any) => {
+      if (d.date) months.add(d.date.slice(0, 7));
+    });
+    return Array.from(months).sort().reverse();
+  }, [analyticsData]);
+
+  const filteredAnalytics = useMemo(() => {
+    if (!analyticsData) return null;
+    if (analyticsPeriod === 'all') return analyticsData;
+
+    // Determine date range
+    const now = new Date();
+    let startDate = '';
+    let endDate = '';
+
+    if (analyticsPeriod === 'today') {
+      startDate = endDate = now.toISOString().slice(0, 10);
+    } else if (analyticsPeriod === 'this_week') {
+      const dayOfWeek = now.getDay();
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+      startDate = monday.toISOString().slice(0, 10);
+      endDate = now.toISOString().slice(0, 10);
+    } else if (analyticsPeriod === 'this_month') {
+      startDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+      endDate = now.toISOString().slice(0, 10);
+    } else if (analyticsPeriod === 'last_month') {
+      const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      startDate = lm.toISOString().slice(0, 10);
+      const lmEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+      endDate = lmEnd.toISOString().slice(0, 10);
+    } else {
+      // YYYY-MM format
+      startDate = `${analyticsPeriod}-01`;
+      const [y, m] = analyticsPeriod.split('-').map(Number);
+      const monthEnd = new Date(y, m, 0);
+      endDate = monthEnd.toISOString().slice(0, 10);
+    }
+
+    // Filter daily
+    const filteredDaily = (analyticsData.daily || []).filter((d: any) =>
+      d.date >= startDate && d.date <= endDate
+    );
+
+    // Recalculate funnel from filtered daily
+    const funnel: Record<string, number> = {};
+    ['page_view', 'step1_cta_click', 'step2_answer', 'step3_email_focus', 'step3_reason_select', 'step4_submit'].forEach(e => {
+      funnel[e] = filteredDaily.reduce((s: number, d: any) => s + (d[e] || 0), 0);
+    });
+
+    // Recalculate weekly from filtered daily
+    const weeklyMap: Record<string, { views: number; submits: number }> = {};
+    filteredDaily.forEach((d: any) => {
+      const dt = new Date(d.date);
+      const jan1 = new Date(dt.getFullYear(), 0, 1);
+      const weekNum = Math.ceil(((dt.getTime() - jan1.getTime()) / 86400000 + jan1.getDay() + 1) / 7);
+      const key = `${dt.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+      if (!weeklyMap[key]) weeklyMap[key] = { views: 0, submits: 0 };
+      weeklyMap[key].views += d.page_view || 0;
+      weeklyMap[key].submits += d.step4_submit || 0;
+    });
+    const weekly = Object.entries(weeklyMap).sort((a, b) => a[0].localeCompare(b[0])).map(([week, data]) => ({ week, ...data }));
+
+    return {
+      ...analyticsData,
+      funnel,
+      daily: filteredDaily,
+      weekly,
+      totalVisitors: funnel.page_view || 0,
+      totalSessions: funnel.page_view || 0,
+    };
+  }, [analyticsData, analyticsPeriod]);
+
   const segColor = (s?: string) => {
     switch (s) {
       case 'A': return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
@@ -1077,16 +1155,40 @@ export default function DashboardPage() {
         {/* ══════ ANALYTICS ══════ */}
         {viewMode === 'analytics' && (
           <div className="space-y-4 sm:space-y-6">
-            {/* Refresh */}
-            <div className="flex items-center justify-between">
+            {/* Header + Period Filter */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <h2 className="text-sm sm:text-base font-bold text-zinc-400 uppercase tracking-widest">Funnel Analytics</h2>
-              <button onClick={fetchAnalytics} disabled={analyticsLoading}
-                className="px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-400 text-sm hover:bg-zinc-800 hover:text-white transition-colors disabled:opacity-50 flex items-center gap-2">
-                <svg className={`w-4 h-4 ${analyticsLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Refresh
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Period quick filters */}
+                {[
+                  { key: 'all', label: 'All' },
+                  { key: 'today', label: 'Today' },
+                  { key: 'this_week', label: 'This Week' },
+                  { key: 'this_month', label: 'This Month' },
+                  { key: 'last_month', label: 'Last Month' },
+                ].map(opt => (
+                  <button key={opt.key} onClick={() => setAnalyticsPeriod(opt.key)}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-medium transition-all ${analyticsPeriod === opt.key ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-500 hover:text-zinc-300'}`}>
+                    {opt.label}
+                  </button>
+                ))}
+                {/* Month dropdown */}
+                {availableMonths.length > 1 && (
+                  <select value={analyticsPeriod.match(/^\d{4}-\d{2}$/) ? analyticsPeriod : ''}
+                    onChange={e => { if (e.target.value) setAnalyticsPeriod(e.target.value); }}
+                    className="px-2 py-1 bg-zinc-800 border border-zinc-700 rounded-lg text-[10px] sm:text-xs text-zinc-400 focus:outline-none cursor-pointer">
+                    <option value="">Month...</option>
+                    {availableMonths.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                )}
+                <button onClick={fetchAnalytics} disabled={analyticsLoading}
+                  className="px-3 py-1 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-400 text-xs hover:bg-zinc-800 hover:text-white transition-colors disabled:opacity-50 flex items-center gap-1.5">
+                  <svg className={`w-3.5 h-3.5 ${analyticsLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Refresh
+                </button>
+              </div>
             </div>
 
             {analyticsLoading && !analyticsData ? (
@@ -1099,21 +1201,21 @@ export default function DashboardPage() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                   <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-3 sm:p-4">
                     <p className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-widest mb-1">Visitors</p>
-                    <p className="text-xl sm:text-2xl font-black text-white">{analyticsData.totalVisitors}</p>
+                    <p className="text-xl sm:text-2xl font-black text-white">{filteredAnalytics.totalVisitors}</p>
                   </div>
                   <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-3 sm:p-4">
                     <p className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-widest mb-1">Sessions</p>
-                    <p className="text-xl sm:text-2xl font-black text-white">{analyticsData.totalSessions}</p>
+                    <p className="text-xl sm:text-2xl font-black text-white">{filteredAnalytics.totalSessions}</p>
                   </div>
                   <div className="bg-emerald-950/30 border border-emerald-900/30 rounded-xl p-3 sm:p-4">
                     <p className="text-[10px] sm:text-xs text-emerald-500 uppercase tracking-widest mb-1">Submits</p>
-                    <p className="text-xl sm:text-2xl font-black text-emerald-400">{analyticsData.funnel?.step4_submit || 0}</p>
+                    <p className="text-xl sm:text-2xl font-black text-emerald-400">{filteredAnalytics.funnel?.step4_submit || 0}</p>
                   </div>
                   <div className="bg-purple-950/30 border border-purple-900/30 rounded-xl p-3 sm:p-4">
                     <p className="text-[10px] sm:text-xs text-purple-500 uppercase tracking-widest mb-1">CVR</p>
                     <p className="text-xl sm:text-2xl font-black text-purple-400">
-                      {analyticsData.funnel?.page_view > 0
-                        ? ((analyticsData.funnel.step4_submit / analyticsData.funnel.page_view) * 100).toFixed(1)
+                      {filteredAnalytics.funnel?.page_view > 0
+                        ? ((filteredAnalytics.funnel.step4_submit / filteredAnalytics.funnel.page_view) * 100).toFixed(1)
                         : '0'}%
                     </p>
                   </div>
@@ -1134,9 +1236,9 @@ export default function DashboardPage() {
                       { key: 'step3_email_focus', label: 'Email Focus', desc: 'Started typing email', color: 'bg-purple-500' },
                       { key: 'step4_submit', label: 'Submitted', desc: 'Completed signup', color: 'bg-emerald-500' },
                     ].map((step, idx) => {
-                      const count = analyticsData.funnel?.[step.key] || 0;
-                      const pageViews = analyticsData.funnel?.page_view || 1;
-                      const prevCount = idx === 0 ? count : (analyticsData.funnel?.[
+                      const count = filteredAnalytics.funnel?.[step.key] || 0;
+                      const pageViews = filteredAnalytics.funnel?.page_view || 1;
+                      const prevCount = idx === 0 ? count : (filteredAnalytics.funnel?.[
                         ['page_view', 'step1_cta_click', 'step2_answer', 'step3_email_focus', 'step4_submit'][idx - 1]
                       ] || 1);
                       const pctOfTotal = pageViews > 0 ? (count / pageViews) * 100 : 0;
@@ -1174,7 +1276,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* UTM Performance */}
-                {analyticsData.utmPerformance && analyticsData.utmPerformance.length > 0 && (
+                {filteredAnalytics.utmPerformance && filteredAnalytics.utmPerformance.length > 0 && (
                   <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-6">
                     <div className="flex items-center gap-2 mb-4">
                       <span className="text-base">{'\u{1F517}'}</span>
@@ -1191,7 +1293,7 @@ export default function DashboardPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {analyticsData.utmPerformance.map((utm: any) => (
+                          {filteredAnalytics.utmPerformance.map((utm: any) => (
                             <tr key={utm.source} className="border-b border-zinc-800/40">
                               <td className="px-3 py-2.5 text-sm text-white font-medium">{utm.source}</td>
                               <td className="px-3 py-2.5 text-sm text-zinc-400 text-right font-mono">{utm.views}</td>
@@ -1210,15 +1312,15 @@ export default function DashboardPage() {
                 )}
 
                 {/* Hourly distribution */}
-                {analyticsData.hourly && analyticsData.hourly.some((h: any) => h.count > 0) && (
+                {filteredAnalytics.hourly && filteredAnalytics.hourly.some((h: any) => h.count > 0) && (
                   <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5">
                     <div className="flex items-center gap-2 mb-4">
                       <span className="text-base">{'\u{1F552}'}</span>
                       <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Signup by Hour</h3>
                     </div>
                     <div className="h-24 sm:h-32 flex items-end gap-[2px]">
-                      {analyticsData.hourly.map((h: any) => {
-                        const maxH = Math.max(...analyticsData.hourly.map((x: any) => x.count), 1);
+                      {filteredAnalytics.hourly.map((h: any) => {
+                        const maxH = Math.max(...filteredAnalytics.hourly.map((x: any) => x.count), 1);
                         const height = (h.count / maxH) * 100;
                         return (
                           <div key={h.hour} className="flex-1 flex flex-col items-center justify-end h-full group relative">
@@ -1249,7 +1351,7 @@ export default function DashboardPage() {
                   </div>
 
                   {/* Daily table */}
-                  {analyticsData.daily && analyticsData.daily.length > 0 && (
+                  {filteredAnalytics.daily && filteredAnalytics.daily.length > 0 && (
                     <div className="mb-6">
                       <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-2">Daily</p>
                       <div className="overflow-x-auto max-h-60 overflow-y-auto">
@@ -1263,7 +1365,7 @@ export default function DashboardPage() {
                             </tr>
                           </thead>
                           <tbody>
-                            {[...analyticsData.daily].reverse().map((d: any) => (
+                            {[...filteredAnalytics.daily].reverse().map((d: any) => (
                               <tr key={d.date} className="border-b border-zinc-800/30 hover:bg-zinc-800/20">
                                 <td className="px-3 py-1.5 text-xs text-zinc-300 font-mono">{d.date}</td>
                                 <td className="px-3 py-1.5 text-xs text-zinc-400 text-right font-mono">{d.page_view || 0}</td>
@@ -1278,7 +1380,7 @@ export default function DashboardPage() {
                   )}
 
                   {/* Weekly */}
-                  {analyticsData.weekly && analyticsData.weekly.length > 0 && (
+                  {filteredAnalytics.weekly && filteredAnalytics.weekly.length > 0 && (
                     <div className="mb-6">
                       <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-2">Weekly</p>
                       <div className="overflow-x-auto">
@@ -1292,7 +1394,7 @@ export default function DashboardPage() {
                             </tr>
                           </thead>
                           <tbody>
-                            {[...analyticsData.weekly].reverse().map((w: any) => (
+                            {[...filteredAnalytics.weekly].reverse().map((w: any) => (
                               <tr key={w.week} className="border-b border-zinc-800/30 hover:bg-zinc-800/20">
                                 <td className="px-3 py-1.5 text-xs text-zinc-300 font-mono">{w.week}</td>
                                 <td className="px-3 py-1.5 text-xs text-zinc-400 text-right font-mono">{w.views}</td>
@@ -1308,12 +1410,12 @@ export default function DashboardPage() {
 
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {/* Weekday */}
-                    {analyticsData.weekday && (
+                    {filteredAnalytics.weekday && (
                       <div>
                         <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-2">By Weekday</p>
                         <div className="space-y-1">
-                          {analyticsData.weekday.map((wd: any) => {
-                            const maxViews = Math.max(...analyticsData.weekday.map((x: any) => x.views), 1);
+                          {filteredAnalytics.weekday.map((wd: any) => {
+                            const maxViews = Math.max(...filteredAnalytics.weekday.map((x: any) => x.views), 1);
                             return (
                               <div key={wd.day} className="flex items-center gap-2">
                                 <span className="text-[10px] text-zinc-400 w-8 text-right font-mono">{wd.day}</span>
@@ -1332,12 +1434,12 @@ export default function DashboardPage() {
                     )}
 
                     {/* Monthly */}
-                    {analyticsData.monthly && analyticsData.monthly.length > 0 && (
+                    {filteredAnalytics.monthly && filteredAnalytics.monthly.length > 0 && (
                       <div>
                         <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-2">By Month</p>
                         <div className="space-y-1">
-                          {analyticsData.monthly.map((m: any) => {
-                            const maxViews = Math.max(...analyticsData.monthly.map((x: any) => x.views), 1);
+                          {filteredAnalytics.monthly.map((m: any) => {
+                            const maxViews = Math.max(...filteredAnalytics.monthly.map((x: any) => x.views), 1);
                             return (
                               <div key={m.month} className="flex items-center gap-2">
                                 <span className="text-[10px] text-zinc-400 w-16 text-right font-mono">{m.month}</span>
@@ -1359,15 +1461,15 @@ export default function DashboardPage() {
 
                 {/* Segment & Reason distribution */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-                  {analyticsData.segmentDistribution && Object.keys(analyticsData.segmentDistribution).length > 0 && (
+                  {filteredAnalytics.segmentDistribution && Object.keys(filteredAnalytics.segmentDistribution).length > 0 && (
                     <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5">
                       <div className="flex items-center gap-2 mb-3">
                         <span className="text-base">{'\u{1F4CA}'}</span>
                         <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Segment Split (Events)</h3>
                       </div>
                       <div className="space-y-2">
-                        {Object.entries(analyticsData.segmentDistribution).sort((a: any, b: any) => b[1] - a[1]).map(([seg, count]: any) => {
-                          const total = Object.values(analyticsData.segmentDistribution).reduce((s: any, v: any) => s + v, 0) as number;
+                        {Object.entries(filteredAnalytics.segmentDistribution).sort((a: any, b: any) => b[1] - a[1]).map(([seg, count]: any) => {
+                          const total = Object.values(filteredAnalytics.segmentDistribution).reduce((s: any, v: any) => s + v, 0) as number;
                           const segNames: Record<string, string> = { A: 'Switcher', B: 'Skeptic', C: 'Newbie' };
                           const segColors: Record<string, string> = { A: 'bg-emerald-500', B: 'bg-amber-500', C: 'bg-sky-500' };
                           return (
@@ -1387,15 +1489,15 @@ export default function DashboardPage() {
                     </div>
                   )}
 
-                  {analyticsData.reasonDistribution && Object.keys(analyticsData.reasonDistribution).length > 0 && (
+                  {filteredAnalytics.reasonDistribution && Object.keys(filteredAnalytics.reasonDistribution).length > 0 && (
                     <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5">
                       <div className="flex items-center gap-2 mb-3">
                         <span className="text-base">{'\u{1F50D}'}</span>
                         <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Pain Points (Seg A)</h3>
                       </div>
                       <div className="space-y-2">
-                        {Object.entries(analyticsData.reasonDistribution).sort((a: any, b: any) => b[1] - a[1]).map(([reason, count]: any) => {
-                          const total = Object.values(analyticsData.reasonDistribution).reduce((s: any, v: any) => s + v, 0) as number;
+                        {Object.entries(filteredAnalytics.reasonDistribution).sort((a: any, b: any) => b[1] - a[1]).map(([reason, count]: any) => {
+                          const total = Object.values(filteredAnalytics.reasonDistribution).reduce((s: any, v: any) => s + v, 0) as number;
                           return (
                             <div key={reason} className="flex items-center gap-2">
                               <span className="text-xs text-zinc-400 w-20 text-right capitalize">{reason}</span>
