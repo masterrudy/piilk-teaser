@@ -6,9 +6,18 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+/* ─── NYC timezone helper ─── */
+function toNYC(dateStr: string): Date {
+  return new Date(new Date(dateStr).toLocaleString('en-US', { timeZone: 'America/New_York' }));
+}
+
+function toNYCDateStr(dateStr: string): string {
+  const d = toNYC(dateStr);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export async function GET() {
   try {
-    // Fetch all events
     const { data: events, error } = await supabase
       .from('piilk_events')
       .select('event_name, event_data, session_id, visitor_id, country, city, device_type, utm_source, utm_medium, utm_campaign, created_at')
@@ -22,7 +31,7 @@ export async function GET() {
     if (!events || events.length === 0) {
       return NextResponse.json({
         success: true,
-        funnel: { page_view: 0, step1_cta_click: 0, step2_answer: 0, step3_email_focus: 0, step4_submit: 0 },
+        funnel: { page_view: 0, step1_cta_click: 0, step2_answer: 0, step3_email_focus: 0, step3_reason_select: 0, step4_submit: 0 },
         daily: [],
         hourly: [],
         utmPerformance: [],
@@ -30,12 +39,15 @@ export async function GET() {
         reasonDistribution: {},
         totalVisitors: 0,
         totalSessions: 0,
+        weekly: [],
+        weekday: [],
+        monthly: [],
       });
     }
 
     // ─── Funnel (unique sessions) ───
     const sessionsByEvent: Record<string, Set<string>> = {};
-    const funnelEvents = ['page_view', 'step1_cta_click', 'step2_answer', 'step3_email_focus', 'step4_submit'];
+    const funnelEvents = ['page_view', 'step1_cta_click', 'step2_answer', 'step3_email_focus', 'step3_reason_select', 'step4_submit'];
 
     for (const e of funnelEvents) {
       sessionsByEvent[e] = new Set();
@@ -53,10 +65,10 @@ export async function GET() {
       funnel[e] = sessionsByEvent[e].size;
     }
 
-    // ─── Daily event counts ───
+    // ─── Daily event counts (NYC timezone) ───
     const dailyMap: Record<string, Record<string, number>> = {};
     events.forEach(ev => {
-      const day = ev.created_at?.slice(0, 10);
+      const day = toNYCDateStr(ev.created_at);
       if (!day) return;
       if (!dailyMap[day]) dailyMap[day] = {};
       dailyMap[day][ev.event_name] = (dailyMap[day][ev.event_name] || 0) + 1;
@@ -66,10 +78,10 @@ export async function GET() {
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([date, counts]) => ({ date, ...counts }));
 
-    // ─── Hourly distribution (for step4_submit) ───
+    // ─── Hourly distribution (NYC timezone, for step4_submit) ───
     const hourMap: Record<number, number> = {};
     events.filter(ev => ev.event_name === 'step4_submit').forEach(ev => {
-      const hour = new Date(ev.created_at).getHours();
+      const hour = toNYC(ev.created_at).getHours();
       hourMap[hour] = (hourMap[hour] || 0) + 1;
     });
 
@@ -116,10 +128,10 @@ export async function GET() {
     const uniqueVisitors = new Set(events.map(ev => ev.visitor_id).filter(Boolean));
     const uniqueSessions = new Set(events.map(ev => ev.session_id).filter(Boolean));
 
-    // ─── Weekly breakdown (ISO week) ───
+    // ─── Weekly breakdown (NYC timezone) ───
     const weeklyMap: Record<string, { views: number; submits: number }> = {};
     events.forEach(ev => {
-      const d = new Date(ev.created_at);
+      const d = toNYC(ev.created_at);
       const jan1 = new Date(d.getFullYear(), 0, 1);
       const weekNum = Math.ceil(((d.getTime() - jan1.getTime()) / 86400000 + jan1.getDay() + 1) / 7);
       const key = `${d.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
@@ -131,12 +143,12 @@ export async function GET() {
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([week, data]) => ({ week, ...data }));
 
-    // ─── Weekday breakdown (0=Sun ~ 6=Sat) ───
+    // ─── Weekday breakdown (NYC timezone) ───
     const weekdayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const weekdayMap: Record<number, { views: number; submits: number }> = {};
     for (let i = 0; i < 7; i++) weekdayMap[i] = { views: 0, submits: 0 };
     events.forEach(ev => {
-      const dow = new Date(ev.created_at).getDay();
+      const dow = toNYC(ev.created_at).getDay();
       if (ev.event_name === 'page_view') weekdayMap[dow].views++;
       if (ev.event_name === 'step4_submit') weekdayMap[dow].submits++;
     });
@@ -146,11 +158,11 @@ export async function GET() {
       submits: weekdayMap[i].submits,
     }));
 
-    // ─── Monthly breakdown ───
+    // ─── Monthly breakdown (NYC timezone) ───
     const monthlyMap: Record<string, { views: number; submits: number }> = {};
     events.forEach(ev => {
-      const key = ev.created_at?.slice(0, 7); // YYYY-MM
-      if (!key) return;
+      const d = toNYC(ev.created_at);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       if (!monthlyMap[key]) monthlyMap[key] = { views: 0, submits: 0 };
       if (ev.event_name === 'page_view') monthlyMap[key].views++;
       if (ev.event_name === 'step4_submit') monthlyMap[key].submits++;
