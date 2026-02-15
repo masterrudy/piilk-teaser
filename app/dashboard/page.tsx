@@ -443,13 +443,22 @@ export default function DashboardPage() {
       d.date >= startDate && d.date <= endDate
     );
 
-    // Recalculate funnel from filtered daily
-    const funnel: Record<string, number> = {};
-    ['page_view', 'step1_cta_click', 'step2_answer', 'step3_email_focus', 'step3_reason_select', 'step4_submit'].forEach(e => {
-      funnel[e] = filteredDaily.reduce((s: number, d: any) => s + (d[e] || 0), 0);
-    });
+    // Filter raw events by date
+    const filteredRaw = (analyticsData.rawEvents || []).filter((ev: any) =>
+      ev.d >= startDate && ev.d <= endDate
+    );
 
-    // Recalculate weekly from filtered daily
+    // Recalculate funnel from filtered raw (unique sessions)
+    const funnelEvents = ['page_view', 'step1_cta_click', 'step2_answer', 'step3_email_focus', 'step3_reason_select', 'step4_submit'];
+    const sessionsByEvt: Record<string, Set<string>> = {};
+    funnelEvents.forEach(e => { sessionsByEvt[e] = new Set(); });
+    filteredRaw.forEach((ev: any) => {
+      if (funnelEvents.includes(ev.n)) sessionsByEvt[ev.n].add(ev.s);
+    });
+    const funnel: Record<string, number> = {};
+    funnelEvents.forEach(e => { funnel[e] = sessionsByEvt[e].size; });
+
+    // Recalculate weekly
     const weeklyMap: Record<string, { views: number; submits: number }> = {};
     filteredDaily.forEach((d: any) => {
       const dt = new Date(d.date);
@@ -462,13 +471,84 @@ export default function DashboardPage() {
     });
     const weekly = Object.entries(weeklyMap).sort((a, b) => a[0].localeCompare(b[0])).map(([week, data]) => ({ week, ...data }));
 
+    // Recalculate UTM performance
+    const utmMap: Record<string, { views: Set<string>; submits: Set<string> }> = {};
+    filteredRaw.forEach((ev: any) => {
+      const source = ev.u || 'Direct';
+      if (!utmMap[source]) utmMap[source] = { views: new Set(), submits: new Set() };
+      if (ev.n === 'page_view') utmMap[source].views.add(ev.s);
+      if (ev.n === 'step4_submit') utmMap[source].submits.add(ev.s);
+    });
+    const utmPerformance = Object.entries(utmMap)
+      .map(([source, data]) => ({
+        source,
+        views: data.views.size,
+        submits: data.submits.size,
+        cvr: data.views.size > 0 ? ((data.submits.size / data.views.size) * 100).toFixed(1) : '0',
+      }))
+      .sort((a, b) => b.views - a.views);
+
+    // Recalculate hourly
+    const hourMapF: Record<number, number> = {};
+    filteredRaw.filter((ev: any) => ev.n === 'step4_submit').forEach((ev: any) => {
+      hourMapF[ev.h] = (hourMapF[ev.h] || 0) + 1;
+    });
+    const hourly = Array.from({ length: 24 }, (_, i) => ({
+      hour: i,
+      label: `${i.toString().padStart(2, '0')}:00`,
+      count: hourMapF[i] || 0,
+    }));
+
+    // Recalculate weekday
+    const wdNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const wdMap: Record<number, { views: number; submits: number }> = {};
+    for (let i = 0; i < 7; i++) wdMap[i] = { views: 0, submits: 0 };
+    filteredRaw.forEach((ev: any) => {
+      const dow = new Date(ev.d).getDay();
+      if (ev.n === 'page_view') wdMap[dow].views++;
+      if (ev.n === 'step4_submit') wdMap[dow].submits++;
+    });
+    const weekday = Array.from({ length: 7 }, (_, i) => ({ day: wdNames[i], views: wdMap[i].views, submits: wdMap[i].submits }));
+
+    // Recalculate monthly
+    const moMap: Record<string, { views: number; submits: number }> = {};
+    filteredRaw.forEach((ev: any) => {
+      const key = ev.d?.slice(0, 7);
+      if (!key) return;
+      if (!moMap[key]) moMap[key] = { views: 0, submits: 0 };
+      if (ev.n === 'page_view') moMap[key].views++;
+      if (ev.n === 'step4_submit') moMap[key].submits++;
+    });
+    const monthly = Object.entries(moMap).sort((a, b) => a[0].localeCompare(b[0])).map(([month, data]) => ({ month, ...data }));
+
+    // Recalculate segment & reason
+    const segDist: Record<string, number> = {};
+    filteredRaw.filter((ev: any) => ev.n === 'step2_answer').forEach((ev: any) => {
+      const seg = ev.ed?.segment || 'Unknown';
+      segDist[seg] = (segDist[seg] || 0) + 1;
+    });
+    const reasonDist: Record<string, number> = {};
+    filteredRaw.filter((ev: any) => ev.n === 'step3_reason_select').forEach((ev: any) => {
+      const reason = ev.ed?.reason || 'Unknown';
+      reasonDist[reason] = (reasonDist[reason] || 0) + 1;
+    });
+
+    // Unique visitors/sessions
+    const uv = new Set(filteredRaw.map((ev: any) => ev.s).filter(Boolean));
+
     return {
       ...analyticsData,
       funnel,
       daily: filteredDaily,
       weekly,
-      totalVisitors: funnel.page_view || 0,
-      totalSessions: funnel.page_view || 0,
+      weekday,
+      monthly,
+      utmPerformance,
+      hourly,
+      segmentDistribution: segDist,
+      reasonDistribution: reasonDist,
+      totalVisitors: uv.size,
+      totalSessions: uv.size,
     };
   }, [analyticsData, analyticsPeriod]);
 
