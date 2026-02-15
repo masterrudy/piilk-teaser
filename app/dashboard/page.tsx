@@ -183,10 +183,10 @@ export default function DashboardPage() {
 
   const currentParticipants = activeSource === 'klaviyo' ? participants.klaviyo : participants.supabase;
 
-  /* ─── Today's signups ─── */
+  /* ─── Today's signups (NYC timezone) ─── */
   const todaySignups = useMemo(() => {
-    const now = new Date();
-    const todayStr = now.toISOString().slice(0, 10); // YYYY-MM-DD
+    const nowNYC = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    const todayStr = `${nowNYC.getFullYear()}-${String(nowNYC.getMonth() + 1).padStart(2, '0')}-${String(nowNYC.getDate()).padStart(2, '0')}`;
     return currentParticipants.filter(p => {
       if (!p.signed_up_at) return false;
       return p.signed_up_at.slice(0, 10) === todayStr;
@@ -406,27 +406,30 @@ export default function DashboardPage() {
     if (!analyticsData) return null;
     if (analyticsPeriod === 'all') return analyticsData;
 
-    // Determine date range
-    const now = new Date();
+    // Determine date range (NYC timezone)
+    const nowNYC = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
     let startDate = '';
     let endDate = '';
 
     if (analyticsPeriod === 'today') {
-      startDate = endDate = now.toISOString().slice(0, 10);
+      const y = nowNYC.getFullYear();
+      const m = String(nowNYC.getMonth() + 1).padStart(2, '0');
+      const d = String(nowNYC.getDate()).padStart(2, '0');
+      startDate = endDate = `${y}-${m}-${d}`;
     } else if (analyticsPeriod === 'this_week') {
-      const dayOfWeek = now.getDay();
-      const monday = new Date(now);
-      monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-      startDate = monday.toISOString().slice(0, 10);
-      endDate = now.toISOString().slice(0, 10);
+      const dayOfWeek = nowNYC.getDay();
+      const monday = new Date(nowNYC);
+      monday.setDate(nowNYC.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+      startDate = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
+      endDate = `${nowNYC.getFullYear()}-${String(nowNYC.getMonth() + 1).padStart(2, '0')}-${String(nowNYC.getDate()).padStart(2, '0')}`;
     } else if (analyticsPeriod === 'this_month') {
-      startDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-      endDate = now.toISOString().slice(0, 10);
+      startDate = `${nowNYC.getFullYear()}-${String(nowNYC.getMonth() + 1).padStart(2, '0')}-01`;
+      endDate = `${nowNYC.getFullYear()}-${String(nowNYC.getMonth() + 1).padStart(2, '0')}-${String(nowNYC.getDate()).padStart(2, '0')}`;
     } else if (analyticsPeriod === 'last_month') {
-      const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      startDate = lm.toISOString().slice(0, 10);
-      const lmEnd = new Date(now.getFullYear(), now.getMonth(), 0);
-      endDate = lmEnd.toISOString().slice(0, 10);
+      const lm = new Date(nowNYC.getFullYear(), nowNYC.getMonth() - 1, 1);
+      startDate = `${lm.getFullYear()}-${String(lm.getMonth() + 1).padStart(2, '0')}-01`;
+      const lmEnd = new Date(nowNYC.getFullYear(), nowNYC.getMonth(), 0);
+      endDate = `${lmEnd.getFullYear()}-${String(lmEnd.getMonth() + 1).padStart(2, '0')}-${String(lmEnd.getDate()).padStart(2, '0')}`;
     } else {
       // YYYY-MM format
       startDate = `${analyticsPeriod}-01`;
