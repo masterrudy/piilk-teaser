@@ -184,6 +184,15 @@ export async function GET() {
       weekly,
       weekday,
       monthly,
+      // Raw event summary for client-side period filtering
+      rawEvents: events.map(ev => ({
+        n: ev.event_name,
+        d: toNYCDateStr(ev.created_at),
+        h: toNYC(ev.created_at).getHours(),
+        s: ev.session_id || ev.visitor_id || '',
+        u: ev.utm_source || '',
+        ed: ev.event_data || null,
+      })),
     });
   } catch (err: any) {
     console.error('Analytics API error:', err);
