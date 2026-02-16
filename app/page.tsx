@@ -295,6 +295,9 @@ export default function TeaserPage() {
               <p>Most shakes obsess over macros.</p>
               <p>We obsessed over what happens after you drink it.</p>
             </div>
+            <div className="cta-wrap">
+              <EmailModule source="cta" />
+            </div>
             <div className="footer-area">
               <p className="footer-brand">PIILK™ by ARMORED FRESH</p>
               <p className="footer-sub">RTD High Protein Shake.</p>
