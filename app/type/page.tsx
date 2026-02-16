@@ -8,6 +8,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import Image from "next/image";
 import {
   QUIZ_QUESTIONS,
   AFTERFEEL_TYPES,
@@ -437,7 +438,14 @@ export default function TeaserType() {
     <>
       <nav className="nav">
         <a className="nav-logo" onClick={goHome}>
-          PIILK<span className="tm">™</span>
+          <Image
+            src="/pillk-logo.png"
+            alt="PIILK"
+            width={72}
+            height={28}
+            style={{ display: "block" }}
+            priority
+          />
         </a>
         <span className="nav-right">by Armored Fresh</span>
       </nav>
