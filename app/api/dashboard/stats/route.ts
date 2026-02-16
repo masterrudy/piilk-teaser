@@ -1,4 +1,12 @@
-import { NextResponse } from 'next/server';
+// ═══════════════════════════════════════════════════════════
+// 📁 파일 위치: app/api/dashboard/stats/route.ts
+// 📌 역할: 대시보드 통계 API (variant 필터 지원)
+// 📌 사용법: /api/dashboard/stats?variant=type (퀴즈만)
+//           /api/dashboard/stats?variant=main (메인 티저만)
+//           /api/dashboard/stats (전체)
+// ═══════════════════════════════════════════════════════════
+
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -20,7 +28,6 @@ const KLAVIYO_SEGMENTS = {
   C_TOTAL: 'XbMadh',
 };
 
-// Klaviyo 세그먼트 프로필 수 조회 (프로필 목록을 가져와서 직접 카운트)
 async function getKlaviyoSegmentCount(segmentId: string): Promise<number> {
   if (!KLAVIYO_API_KEY) return 0;
 
@@ -52,21 +59,58 @@ async function getKlaviyoSegmentCount(segmentId: string): Promise<number> {
   return count;
 }
 
-// Supabase 데이터 조회
-async function getSupabaseStats() {
+// ✅ Supabase 데이터 조회 - variant 필터 지원
+async function getSupabaseStats(variant?: string) {
   const { data: subscribers, error } = await supabase
     .from('piilk_subscribers')
-    .select('segment, sub_reason');
+    .select('segment, sub_reason, variant');
 
   if (error) {
     console.error('Supabase error:', error);
     return null;
   }
 
-  const total = subscribers?.length || 0;
-  const segmentA = subscribers?.filter(s => s.segment === 'A') || [];
-  const segmentB = subscribers?.filter(s => s.segment === 'B') || [];
-  const segmentC = subscribers?.filter(s => s.segment === 'C') || [];
+  // ✅ variant 필터 적용
+  let filtered = subscribers || [];
+  if (variant === 'type') {
+    filtered = filtered.filter(s => s.variant === 'type');
+  } else if (variant === 'main') {
+    filtered = filtered.filter(s => !s.variant || s.variant !== 'type');
+  }
+  // variant 없으면 전체
+
+  const total = filtered.length;
+  const segmentA = filtered.filter(s => s.segment === 'A');
+  const segmentB = filtered.filter(s => s.segment === 'B');
+  const segmentC = filtered.filter(s => s.segment === 'C');
+
+  // ✅ Quiz Type은 세그먼트 구조가 다름 (afterfeel_quiz)
+  if (variant === 'type') {
+    return {
+      total,
+      segments: {
+        A: {
+          total: segmentA.length,
+          percentage: total > 0 ? ((segmentA.length / total) * 100).toFixed(1) : '0',
+          breakdown: {
+            residue: segmentA.filter(s => s.sub_reason === 'residue').length,
+            aftertaste: segmentA.filter(s => s.sub_reason === 'aftertaste').length,
+            heaviness: segmentA.filter(s => s.sub_reason === 'heaviness').length,
+            habit: segmentA.filter(s => s.sub_reason === 'habit').length,
+            lapsed: segmentA.filter(s => s.sub_reason === 'lapsed').length,
+          },
+        },
+        B: {
+          total: segmentB.length,
+          percentage: total > 0 ? ((segmentB.length / total) * 100).toFixed(1) : '0',
+        },
+        C: {
+          total: segmentC.length,
+          percentage: total > 0 ? ((segmentC.length / total) * 100).toFixed(1) : '0',
+        },
+      },
+    };
+  }
 
   return {
     total,
@@ -94,7 +138,7 @@ async function getSupabaseStats() {
   };
 }
 
-// Klaviyo 데이터 조회
+// Klaviyo 데이터 조회 (variant 필터 미지원 - Klaviyo는 세그먼트 기반)
 async function getKlaviyoStats() {
   const [aTotal, aResidue, aAftertaste, aHeaviness, aHabit, aLapsed, bTotal, cTotal] =
     await Promise.all([
@@ -136,16 +180,20 @@ async function getKlaviyoStats() {
   };
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const variant = request.nextUrl.searchParams.get('variant') || undefined;
+
     const [supabaseData, klaviyoData] = await Promise.all([
-      getSupabaseStats(),
-      getKlaviyoStats(),
+      getSupabaseStats(variant),
+      // Klaviyo는 variant 필터 미지원 (main만 해당)
+      variant === 'type' ? Promise.resolve(null) : getKlaviyoStats(),
     ]);
 
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),
+      variant: variant || 'all',
       supabase: supabaseData,
       klaviyo: klaviyoData,
     });
