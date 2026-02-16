@@ -333,7 +333,7 @@ export default function TeaserPage() {
           --accent:         #D4FF00;
           --accent-hover:   #E5FF33;
           --border:         #1A1A1A;
-          --input-bg:       #111111;
+          --input-bg:       rgba(17, 17, 17, 0.7);
           --success:        #00FF88;
 
           --max-w: 640px;
@@ -403,6 +403,11 @@ export default function TeaserPage() {
           max-width: 680px;
           position: relative;
           width: 100%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          min-height: 300px;
         }
 
         /* ── Logo ── */
@@ -434,14 +439,19 @@ export default function TeaserPage() {
         }
         .phase-2 {
           position: absolute;
-          top: 0; left: 0; right: 0;
+          top: 50%; left: 0; right: 0;
+          transform: translateY(calc(-50% + 20px));
           opacity: 0;
-          transform: translateY(20px);
-          transition: opacity 0.5s ease 0.15s, transform 0.5s ease 0.15s;
+          pointer-events: none;
+          visibility: hidden;
+          transition: opacity 0.5s ease 0.15s, transform 0.5s ease 0.15s, visibility 0s linear 0.65s;
         }
         .phase-2.in {
           opacity: 1;
-          transform: translateY(0);
+          transform: translateY(-50%);
+          pointer-events: auto;
+          visibility: visible;
+          transition: opacity 0.5s ease 0.15s, transform 0.5s ease 0.15s, visibility 0s linear 0s;
         }
 
         .hero-h1 {
@@ -568,7 +578,7 @@ export default function TeaserPage() {
         /* ── WHY Section ── */
         .why-section {
           padding: 100px var(--px) 80px;
-          background: var(--bg);
+          background: transparent;
         }
         .why-inner {
           max-width: var(--max-w);
@@ -594,10 +604,10 @@ export default function TeaserPage() {
         /* ── Second CTA ── */
         .cta2-section {
           padding: 80px var(--px) 100px;
-          background: var(--bg);
+          background: transparent;
         }
         .cta2-inner {
-          max-width: var(--max-w);
+          max-width: 480px;
           margin: 0 auto;
           text-align: center;
         }
@@ -611,7 +621,7 @@ export default function TeaserPage() {
         /* ── Footer ── */
         .piilk-footer {
           padding: 40px var(--px) 60px;
-          background: var(--bg);
+          background: transparent;
           text-align: center;
         }
         .footer-brand {
