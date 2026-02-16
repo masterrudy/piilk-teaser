@@ -198,41 +198,6 @@ export default function TeaserPage() {
     return 'below';
   };
 
-  /* ─── Inline email form renderer ─── */
-  const renderEmailForm = (source: string) => (
-    <div className="email-module">
-      {!isSubmitted ? (
-        <>
-          <div className="email-form-row">
-            <input
-              type="email"
-              className="email-input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onFocus={handleEmailFocus}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(source); }}
-              placeholder="you@email.com"
-              autoComplete="email"
-              inputMode="email"
-              disabled={isSubmitting}
-            />
-            <button
-              type="button"
-              className="email-btn"
-              onClick={() => handleSubmit(source)}
-              disabled={isSubmitting || !email}
-            >
-              {isSubmitting ? 'Submitting...' : 'Get early access'}
-            </button>
-          </div>
-          <p className="email-trust">No spam. No purchase. Unsubscribe anytime.</p>
-        </>
-      ) : (
-        <p className="email-success">You&apos;re in. Watch for the first note.</p>
-      )}
-    </div>
-  );
-
   return (
     <main className="piilk-page">
       {/* ═══ Fixed Background ═══ */}
@@ -284,7 +249,37 @@ export default function TeaserPage() {
             <p className="hero-desc">Heavy after. Film that lingers. You know the moment.</p>
             <p className="hero-proof">30g protein · 7 ingredients · Dairy-free</p>
             <div className="email-wrap">
-              {renderEmailForm('hero')}
+              <div className="email-module">
+                {!isSubmitted ? (
+                  <>
+                    <div className="email-form-row">
+                      <input
+                        type="email"
+                        className="email-input"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        onFocus={handleEmailFocus}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit('hero'); }}
+                        placeholder="you@email.com"
+                        autoComplete="email"
+                        inputMode="email"
+                        disabled={isSubmitting}
+                      />
+                      <button
+                        type="button"
+                        className="email-btn"
+                        onClick={() => handleSubmit('hero')}
+                        disabled={isSubmitting || !email}
+                      >
+                        {isSubmitting ? 'Submitting...' : 'Get early access'}
+                      </button>
+                    </div>
+                    <p className="email-trust">No spam. No purchase. Unsubscribe anytime.</p>
+                  </>
+                ) : (
+                  <p className="email-success">You&apos;re in. Watch for the first note.</p>
+                )}
+              </div>
             </div>
           </div>
           <div className="scroll-cue-bottom">
@@ -302,7 +297,37 @@ export default function TeaserPage() {
               <p>We obsessed over what happens after you drink it.</p>
             </div>
             <div className="cta-wrap">
-              {renderEmailForm('cta')}
+              <div className="email-module">
+                {!isSubmitted ? (
+                  <>
+                    <div className="email-form-row">
+                      <input
+                        type="email"
+                        className="email-input"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        onFocus={handleEmailFocus}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit('cta'); }}
+                        placeholder="you@email.com"
+                        autoComplete="email"
+                        inputMode="email"
+                        disabled={isSubmitting}
+                      />
+                      <button
+                        type="button"
+                        className="email-btn"
+                        onClick={() => handleSubmit('cta')}
+                        disabled={isSubmitting || !email}
+                      >
+                        {isSubmitting ? 'Submitting...' : 'Get early access'}
+                      </button>
+                    </div>
+                    <p className="email-trust">No spam. No purchase. Unsubscribe anytime.</p>
+                  </>
+                ) : (
+                  <p className="email-success">You&apos;re in. Watch for the first note.</p>
+                )}
+              </div>
             </div>
             <div className="footer-area">
               <p className="footer-brand">PIILK™ by ARMORED FRESH</p>
