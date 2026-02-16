@@ -3,7 +3,12 @@
 // 📌 역할: 대시보드 퍼널 분석 API (variant 필터 지원)
 // 📌 추가: UTM 소스별 방문자/이벤트 상세 + Today/Total 분리
 // 📌 페이지네이션: 1,000행씩 반복 fetch → 전체 데이터 수집
-// 📌 수정: totalVisitors/totalSessions를 visitorStats와 통일
+// 📌 v3 수정:
+//   - Quiz Type: synthetic page_view 주입 (세션 첫 이벤트 기반)
+//   - null visitor_id/session_id → null 반환 (unknown 제거)
+//   - rawEvents에 v(visitor_id) 추가
+//   - email_focus 보정: submit 세션 → email_focus에도 포함
+//   - Quiz Type utm_source 지원 (meta 등)
 // ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -85,13 +90,13 @@ function getTodayNYC(): string {
 }
 
 /* ─── Quiz Type → Main Teaser 이벤트명 매핑 ─── */
-// ✅ 수정: email_focus 매핑 추가 (Quiz Type에서 이메일 입력 관련 이벤트)
 const TYPE_EVENT_MAP: Record<string, string> = {
+  page_view: 'page_view',
   quiz_start: 'step1_cta_click',
   quiz_complete: 'step2_answer',
   type_result: 'step2_answer',
-  email_focus: 'step3_email_focus',      // ✅ 추가: 이메일 포커스 이벤트 매핑
-  email_input: 'step3_email_focus',      // ✅ 추가: 이메일 입력 이벤트도 매핑
+  email_focus: 'step3_email_focus',
+  email_input: 'step3_email_focus',
   share_click: 'step3_email_focus',
   email_submit: 'step4_submit',
   declaration_tap: 'declaration_tap',
@@ -103,7 +108,7 @@ function normalizeEventName(eventName: string, isTypeVariant: boolean): string {
   return TYPE_EVENT_MAP[eventName] || eventName;
 }
 
-/* ─── 페이지네이션 헬퍼: 1,000행씩 전체 fetch ─── */
+/* ─── 페이지네이션 헬퍼 ─── */
 async function fetchAllEvents(variant?: string) {
   const allEvents: any[] = [];
   let from = 0;
@@ -113,92 +118,63 @@ async function fetchAllEvents(variant?: string) {
       .from('piilk_events')
       .select('event_name, event_data, session_id, visitor_id, variant, country, city, device_type, utm_source, utm_medium, utm_campaign, created_at');
 
-    // 필터 적용
     if (variant === 'type') {
       query = query.eq('variant', 'type');
     } else if (variant === 'main') {
       query = query.or('variant.is.null,variant.neq.type');
     }
 
-    // 정렬 + 범위
     query = query.order('created_at', { ascending: true }).range(from, from + PAGE_SIZE - 1);
 
     const { data, error } = await query;
-
     if (error) throw error;
     if (!data || data.length === 0) break;
-
     allEvents.push(...data);
-
-    // 이번 페이지가 PAGE_SIZE보다 적으면 마지막 페이지
     if (data.length < PAGE_SIZE) break;
-
     from += PAGE_SIZE;
   }
 
   return allEvents;
 }
 
-/* ─── 안전한 session/visitor ID 추출 (통일된 로직) ─── */
-function getSid(ev: any): string {
-  return ev.session_id || ev.visitor_id || 'unknown';
+/* ─── 안전한 ID 추출 ─── */
+function getSid(ev: any): string | null {
+  return ev.session_id || ev.visitor_id || null;
 }
 
-function getVid(ev: any): string {
-  return ev.visitor_id || 'unknown';
+function getVid(ev: any): string | null {
+  return ev.visitor_id || null;
 }
 
-/* ─── UTM 소스별 상세 통계 생성 ─── */
+/* ─── UTM 소스별 상세 통계 ─── */
 function buildUtmSourceStats(events: any[], normalizedEvents: any[], todayStr: string) {
-  const utmTotal: Record<string, {
-    visitors: Set<string>;
-    sessions: Set<string>;
-    events: number;
-    page_views: number;
-    submits: Set<string>;
-  }> = {};
+  const utmTotal: Record<string, { visitors: Set<string>; sessions: Set<string>; events: number; page_views: number; submits: Set<string> }> = {};
+  const utmToday: Record<string, { visitors: Set<string>; sessions: Set<string>; events: number; page_views: number; submits: Set<string> }> = {};
 
-  const utmToday: Record<string, {
-    visitors: Set<string>;
-    sessions: Set<string>;
-    events: number;
-    page_views: number;
-    submits: Set<string>;
-  }> = {};
-
-  const initUtm = () => ({
-    visitors: new Set<string>(),
-    sessions: new Set<string>(),
-    events: 0,
-    page_views: 0,
-    submits: new Set<string>(),
-  });
+  const initUtm = () => ({ visitors: new Set<string>(), sessions: new Set<string>(), events: 0, page_views: 0, submits: new Set<string>() });
 
   normalizedEvents.forEach((ev, idx) => {
-    const source = events[idx].utm_source || 'Direct';
+    const source = events[idx]?.utm_source || ev.utm_source || 'Direct';
     const vid = getVid(ev);
     const sid = getSid(ev);
-    const day = toNYCDateStr(ev.created_at);
-
-    // ✅ 'unknown' ID는 제외
-    if (vid === 'unknown' && sid === 'unknown') return;
 
     // Total
     if (!utmTotal[source]) utmTotal[source] = initUtm();
-    if (vid !== 'unknown') utmTotal[source].visitors.add(vid);
-    utmTotal[source].sessions.add(sid);
+    if (vid) utmTotal[source].visitors.add(vid);
+    if (sid) utmTotal[source].sessions.add(sid);
     utmTotal[source].events++;
     if (ev.event_name === 'page_view') utmTotal[source].page_views++;
-    if (ev.event_name === 'step4_submit') utmTotal[source].submits.add(sid);
+    if (ev.event_name === 'step4_submit' && sid) utmTotal[source].submits.add(sid);
 
     // Today
+    const day = toNYCDateStr(ev.created_at);
     if (day === todayStr) {
       if (!utmToday[source]) utmToday[source] = initUtm();
-      if (vid !== 'unknown') utmToday[source].visitors.add(vid);
-      utmToday[source].sessions.add(sid);
+      if (vid) utmToday[source].visitors.add(vid);
+      if (sid) utmToday[source].sessions.add(sid);
       utmToday[source].events++;
       if (ev.event_name === 'page_view') utmToday[source].page_views++;
-      if (ev.event_name === 'step4_submit') utmToday[source].submits.add(sid);
+      if (ev.event_name === 'step4_submit' && sid) utmToday[source].submits.add(sid);
     }
   });
 
@@ -215,15 +191,11 @@ function buildUtmSourceStats(events: any[], normalizedEvents: any[], todayStr: s
       }))
       .sort((a, b) => b.visitors - a.visitors);
 
-  return {
-    total: formatUtmMap(utmTotal),
-    today: formatUtmMap(utmToday),
-  };
+  return { total: formatUtmMap(utmTotal), today: formatUtmMap(utmToday) };
 }
 
 /* ─── 방문자 통계 (Today / Total) ─── */
-// ✅ 수정: 통일된 ID 로직 사용 + 'unknown' 제외
-function buildVisitorStats(events: any[], normalizedEvents: any[], todayStr: string) {
+function buildVisitorStats(events: any[], todayStr: string) {
   const totalVisitors = new Set<string>();
   const totalSessions = new Set<string>();
   const todayVisitors = new Set<string>();
@@ -236,30 +208,45 @@ function buildVisitorStats(events: any[], normalizedEvents: any[], todayStr: str
     const sid = getSid(ev);
     const day = toNYCDateStr(ev.created_at);
 
-    // ✅ 유효한 ID만 카운트
-    if (vid !== 'unknown') totalVisitors.add(vid);
-    if (sid !== 'unknown') totalSessions.add(sid);
+    if (vid) totalVisitors.add(vid);
+    if (sid) totalSessions.add(sid);
     totalEvents++;
 
     if (day === todayStr) {
-      if (vid !== 'unknown') todayVisitors.add(vid);
-      if (sid !== 'unknown') todaySessions.add(sid);
+      if (vid) todayVisitors.add(vid);
+      if (sid) todaySessions.add(sid);
       todayEvents++;
     }
   });
 
   return {
-    total: {
-      visitors: totalVisitors.size,
-      sessions: totalSessions.size,
-      events: totalEvents,
-    },
-    today: {
-      visitors: todayVisitors.size,
-      sessions: todaySessions.size,
-      events: todayEvents,
-    },
+    total: { visitors: totalVisitors.size, sessions: totalSessions.size, events: totalEvents },
+    today: { visitors: todayVisitors.size, sessions: todaySessions.size, events: todayEvents },
   };
+}
+
+/* ─── Quiz Type: synthetic page_view 주입 ─── */
+function buildSyntheticPageViews(events: any[]) {
+  const sessionFirstEvent = new Map<string, any>();
+
+  events.forEach(ev => {
+    const sid = getSid(ev);
+    if (!sid) return;
+    if (!sessionFirstEvent.has(sid)) {
+      sessionFirstEvent.set(sid, ev);
+    }
+  });
+
+  const synthetics: any[] = [];
+  sessionFirstEvent.forEach((ev) => {
+    synthetics.push({
+      ...ev,
+      event_name: 'page_view',
+      _synthetic: true,
+    });
+  });
+
+  return synthetics;
 }
 
 export async function GET(request: NextRequest) {
@@ -268,7 +255,6 @@ export async function GET(request: NextRequest) {
     const isTypeVariant = variant === 'type';
     const todayStr = getTodayNYC();
 
-    // ✅ 페이지네이션으로 전체 이벤트 가져오기
     const events = await fetchAllEvents(variant);
 
     if (!events || events.length === 0) {
@@ -276,142 +262,93 @@ export async function GET(request: NextRequest) {
         success: true,
         variant: variant || 'all',
         funnel: { page_view: 0, step1_cta_click: 0, step2_answer: 0, step3_email_focus: 0, step3_reason_select: 0, step4_submit: 0 },
-        daily: [],
-        hourly: [],
-        utmPerformance: [],
+        daily: [], hourly: [], utmPerformance: [],
         utmSourceStats: { total: [], today: [] },
         visitorStats: { total: { visitors: 0, sessions: 0, events: 0 }, today: { visitors: 0, sessions: 0, events: 0 } },
-        segmentDistribution: {},
-        reasonDistribution: {},
-        totalVisitors: 0,
-        totalSessions: 0,
-        weekly: [],
-        weekday: [],
-        monthly: [],
-        rawEvents: [],
-        _totalFetched: 0,
-        _todayNYC: todayStr,
+        segmentDistribution: {}, reasonDistribution: {},
+        totalVisitors: 0, totalSessions: 0,
+        weekly: [], weekday: [], monthly: [], rawEvents: [],
+        _totalFetched: 0, _todayNYC: todayStr,
       });
     }
 
-    // ✅ 이벤트 이름 정규화
+    // ✅ 이벤트 정규화
     const normalizedEvents = events.map(ev => ({
       ...ev,
       event_name: normalizeEventName(ev.event_name, isTypeVariant),
     }));
 
-    // ─── Funnel (unique sessions) ───
-    const sessionsByEvent: Record<string, Set<string>> = {};
-    const funnelEvents = ['page_view', 'step1_cta_click', 'step2_answer', 'step3_email_focus', 'step3_reason_select', 'step4_submit'];
+    // ✅ Quiz Type: synthetic page_view 주입
+    let allNormalizedEvents = [...normalizedEvents];
+    let allEvents = [...events];
 
-    for (const e of funnelEvents) {
-      sessionsByEvent[e] = new Set();
+    if (isTypeVariant) {
+      const hasRealPageView = normalizedEvents.some(ev => ev.event_name === 'page_view');
+      if (!hasRealPageView) {
+        const synthetics = buildSyntheticPageViews(events);
+        synthetics.forEach(spv => {
+          allEvents.push(spv);
+          allNormalizedEvents.push({ ...spv, event_name: 'page_view' });
+        });
+      }
     }
 
-    normalizedEvents.forEach(ev => {
+    // ─── Funnel ───
+    const sessionsByEvent: Record<string, Set<string>> = {};
+    const funnelEvents = ['page_view', 'step1_cta_click', 'step2_answer', 'step3_email_focus', 'step3_reason_select', 'step4_submit'];
+    for (const e of funnelEvents) sessionsByEvent[e] = new Set();
+
+    allNormalizedEvents.forEach(ev => {
       const sid = getSid(ev);
-      if (sid !== 'unknown' && funnelEvents.includes(ev.event_name)) {
+      if (sid && funnelEvents.includes(ev.event_name)) {
         sessionsByEvent[ev.event_name].add(sid);
       }
     });
 
-    const funnel: Record<string, number> = {};
-    for (const e of funnelEvents) {
-      funnel[e] = sessionsByEvent[e].size;
-    }
-
-    // ✅ Quiz Type: quiz_start를 page_view로도 카운트
+    // ✅ Quiz Type: submit 세션 → email_focus에도 포함
     if (isTypeVariant) {
-      const quizStartSessions = new Set<string>();
-      events.forEach(ev => {
-        if (ev.event_name === 'quiz_start') {
-          const sid = getSid(ev);
-          if (sid !== 'unknown') quizStartSessions.add(sid);
-        }
-      });
-      if (funnel['page_view'] === 0 && quizStartSessions.size > 0) {
-        funnel['page_view'] = quizStartSessions.size;
-      }
-    }
-
-    // ✅ Quiz Type: email_submit 세션은 step3_email_focus에도 포함되어야 함
-    // (이메일을 제출했다면 반드시 포커스도 했으므로)
-    if (isTypeVariant) {
-      const submitSessions = sessionsByEvent['step4_submit'];
-      submitSessions.forEach(sid => {
+      sessionsByEvent['step4_submit'].forEach(sid => {
         sessionsByEvent['step3_email_focus'].add(sid);
       });
-      funnel['step3_email_focus'] = sessionsByEvent['step3_email_focus'].size;
     }
 
-    // ─── Daily event counts (NYC timezone) ───
+    const funnel: Record<string, number> = {};
+    for (const e of funnelEvents) funnel[e] = sessionsByEvent[e].size;
+
+    // ─── Daily ───
     const dailyMap: Record<string, Record<string, number>> = {};
-    normalizedEvents.forEach(ev => {
+    allNormalizedEvents.forEach(ev => {
       const day = toNYCDateStr(ev.created_at);
       if (!day) return;
       if (!dailyMap[day]) dailyMap[day] = {};
       dailyMap[day][ev.event_name] = (dailyMap[day][ev.event_name] || 0) + 1;
     });
+    const daily = Object.entries(dailyMap).sort((a, b) => a[0].localeCompare(b[0])).map(([date, counts]) => ({ date, ...counts }));
 
-    // ✅ Quiz Type: daily에도 page_view 보정
-    if (isTypeVariant) {
-      const dailyQuizStart: Record<string, number> = {};
-      events.forEach(ev => {
-        if (ev.event_name === 'quiz_start') {
-          const day = toNYCDateStr(ev.created_at);
-          dailyQuizStart[day] = (dailyQuizStart[day] || 0) + 1;
-        }
-      });
-      Object.entries(dailyQuizStart).forEach(([day, count]) => {
-        if (!dailyMap[day]) dailyMap[day] = {};
-        if (!dailyMap[day]['page_view']) {
-          dailyMap[day]['page_view'] = count;
-        }
-      });
-    }
-
-    const daily = Object.entries(dailyMap)
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([date, counts]) => ({ date, ...counts }));
-
-    // ─── Hourly distribution ───
+    // ─── Hourly ───
     const hourMap: Record<number, number> = {};
-    normalizedEvents.filter(ev => ev.event_name === 'step4_submit').forEach(ev => {
+    allNormalizedEvents.filter(ev => ev.event_name === 'step4_submit').forEach(ev => {
       const hour = toNYCHour(ev.created_at);
       hourMap[hour] = (hourMap[hour] || 0) + 1;
     });
+    const hourly = Array.from({ length: 24 }, (_, i) => ({ hour: i, label: `${i.toString().padStart(2, '0')}:00`, count: hourMap[i] || 0 }));
 
-    const hourly = Array.from({ length: 24 }, (_, i) => ({
-      hour: i,
-      label: `${i.toString().padStart(2, '0')}:00`,
-      count: hourMap[i] || 0,
-    }));
-
-    // ─── UTM Performance (기존 호환) ───
+    // ─── UTM Performance ───
     const utmMap: Record<string, { views: Set<string>; submits: Set<string> }> = {};
-    normalizedEvents.forEach(ev => {
+    allNormalizedEvents.forEach(ev => {
       const source = ev.utm_source || 'Direct';
       if (!utmMap[source]) utmMap[source] = { views: new Set(), submits: new Set() };
       const sid = getSid(ev);
-      if (sid === 'unknown') return;
+      if (!sid) return;
       if (ev.event_name === 'page_view' || ev.event_name === 'step1_cta_click') utmMap[source].views.add(sid);
       if (ev.event_name === 'step4_submit') utmMap[source].submits.add(sid);
     });
-
     const utmPerformance = Object.entries(utmMap)
-      .map(([source, data]) => ({
-        source,
-        views: data.views.size,
-        submits: data.submits.size,
-        cvr: data.views.size > 0 ? ((data.submits.size / data.views.size) * 100).toFixed(1) : '0',
-      }))
+      .map(([source, data]) => ({ source, views: data.views.size, submits: data.submits.size, cvr: data.views.size > 0 ? ((data.submits.size / data.views.size) * 100).toFixed(1) : '0' }))
       .sort((a, b) => b.views - a.views);
 
-    // ✅ UTM 소스별 상세 통계 (Today + Total)
-    const utmSourceStats = buildUtmSourceStats(events, normalizedEvents, todayStr);
-
-    // ✅ 방문자 통계 (Today + Total) — 이 값을 totalVisitors/totalSessions에도 재사용
-    const visitorStats = buildVisitorStats(events, normalizedEvents, todayStr);
+    const utmSourceStats = buildUtmSourceStats(allEvents, allNormalizedEvents, todayStr);
+    const visitorStats = buildVisitorStats(allEvents, todayStr);
 
     // ─── Segment distribution ───
     const segmentDistribution: Record<string, number> = {};
@@ -443,67 +380,52 @@ export async function GET(request: NextRequest) {
 
     // ─── Weekly ───
     const weeklyMap: Record<string, { views: number; submits: number }> = {};
-    normalizedEvents.forEach(ev => {
+    allNormalizedEvents.forEach(ev => {
       const key = toNYCWeekKey(ev.created_at);
       if (!weeklyMap[key]) weeklyMap[key] = { views: 0, submits: 0 };
       if (ev.event_name === 'page_view' || ev.event_name === 'step1_cta_click') weeklyMap[key].views++;
       if (ev.event_name === 'step4_submit') weeklyMap[key].submits++;
     });
-    const weekly = Object.entries(weeklyMap)
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([week, data]) => ({ week, ...data }));
+    const weekly = Object.entries(weeklyMap).sort((a, b) => a[0].localeCompare(b[0])).map(([week, data]) => ({ week, ...data }));
 
     // ─── Weekday ───
     const weekdayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const weekdayMap: Record<number, { views: number; submits: number }> = {};
     for (let i = 0; i < 7; i++) weekdayMap[i] = { views: 0, submits: 0 };
-    normalizedEvents.forEach(ev => {
+    allNormalizedEvents.forEach(ev => {
       const dow = toNYCDay(ev.created_at);
       if (ev.event_name === 'page_view' || ev.event_name === 'step1_cta_click') weekdayMap[dow].views++;
       if (ev.event_name === 'step4_submit') weekdayMap[dow].submits++;
     });
-    const weekday = Array.from({ length: 7 }, (_, i) => ({
-      day: weekdayNames[i],
-      views: weekdayMap[i].views,
-      submits: weekdayMap[i].submits,
-    }));
+    const weekday = Array.from({ length: 7 }, (_, i) => ({ day: weekdayNames[i], views: weekdayMap[i].views, submits: weekdayMap[i].submits }));
 
     // ─── Monthly ───
     const monthlyMap: Record<string, { views: number; submits: number }> = {};
-    normalizedEvents.forEach(ev => {
+    allNormalizedEvents.forEach(ev => {
       const key = toNYCMonthKey(ev.created_at);
       if (!monthlyMap[key]) monthlyMap[key] = { views: 0, submits: 0 };
       if (ev.event_name === 'page_view' || ev.event_name === 'step1_cta_click') monthlyMap[key].views++;
       if (ev.event_name === 'step4_submit') monthlyMap[key].submits++;
     });
-    const monthly = Object.entries(monthlyMap)
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([month, data]) => ({ month, ...data }));
+    const monthly = Object.entries(monthlyMap).sort((a, b) => a[0].localeCompare(b[0])).map(([month, data]) => ({ month, ...data }));
 
     return NextResponse.json({
       success: true,
       variant: variant || 'all',
-      funnel,
-      daily,
-      hourly,
-      utmPerformance,
-      utmSourceStats,
-      visitorStats,
-      segmentDistribution,
-      reasonDistribution,
-      // ✅ 핵심 수정: visitorStats.total 값을 재사용하여 상단/하단 수치 통일
+      funnel, daily, hourly, utmPerformance, utmSourceStats, visitorStats,
+      segmentDistribution, reasonDistribution,
       totalVisitors: visitorStats.total.visitors,
       totalSessions: visitorStats.total.sessions,
-      weekly,
-      weekday,
-      monthly,
+      weekly, weekday, monthly,
       _totalFetched: events.length,
       _todayNYC: todayStr,
-      rawEvents: normalizedEvents.map(ev => ({
+      // ✅ v3: rawEvents에 v(visitor_id) 추가
+      rawEvents: allNormalizedEvents.map(ev => ({
         n: ev.event_name,
         d: toNYCDateStr(ev.created_at),
         h: toNYCHour(ev.created_at),
-        s: getSid(ev),
+        s: getSid(ev) || '',
+        v: getVid(ev) || '',
         u: ev.utm_source || '',
         ed: ev.event_data || null,
       })),
