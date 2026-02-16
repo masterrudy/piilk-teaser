@@ -341,8 +341,8 @@ export default function TeaserPage() {
           --text-primary:   #FFFFFF;
           --text-secondary: #CCCCCC;
           --text-muted:     #888888;
-          --accent:         #D4FF00;
-          --accent-hover:   #E5FF33;
+          --accent:         #A8BF00;
+          --accent-hover:   #C2D91A;
           --border:         #1A1A1A;
           --input-bg:       rgba(17, 17, 17, 0.7);
           --success:        #00FF88;
@@ -434,6 +434,12 @@ export default function TeaserPage() {
           width: 100%;
         }
 
+        /* ── Phase 2 specific — push content lower ── */
+        .phase.phase-2 {
+          align-items: flex-end;
+          padding-bottom: 12vh;
+        }
+
         /* ── H1 ── */
         .hero-h1 {
           font-family: var(--font-display);
@@ -488,6 +494,12 @@ export default function TeaserPage() {
         @keyframes bounce {
           0%, 100% { transform: rotate(45deg) translateY(0); }
           50% { transform: rotate(45deg) translateY(5px); }
+        }
+
+        /* ── Phase 3 specific — push content lower ── */
+        .phase.phase-3 {
+          align-items: flex-end;
+          padding-bottom: 8vh;
         }
 
         /* ── Phase 3 ── */
