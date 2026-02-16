@@ -1,4 +1,12 @@
-import { NextResponse } from 'next/server';
+// ═══════════════════════════════════════════════════════════
+// 📁 파일 위치: app/api/dashboard/analytics/route.ts
+// 📌 역할: 대시보드 퍼널 분석 API (variant 필터 지원)
+// 📌 사용법: /api/dashboard/analytics?variant=type (퀴즈만)
+//           /api/dashboard/analytics?variant=main (메인 티저만)
+//           /api/dashboard/analytics (전체)
+// ═══════════════════════════════════════════════════════════
+
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -16,12 +24,23 @@ function toNYCDateStr(dateStr: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const { data: events, error } = await supabase
+    const variant = request.nextUrl.searchParams.get('variant') || undefined;
+
+    // ✅ variant 필터를 Supabase 쿼리에 적용
+    let query = supabase
       .from('piilk_events')
-      .select('event_name, event_data, session_id, visitor_id, country, city, device_type, utm_source, utm_medium, utm_campaign, created_at')
+      .select('event_name, event_data, session_id, visitor_id, variant, country, city, device_type, utm_source, utm_medium, utm_campaign, created_at')
       .order('created_at', { ascending: true });
+
+    if (variant === 'type') {
+      query = query.eq('variant', 'type');
+    } else if (variant === 'main') {
+      query = query.or('variant.is.null,variant.neq.type');
+    }
+
+    const { data: events, error } = await query;
 
     if (error) {
       console.error('Analytics query error:', error);
@@ -31,6 +50,7 @@ export async function GET() {
     if (!events || events.length === 0) {
       return NextResponse.json({
         success: true,
+        variant: variant || 'all',
         funnel: { page_view: 0, step1_cta_click: 0, step2_answer: 0, step3_email_focus: 0, step3_reason_select: 0, step4_submit: 0 },
         daily: [],
         hourly: [],
@@ -42,6 +62,7 @@ export async function GET() {
         weekly: [],
         weekday: [],
         monthly: [],
+        rawEvents: [],
       });
     }
 
@@ -78,7 +99,7 @@ export async function GET() {
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([date, counts]) => ({ date, ...counts }));
 
-    // ─── Hourly distribution (NYC timezone, for step4_submit) ───
+    // ─── Hourly distribution ───
     const hourMap: Record<number, number> = {};
     events.filter(ev => ev.event_name === 'step4_submit').forEach(ev => {
       const hour = toNYC(ev.created_at).getHours();
@@ -110,14 +131,14 @@ export async function GET() {
       }))
       .sort((a, b) => b.views - a.views);
 
-    // ─── Segment distribution from step2_answer ───
+    // ─── Segment distribution ───
     const segmentDistribution: Record<string, number> = {};
     events.filter(ev => ev.event_name === 'step2_answer').forEach(ev => {
       const seg = ev.event_data?.segment || 'Unknown';
       segmentDistribution[seg] = (segmentDistribution[seg] || 0) + 1;
     });
 
-    // ─── Reason distribution from step3_reason_select ───
+    // ─── Reason distribution ───
     const reasonDistribution: Record<string, number> = {};
     events.filter(ev => ev.event_name === 'step3_reason_select').forEach(ev => {
       const reason = ev.event_data?.reason || 'Unknown';
@@ -128,7 +149,7 @@ export async function GET() {
     const uniqueVisitors = new Set(events.map(ev => ev.visitor_id).filter(Boolean));
     const uniqueSessions = new Set(events.map(ev => ev.session_id).filter(Boolean));
 
-    // ─── Weekly breakdown (NYC timezone) ───
+    // ─── Weekly ───
     const weeklyMap: Record<string, { views: number; submits: number }> = {};
     events.forEach(ev => {
       const d = toNYC(ev.created_at);
@@ -143,7 +164,7 @@ export async function GET() {
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([week, data]) => ({ week, ...data }));
 
-    // ─── Weekday breakdown (NYC timezone) ───
+    // ─── Weekday ───
     const weekdayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const weekdayMap: Record<number, { views: number; submits: number }> = {};
     for (let i = 0; i < 7; i++) weekdayMap[i] = { views: 0, submits: 0 };
@@ -158,7 +179,7 @@ export async function GET() {
       submits: weekdayMap[i].submits,
     }));
 
-    // ─── Monthly breakdown (NYC timezone) ───
+    // ─── Monthly ───
     const monthlyMap: Record<string, { views: number; submits: number }> = {};
     events.forEach(ev => {
       const d = toNYC(ev.created_at);
@@ -173,6 +194,7 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
+      variant: variant || 'all',
       funnel,
       daily,
       hourly,
@@ -184,7 +206,6 @@ export async function GET() {
       weekly,
       weekday,
       monthly,
-      // Raw event summary for client-side period filtering
       rawEvents: events.map(ev => ({
         n: ev.event_name,
         d: toNYCDateStr(ev.created_at),
