@@ -1,7 +1,6 @@
 // ═══════════════════════════════════════════════════════════
 // 📁 파일 위치: app/api/type-events/route.ts
 // 📌 역할: /type 전용 이벤트 로깅 API
-// 📌 기존 events API와 완전 분리 (A안 영향 없음)
 // ═══════════════════════════════════════════════════════════
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
@@ -13,16 +12,26 @@ const supabase = createClient(
 
 export async function POST(req: NextRequest) {
   try {
-    const { event_type, variant, metadata } = await req.json();
+    const { event_type, variant, visitor_id, session_id, metadata } = await req.json();
 
     if (!event_type) {
       return NextResponse.json({ error: "missing_event_type" }, { status: 400 });
     }
 
+    // ─── IP 기반 geo/device 정보 (헤더에서 추출) ───
+    const forwarded = req.headers.get("x-forwarded-for");
+    const ip = forwarded?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "";
+    const ua = req.headers.get("user-agent") || "";
+    const device_type = /Mobile|Android|iPhone/i.test(ua) ? "mobile" : "desktop";
+
     await supabase.from("piilk_events").insert({
       event_name: event_type,
       event_data: metadata || {},
       variant: variant || "type",
+      visitor_id: visitor_id || null,
+      session_id: session_id || null,
+      device_type,
+      ip_address: ip || null,
       created_at: new Date().toISOString(),
     });
 
