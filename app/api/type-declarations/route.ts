@@ -1,51 +1,50 @@
-// ═══════════════════════════════════════════════════════════
-// 📁 파일 위치: app/api/type-declarations/route.ts
-// 📌 역할: 선언문 투표 API
-// 📌 GET → 카운트 조회 / POST → 투표 (중복 방지)
-// ═══════════════════════════════════════════════════════════
+-- ═══════════════════════════════════════════════════════════
+-- 📌 Supabase SQL Editor에서 실행
+-- 📌 역할: vote_declaration RPC 함수 + 중복투표 방지
+-- ═══════════════════════════════════════════════════════════
 
-import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+-- 1) 중복 투표 방지용 테이블 (없으면 생성)
+CREATE TABLE IF NOT EXISTS piilk_declaration_votes (
+  id BIGSERIAL PRIMARY KEY,
+  statement_key TEXT NOT NULL,
+  visitor_id TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(statement_key, visitor_id)
 );
 
-// GET: 선언문 카운트 조회
-export async function GET() {
-  try {
-    const { data, error } = await supabase
-      .from("piilk_declarations")
-      .select("statement_key, statement_text, vote_count")
-      .order("id");
+-- 2) vote_declaration RPC 함수
+CREATE OR REPLACE FUNCTION vote_declaration(
+  p_statement_key TEXT,
+  p_visitor_id TEXT
+)
+RETURNS INTEGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_count INTEGER;
+BEGIN
+  -- 중복 투표 체크: 이미 투표했으면 현재 카운트만 반환
+  IF EXISTS (
+    SELECT 1 FROM piilk_declaration_votes
+    WHERE statement_key = p_statement_key
+      AND visitor_id = p_visitor_id
+  ) THEN
+    SELECT vote_count INTO v_count
+    FROM piilk_declarations
+    WHERE statement_key = p_statement_key;
+    RETURN COALESCE(v_count, 0);
+  END IF;
 
-    if (error) throw error;
-    return NextResponse.json({ declarations: data });
-  } catch (err) {
-    console.error("Declarations GET error:", err);
-    return NextResponse.json({ error: "failed" }, { status: 500 });
-  }
-}
+  -- 투표 기록 삽입
+  INSERT INTO piilk_declaration_votes (statement_key, visitor_id)
+  VALUES (p_statement_key, p_visitor_id);
 
-// POST: 선언문 투표
-export async function POST(req: NextRequest) {
-  try {
-    const { statement_key, visitor_id } = await req.json();
+  -- vote_count +1 업데이트 후 반환
+  UPDATE piilk_declarations
+  SET vote_count = vote_count + 1
+  WHERE statement_key = p_statement_key
+  RETURNING vote_count INTO v_count;
 
-    if (!statement_key || !visitor_id) {
-      return NextResponse.json({ error: "missing_fields" }, { status: 400 });
-    }
-
-    const { data: newCount, error } = await supabase.rpc("vote_declaration", {
-      p_statement_key: statement_key,
-      p_visitor_id: visitor_id,
-    });
-
-    if (error) throw error;
-    return NextResponse.json({ success: true, vote_count: newCount });
-  } catch (err) {
-    console.error("Declarations POST error:", err);
-    return NextResponse.json({ error: "failed" }, { status: 500 });
-  }
-}
+  RETURN COALESCE(v_count, 0);
+END;
+$$;
