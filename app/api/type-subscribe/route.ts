@@ -14,7 +14,7 @@ const supabase = createClient(
 );
 
 const KLAVIYO_API_KEY = process.env.KLAVIYO_PRIVATE_KEY || process.env.KLAVIYO_API_KEY;
-const KLAVIYO_LIST_ID = process.env.KLAVIYO_LIST_ID;
+const KLAVIYO_LIST_ID = process.env.KLAVIYO_LIST_ID_TYPE || process.env.KLAVIYO_LIST_ID;
 
 // ─── IP → 위치 변환 ───
 async function getGeoFromIP(ip: string) {
