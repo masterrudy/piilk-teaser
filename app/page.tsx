@@ -1,14 +1,11 @@
 'use client';
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
-
 declare global {
   interface Window {
     gtag?: (...args: unknown[]) => void;
   }
 }
-
 function getDeviceType(): string {
   if (typeof window === 'undefined') return 'unknown';
   const ua = navigator.userAgent;
@@ -16,7 +13,6 @@ function getDeviceType(): string {
   if (/mobile|iphone|ipod|android.*mobile|windows phone|blackberry/i.test(ua)) return 'mobile';
   return 'desktop';
 }
-
 function getUTMParams(): Record<string, string> {
   if (typeof window === 'undefined') return {};
   const params = new URLSearchParams(window.location.search);
@@ -27,7 +23,6 @@ function getUTMParams(): Record<string, string> {
   });
   return utm;
 }
-
 function getOrCreateId(key: string, storage: 'session' | 'local'): string {
   if (typeof window === 'undefined') return '';
   const store = storage === 'session' ? sessionStorage : localStorage;
@@ -38,20 +33,17 @@ function getOrCreateId(key: string, storage: 'session' | 'local'): string {
   }
   return id;
 }
-
 export default function TeaserPage() {
   const [phase, setPhase] = useState(1);
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
-
   const trackingData = useRef<Record<string, string>>({});
   const sessionId = useRef('');
   const visitorId = useRef('');
   const leadStartFired = useRef(false);
   const scrollLocked = useRef(false);
   const prevPhase = useRef(1);
-
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const utmParams = getUTMParams();
@@ -66,11 +58,9 @@ export default function TeaserPage() {
     visitorId.current = getOrCreateId('piilk_visitor', 'local');
     trackEvent('page_view');
   }, []);
-
   /* ─── Scroll/wheel/touch ─── */
   useEffect(() => {
     if (typeof window === 'undefined') return;
-
     const go = (dir: 1 | -1) => {
       if (scrollLocked.current) return;
       const next = phase + dir;
@@ -80,15 +70,12 @@ export default function TeaserPage() {
       setPhase(next);
       setTimeout(() => { scrollLocked.current = false; }, 900);
     };
-
     const handleWheel = (e: WheelEvent) => {
-      // Don't advance if focused on email input
       const active = document.activeElement;
       if (active && active.classList.contains('email-input')) return;
       if (Math.abs(e.deltaY) < 30) return;
       go(e.deltaY > 0 ? 1 : -1);
     };
-
     let touchY = 0;
     let touchTarget: EventTarget | null = null;
     const handleTouchStart = (e: TouchEvent) => {
@@ -102,7 +89,6 @@ export default function TeaserPage() {
       if (Math.abs(diff) < 80) return;
       go(diff > 0 ? 1 : -1);
     };
-
     window.addEventListener('wheel', handleWheel, { passive: true });
     window.addEventListener('touchstart', handleTouchStart, { passive: true });
     window.addEventListener('touchend', handleTouchEnd, { passive: true });
@@ -112,12 +98,10 @@ export default function TeaserPage() {
       window.removeEventListener('touchend', handleTouchEnd);
     };
   }, [phase]);
-
   useEffect(() => {
     if (phase === 2) trackEvent('phase_2_view');
     if (phase === 3) trackEvent('phase_3_view');
   }, [phase]);
-
   const trackEvent = useCallback((eventName: string, eventData?: Record<string, any>) => {
     const td = trackingData.current;
     fetch('/api/track', {
@@ -136,14 +120,12 @@ export default function TeaserPage() {
       }),
     }).catch(() => {});
   }, []);
-
   const handleEmailFocus = useCallback(() => {
     if (!leadStartFired.current) {
       leadStartFired.current = true;
       trackEvent('lead_start');
     }
   }, [trackEvent]);
-
   const handleSubmit = async (source: string) => {
     if (!email || !email.includes('@') || !email.includes('.') || isSubmitting || isSubmitted) return;
     setIsSubmitting(true);
@@ -179,8 +161,6 @@ export default function TeaserPage() {
       setIsSubmitting(false);
     }
   };
-
-  /* ─── Click/tap to advance ─── */
   const handleSlideClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.closest('.email-module')) return;
@@ -190,14 +170,11 @@ export default function TeaserPage() {
       setPhase(phase + 1);
     }
   };
-
-  /* ─── Phase position ─── */
   const getPhaseClass = (n: number) => {
     if (n === phase) return 'center';
     if (n < phase) return 'above';
     return 'below';
   };
-
   return (
     <main className="piilk-page">
       {/* ═══ Fixed Background ═══ */}
@@ -213,7 +190,6 @@ export default function TeaserPage() {
         />
         <div className="hero-bg-overlay" />
       </div>
-
       <div className="screen-wrap">
         {/* Logo */}
         <header className="logo-header">
@@ -226,7 +202,6 @@ export default function TeaserPage() {
             onClick={() => { prevPhase.current = phase; setPhase(1); }}
           />
         </header>
-
         {/* Phase 1 */}
         <div className={`slide slide--${getPhaseClass(1)}`} onClick={handleSlideClick} style={{ cursor: phase < 3 ? 'pointer' : 'default' }}>
           <div className="slide-inner">
@@ -239,7 +214,6 @@ export default function TeaserPage() {
             <div className="arrow" />
           </div>
         </div>
-
         {/* Phase 2 */}
         <div className={`slide slide--${getPhaseClass(2)}`} onClick={handleSlideClick} style={{ cursor: phase < 3 ? 'pointer' : 'default' }}>
           <div className="slide-inner">
@@ -292,7 +266,6 @@ export default function TeaserPage() {
             <div className="arrow" />
           </div>
         </div>
-
         {/* Phase 3 */}
         <div className={`slide slide--${getPhaseClass(3)}`}>
           <div className="slide-inner">
@@ -345,7 +318,6 @@ export default function TeaserPage() {
             </div>
           </div>
         </div>
-
         {/* Dots */}
         <nav className="dots">
           {[1, 2, 3].map((n) => (
@@ -358,7 +330,6 @@ export default function TeaserPage() {
           ))}
         </nav>
       </div>
-
       <style jsx global>{`
         :root {
           --accent:       #BFFF00;
@@ -372,9 +343,7 @@ export default function TeaserPage() {
           --tap:          52px;
           --font:         'DM Sans', system-ui, sans-serif;
         }
-
         html, body { margin:0; padding:0; overflow:hidden; height:100%; }
-
         .piilk-page {
           position: fixed; inset: 0;
           background: #000;
@@ -382,22 +351,18 @@ export default function TeaserPage() {
           font-family: var(--font);
           -webkit-font-smoothing: antialiased;
         }
-
         .hero-bg { position:fixed; inset:0; z-index:0; }
         .hero-bg-img { object-fit:cover; transform:scale(1.1); }
         .hero-bg-overlay {
           position:absolute; inset:0;
           background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.3) 40%, rgba(0,0,0,0.65) 100%);
         }
-
         .screen-wrap { position:relative; z-index:1; width:100%; height:100%; overflow:hidden; }
-
         .logo-header {
           position:absolute; top:20px; left:50%; transform:translateX(-50%); z-index:10;
         }
         .logo-img { opacity:0.9; cursor:pointer; transition:opacity 0.3s; }
         .logo-img:hover { opacity:0.6; }
-
         /* ── Slides ── */
         .slide {
           position: absolute;
@@ -414,9 +379,7 @@ export default function TeaserPage() {
         .slide--center { transform: translateY(0); opacity: 1; pointer-events: auto; }
         .slide--above  { transform: translateY(-100vh); opacity: 0; pointer-events: none; }
         .slide--below  { transform: translateY(100vh); opacity: 0; pointer-events: none; }
-
         .slide-inner { max-width: 680px; width: 100%; }
-
         .hero-h1 {
           font-family: var(--font);
           font-size: clamp(28px, 7vw, 52px);
@@ -426,7 +389,6 @@ export default function TeaserPage() {
         }
         .hero-desc { margin-top:16px; font-size:15px; line-height:1.5; color:var(--secondary); }
         .hero-proof { margin-top:10px; font-size:13px; color:var(--muted); letter-spacing:0.02em; }
-
         .why-title {
           font-family: var(--font);
           font-size: clamp(26px, 6vw, 46px);
@@ -437,14 +399,12 @@ export default function TeaserPage() {
         }
         .why-body { font-size:15px; line-height:1.5; color:var(--secondary); }
         .why-body p + p { margin-top:6px; }
-
         .email-wrap, .cta-wrap {
           margin-top: 32px;
           max-width: 460px;
           margin-left: auto;
           margin-right: auto;
         }
-
         /* ── Scroll cue ── */
         .scroll-cue-bottom {
           position: absolute;
@@ -471,12 +431,10 @@ export default function TeaserPage() {
           0%,100% { transform:rotate(45deg) translateY(0); }
           50%     { transform:rotate(45deg) translateY(5px); }
         }
-
         /* ── Footer ── */
         .footer-area { margin-top:40px; }
         .footer-brand { font-size:9px; letter-spacing:0.25em; color:var(--muted); text-transform:uppercase; font-weight:500; }
         .footer-sub { font-size:9px; letter-spacing:0.15em; color:var(--muted); margin-top:4px; font-weight:500; }
-
         /* ── Email ── */
         .email-module { width:100%; }
         .email-form-row { display:flex; flex-direction:column; gap:8px; }
@@ -495,7 +453,6 @@ export default function TeaserPage() {
         .email-input::placeholder { color:var(--muted); }
         .email-input:focus { border-color:var(--accent); }
         .email-input:disabled { opacity:0.4; cursor:not-allowed; }
-
         .email-btn {
           width:100%; height:44px;
           background:var(--accent);
@@ -509,11 +466,9 @@ export default function TeaserPage() {
         .email-btn:hover { background:var(--accent-hover); box-shadow:0 0 24px rgba(191,255,0,0.4); }
         .email-btn:active { transform:scale(0.98); }
         .email-btn:disabled { opacity:0.4; cursor:not-allowed; box-shadow:none; }
-
         .email-trust { margin-top:8px; font-size:11px; color:var(--muted); text-align:center; }
         .email-success { font-size:14px; color:var(--success); font-weight:500; text-align:center; animation:fadeIn 300ms ease forwards; }
         @keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
-
         /* ── Dots ── */
         .dots {
           position:absolute; right:20px; top:50%; transform:translateY(-50%);
@@ -527,13 +482,11 @@ export default function TeaserPage() {
         }
         .dot.active { background:var(--accent); border-color:var(--accent); transform:scale(1.3); }
         .dot:hover { border-color:rgba(255,255,255,0.6); }
-
         @media (min-width:768px) {
           .email-form-row { flex-direction:row; }
           .email-form-row .email-input { flex:1; min-width:0; }
           .email-form-row .email-btn { width:auto; min-width:160px; flex-shrink:0; }
         }
-
         /* ── Mobile optimization ── */
         @media (max-width:767px) {
           .slide { padding: 60px 20px 30px; }
