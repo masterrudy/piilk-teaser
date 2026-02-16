@@ -1,0 +1,35 @@
+// ═══════════════════════════════════════════════════════════
+// 📁 파일 위치: app/api/type-events/route.ts
+// 📌 역할: /type 전용 이벤트 로깅 API
+// 📌 기존 events API와 완전 분리 (A안 영향 없음)
+// ═══════════════════════════════════════════════════════════
+
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+export async function POST(req: NextRequest) {
+  try {
+    const { event_type, variant, metadata } = await req.json();
+
+    if (!event_type) {
+      return NextResponse.json({ error: "missing_event_type" }, { status: 400 });
+    }
+
+    await supabase.from("piilk_events").insert({
+      event_type,
+      variant: variant || "type",
+      metadata: metadata || {},
+      created_at: new Date().toISOString(),
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("Type-events error:", err);
+    return NextResponse.json({ error: "failed" }, { status: 500 });
+  }
+}
