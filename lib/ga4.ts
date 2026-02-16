@@ -4,7 +4,7 @@
 // ═══════════════════════════════════════════
 const VARIANT = "type";
 
-// ─── Session & Visitor ID ───
+// ─── Visitor ID (localStorage — 브라우저 영구) ───
 function getVisitorId(): string {
   if (typeof window === "undefined") return "";
   let id = localStorage.getItem("piilk_vid");
@@ -15,6 +15,7 @@ function getVisitorId(): string {
   return id;
 }
 
+// ─── Session ID (sessionStorage — 탭 닫으면 초기화) ───
 function getSessionId(): string {
   if (typeof window === "undefined") return "";
   let id = sessionStorage.getItem("piilk_sid");
