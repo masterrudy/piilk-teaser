@@ -1,6 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 // 📁 파일 위치: app/api/dashboard/analytics/route.ts
 // 📌 역할: 대시보드 퍼널 분석 API (variant 필터 지원)
+// 📌 페이지네이션: 1,000행씩 반복 fetch → 전체 데이터 수집
 // ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -10,6 +11,8 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+const PAGE_SIZE = 1000;
 
 /* ─── NYC timezone helpers (Intl-based, server-safe) ─── */
 const nycDateFmt = new Intl.DateTimeFormat('en-CA', {
@@ -91,32 +94,49 @@ function normalizeEventName(eventName: string, isTypeVariant: boolean): string {
   return TYPE_EVENT_MAP[eventName] || eventName;
 }
 
-export async function GET(request: NextRequest) {
-  try {
-    const variant = request.nextUrl.searchParams.get('variant') || undefined;
-    const isTypeVariant = variant === 'type';
+/* ─── 페이지네이션 헬퍼: 1,000행씩 전체 fetch ─── */
+async function fetchAllEvents(variant?: string) {
+  const allEvents: any[] = [];
+  let from = 0;
 
-    // ✅ Step 1: SELECT
+  while (true) {
     let query = supabase
       .from('piilk_events')
       .select('event_name, event_data, session_id, visitor_id, variant, country, city, device_type, utm_source, utm_medium, utm_campaign, created_at');
 
-    // ✅ Step 2: FILTER (필터를 먼저 적용)
+    // 필터 적용
     if (variant === 'type') {
       query = query.eq('variant', 'type');
     } else if (variant === 'main') {
       query = query.or('variant.is.null,variant.neq.type');
     }
 
-    // ✅ Step 3: ORDER + RANGE (필터 적용 후)
-    query = query.order('created_at', { ascending: true }).range(0, 9999);
+    // 정렬 + 범위
+    query = query.order('created_at', { ascending: true }).range(from, from + PAGE_SIZE - 1);
 
-    const { data: events, error } = await query;
+    const { data, error } = await query;
 
-    if (error) {
-      console.error('Analytics query error:', error);
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-    }
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+
+    allEvents.push(...data);
+
+    // 이번 페이지가 PAGE_SIZE보다 적으면 마지막 페이지
+    if (data.length < PAGE_SIZE) break;
+
+    from += PAGE_SIZE;
+  }
+
+  return allEvents;
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const variant = request.nextUrl.searchParams.get('variant') || undefined;
+    const isTypeVariant = variant === 'type';
+
+    // ✅ 페이지네이션으로 전체 이벤트 가져오기
+    const events = await fetchAllEvents(variant);
 
     if (!events || events.length === 0) {
       return NextResponse.json({
@@ -134,6 +154,7 @@ export async function GET(request: NextRequest) {
         weekday: [],
         monthly: [],
         rawEvents: [],
+        _totalFetched: 0,
       });
     }
 
@@ -323,6 +344,7 @@ export async function GET(request: NextRequest) {
       weekly,
       weekday,
       monthly,
+      _totalFetched: events.length,
       rawEvents: normalizedEvents.map(ev => ({
         n: ev.event_name,
         d: toNYCDateStr(ev.created_at),
