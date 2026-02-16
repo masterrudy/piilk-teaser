@@ -437,15 +437,20 @@ export default function TeaserType() {
   return (
     <>
       <nav className="nav">
-        <a className="nav-logo" onClick={goHome} style={{ cursor: "pointer" }}>
+        <div
+          onClick={goHome}
+          style={{ cursor: "pointer", display: "flex", alignItems: "center" }}
+        >
           <Image
             src="/pillk-logo.png"
             alt="PIILK"
             width={80}
             height={32}
+            style={{ display: "block" }}
             className="hover:opacity-70 transition-all duration-500"
+            priority
           />
-        </a>
+        </div>
         <span className="nav-right">by Armored Fresh</span>
       </nav>
 
