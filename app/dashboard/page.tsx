@@ -485,7 +485,7 @@ export default function DashboardPage() {
       <div className="min-h-screen bg-black flex items-center justify-center p-4">
         <form onSubmit={handleAuth} className="text-center max-w-sm w-full">
           <div className="flex justify-center mb-4">
-            <Image src="/piilk-logo.png" alt="PIILK" width={120} height={40} className="h-10 w-auto" priority />
+            <Image src="/pillk-logo.png" alt="PIILK" width={120} height={40} className="h-10 w-auto" priority />
           </div>
           <p className="text-zinc-600 text-sm mb-6 sm:mb-8">Internal Dashboard</p>
           <div className="space-y-3">
@@ -520,7 +520,7 @@ export default function DashboardPage() {
             <button onClick={() => window.open('https://teaser.piilk.com', '_blank')} className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center hover:bg-zinc-800 active:scale-95 transition-all" title="Go to teaser site">
               <svg className="w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
             </button>
-            <Image src="/piilk-logo.png" alt="PIILK" width={80} height={28} className="h-6 sm:h-7 w-auto" />
+            <Image src="/pillk-logo.png" alt="PIILK" width={80} height={28} className="h-6 sm:h-7 w-auto" />
             <span className="text-[10px] sm:text-xs text-zinc-600 uppercase tracking-wider hidden sm:inline">Dashboard</span>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
