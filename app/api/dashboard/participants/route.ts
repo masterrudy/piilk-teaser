@@ -27,12 +27,12 @@ const KLAVIYO_A_SUB_SEGMENTS: Record<string, string> = {
   'SW26qD': 'lapsed',
 };
 
-// ✅ Quiz Type 세그먼트
+// ✅ Quiz Type 세그먼트 (afterfeel_type 값: brick, chalk, zombie, gambler)
 const KLAVIYO_SEGMENTS_TYPE: Record<string, string> = {
-  'Sh2BDs': 'brick_stomach',
-  'YumzBn': 'chalk_mouth',
-  'SPLpVA': 'post_shake_zombie',
-  'Rr543U': '30_min_gambler',
+  'Sh2BDs': 'brick',
+  'YumzBn': 'chalk',
+  'SPLpVA': 'zombie',
+  'Rr543U': 'gambler',
 };
 
 // ✅ Quiz Type List ID
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// ✅ Supabase - variant 필터 (기존과 동일)
+// ✅ Supabase - variant 필터
 async function getSupabaseParticipants(variant?: string) {
   if (!supabaseUrl || !supabaseKey) {
     return NextResponse.json({
@@ -101,6 +101,7 @@ async function getSupabaseParticipants(variant?: string) {
     email: row.email || '',
     name: '',
     segment: row.segment || '',
+    // ✅ Quiz Type은 afterfeel_type을 sub_reason으로 표시
     sub_reason: row.afterfeel_type || row.sub_reason || '',
     signed_up_at: row.created_at || '',
     source: row.source || 'supabase',
@@ -202,7 +203,7 @@ async function getKlaviyoParticipants(variant?: string) {
   return NextResponse.json({ success: true, data, total: data.length });
 }
 
-// ✅ NEW: Quiz Type Klaviyo — List에서 전체 프로필 + 세그먼트로 타입 매핑
+// ✅ Quiz Type Klaviyo — List + 세그먼트로 타입 매핑
 async function getKlaviyoParticipantsType() {
   if (!KLAVIYO_API_KEY) {
     return NextResponse.json({ success: false, error: 'Klaviyo not configured', data: [], total: 0 });
@@ -227,7 +228,7 @@ async function getKlaviyoParticipantsType() {
   if (KLAVIYO_LIST_ID_TYPE) {
     allProfiles = await fetchListProfiles(KLAVIYO_LIST_ID_TYPE);
   } else {
-    // List ID 없으면 세그먼트에서 가져오기
+    // List ID 없으면 세그먼트에서 수집
     for (const segId of Object.keys(KLAVIYO_SEGMENTS_TYPE)) {
       const profiles = await fetchSegmentProfiles(segId);
       allProfiles.push(...profiles);
@@ -307,7 +308,7 @@ async function fetchSegmentProfiles(segmentId: string): Promise<any[]> {
   return allProfiles;
 }
 
-// ✅ NEW: List에서 프로필 가져오기
+// ✅ List에서 프로필 가져오기
 async function fetchListProfiles(listId: string): Promise<any[]> {
   const allProfiles: any[] = [];
   let url: string | null =
