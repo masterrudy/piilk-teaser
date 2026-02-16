@@ -3,7 +3,6 @@
 // 📌 역할: /type 전용 이벤트 로깅 API
 // 📌 기존 events API와 완전 분리 (A안 영향 없음)
 // ═══════════════════════════════════════════════════════════
-
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -21,9 +20,9 @@ export async function POST(req: NextRequest) {
     }
 
     await supabase.from("piilk_events").insert({
-      event_type,
+      event_name: event_type,
+      event_data: metadata || {},
       variant: variant || "type",
-      metadata: metadata || {},
       created_at: new Date().toISOString(),
     });
 
