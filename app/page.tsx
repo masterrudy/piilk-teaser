@@ -102,8 +102,9 @@ export default function TeaserPage() {
     if (phase === 2) trackEvent('phase_2_view');
     if (phase === 3) trackEvent('phase_3_view');
   }, [phase]);
-  const trackEvent = useCallback((eventName: string, eventData?: Record<string, any>) => {
+const trackEvent = useCallback((eventName: string, eventData?: Record<string, any>) => {
     const td = trackingData.current;
+    // Supabase
     fetch('/api/track', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -119,6 +120,13 @@ export default function TeaserPage() {
         utm_campaign: td.utm_campaign || null,
       }),
     }).catch(() => {});
+    // GA4 — variant: "main" 포함
+    if (typeof window !== 'undefined' && window.gtag) {
+      window.gtag('event', eventName, {
+        variant: 'main',
+        ...eventData,
+      });
+    }
   }, []);
   const handleEmailFocus = useCallback(() => {
     if (!leadStartFired.current) {
