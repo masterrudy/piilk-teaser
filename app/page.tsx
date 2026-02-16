@@ -252,10 +252,10 @@ export default function TeaserPage() {
             <h1 className="hero-h1">
               Ever Had a Drink<br />That Felt Off<br />Right After?
             </h1>
-            <div className="scroll-cue">
-              <span>Scroll</span>
-              <div className="arrow" />
-            </div>
+          </div>
+          <div className="scroll-cue-bottom">
+            <span>Scroll</span>
+            <div className="arrow" />
           </div>
         </div>
 
@@ -270,10 +270,10 @@ export default function TeaserPage() {
             <div className="email-wrap">
               <EmailModule source="hero" />
             </div>
-            <div className="scroll-cue">
-              <span>Scroll</span>
-              <div className="arrow" />
-            </div>
+          </div>
+          <div className="scroll-cue-bottom">
+            <span>Scroll</span>
+            <div className="arrow" />
           </div>
         </div>
 
@@ -441,22 +441,25 @@ export default function TeaserPage() {
           margin-bottom: 16px;
         }
 
-        /* ── Scroll cue ── */
-        .scroll-cue {
-          margin-top: 48px;
+        /* ── Scroll cue — fixed at bottom of slide ── */
+        .scroll-cue-bottom {
+          position: absolute;
+          bottom: 32px;
+          left: 50%;
+          transform: translateX(-50%);
           display: flex;
           flex-direction: column;
           align-items: center;
           gap: 8px;
           opacity: 0.4;
         }
-        .scroll-cue span {
+        .scroll-cue-bottom span {
           font-size: 12px;
           color: var(--muted);
           letter-spacing: 0.06em;
           text-transform: uppercase;
         }
-        .scroll-cue .arrow {
+        .scroll-cue-bottom .arrow {
           width: 16px; height: 16px;
           border-right: 1.5px solid var(--muted);
           border-bottom: 1.5px solid var(--muted);
