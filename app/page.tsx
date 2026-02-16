@@ -176,8 +176,10 @@ export default function TeaserPage() {
 
   /* ─── Click/tap anywhere to advance ─── */
   const handleSlideClick = (e: React.MouseEvent) => {
-    const tag = (e.target as HTMLElement).tagName.toLowerCase();
-    if (tag === 'input' || tag === 'button') return;
+    const target = e.target as HTMLElement;
+    // Don't advance when interacting with form elements
+    if (target.closest('.email-module')) return;
+    if (target.tagName.toLowerCase() === 'input' || target.tagName.toLowerCase() === 'button') return;
     if (phase < 3) {
       prevPhase.current = phase;
       setPhase(phase + 1);
