@@ -4,6 +4,27 @@
 // ═══════════════════════════════════════════
 const VARIANT = "type";
 
+// ─── Session & Visitor ID ───
+function getVisitorId(): string {
+  if (typeof window === "undefined") return "";
+  let id = localStorage.getItem("piilk_vid");
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem("piilk_vid", id);
+  }
+  return id;
+}
+
+function getSessionId(): string {
+  if (typeof window === "undefined") return "";
+  let id = sessionStorage.getItem("piilk_sid");
+  if (!id) {
+    id = crypto.randomUUID();
+    sessionStorage.setItem("piilk_sid", id);
+  }
+  return id;
+}
+
 // GA4 전송
 function sendGA4(event: string, params: Record<string, string> = {}) {
   if (typeof window !== "undefined" && (window as any).gtag) {
@@ -16,7 +37,13 @@ function sendSupabase(event_type: string, metadata: Record<string, string> = {})
   fetch("/api/type-events", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ event_type, variant: VARIANT, metadata }),
+    body: JSON.stringify({
+      event_type,
+      variant: VARIANT,
+      visitor_id: getVisitorId(),
+      session_id: getSessionId(),
+      metadata,
+    }),
   }).catch(() => {});
 }
 
