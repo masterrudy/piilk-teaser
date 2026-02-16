@@ -61,3 +61,29 @@ select {
   background-size: 1.5em 1.5em;
   padding-right: 2.5rem;
 }
+
+/* ── FOUC 방지: 초기 렌더링 시 슬라이드 숨김 ── */
+.piilk-page {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  color: #fff;
+  overflow: hidden;
+}
+.slide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  opacity: 0;
+}
+.slide--center {
+  opacity: 1;
+}
+.slide--above,
+.slide--below {
+  opacity: 0;
+  pointer-events: none;
+}
