@@ -1,3 +1,10 @@
+// ═══════════════════════════════════════════════════════════
+// 📁 파일 위치: app/type/page.tsx
+// 📌 역할: /type 메인 페이지 (V9 Hybrid 전체)
+// 📌 플로우: Hero → Quiz 3문항 → Result (Share #1 → Email #2 → Referral → Declaration)
+// 📌 모든 API 호출은 /api/type-* 경로 사용 (A안 완전 분리)
+// ═══════════════════════════════════════════════════════════
+
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -12,7 +19,7 @@ import {
 } from "@/lib/quiz-data";
 import { track } from "@/lib/ga4";
 
-// ─── Visitor ID (localStorage) ───
+// ─── Visitor ID ───
 function getVisitorId(): string {
   if (typeof window === "undefined") return "";
   let id = localStorage.getItem("piilk_vid");
@@ -23,10 +30,25 @@ function getVisitorId(): string {
   return id;
 }
 
-// ─── Referral code from URL ───
+// ─── URL에서 referral code 추출 ───
 function getReferralFromURL(): string | null {
   if (typeof window === "undefined") return null;
   return new URLSearchParams(window.location.search).get("ref") || null;
+}
+
+// ─── 브라우저 트래킹 데이터 수집 ───
+function getTrackingData() {
+  if (typeof window === "undefined") return {};
+  const params = new URLSearchParams(window.location.search);
+  return {
+    device_type: /Mobile|Android|iPhone/i.test(navigator.userAgent) ? "mobile" : "desktop",
+    language: navigator.language || null,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
+    referrer: document.referrer || null,
+    utm_source: params.get("utm_source") || null,
+    utm_medium: params.get("utm_medium") || null,
+    utm_campaign: params.get("utm_campaign") || null,
+  };
 }
 
 // ═══════════════════════════════════════════
@@ -86,31 +108,22 @@ function Quiz({ onComplete }: { onComplete: (type: AfterfeelType) => void }) {
   return (
     <section className="phase quiz-phase">
       <div className="wrap">
-        {/* Progress dots */}
         <div className="quiz-dots">
           {QUIZ_QUESTIONS.map((_, i) => (
-            <div
-              key={i}
-              className={`qdot ${i < qi ? "done" : i === qi ? "now" : ""}`}
-            />
+            <div key={i} className={`qdot ${i < qi ? "done" : i === qi ? "now" : ""}`} />
           ))}
         </div>
-
         <div className="caption" style={{ marginBottom: 8 }}>
           {qi + 1} of {QUIZ_QUESTIONS.length}
         </div>
-
         <h2 className="h2 quiz-q">{q.question}</h2>
-
         <div className="quiz-opts">
           {q.options.map((o, j) => (
             <div
               key={`${qi}-${j}`}
               className={`qo ${picked && answers[qi] === o.group ? "pk" : ""}`}
               onClick={() => pick(o.group)}
-              style={{
-                animation: `up .35s cubic-bezier(.16,1,.3,1) ${j * 0.04}s both`,
-              }}
+              style={{ animation: `up .35s cubic-bezier(.16,1,.3,1) ${j * 0.04}s both` }}
             >
               <span className="qo-icon">{o.icon}</span>
               <span>{o.text}</span>
@@ -128,7 +141,6 @@ function Quiz({ onComplete }: { onComplete: (type: AfterfeelType) => void }) {
 function Result({ type }: { type: AfterfeelType }) {
   const t = AFTERFEEL_TYPES[type];
 
-  // State
   const [emailSent, setEmailSent] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailError, setEmailError] = useState("");
@@ -142,13 +154,12 @@ function Result({ type }: { type: AfterfeelType }) {
   const emailRef = useRef<HTMLInputElement>(null);
   const referredBy = useRef<string | null>(null);
 
-  // Init
   useEffect(() => {
     referredBy.current = getReferralFromURL();
     track.typeResult(type);
 
     // Declaration 카운트 로드
-    fetch("/api/declarations")
+    fetch("/api/type-declarations")
       .then((r) => r.json())
       .then((data) => {
         if (data.declarations) {
@@ -178,7 +189,7 @@ function Result({ type }: { type: AfterfeelType }) {
           );
           break;
         case "ig":
-          // TODO: html2canvas → save card as PNG for IG Stories
+          // TODO: html2canvas → PNG for IG Stories
           alert("Production: html2canvas → saves card as PNG for IG Stories.");
           break;
         case "sms":
@@ -194,25 +205,25 @@ function Result({ type }: { type: AfterfeelType }) {
     [t.name, type]
   );
 
-  // ─── Email Submit ───
+  // ─── Email ───
   async function submitEmail() {
     const email = emailRef.current?.value.trim();
     if (!email || !email.includes("@") || !email.includes(".")) {
       setEmailError("Please enter a valid email.");
       return;
     }
-
     setEmailLoading(true);
     setEmailError("");
 
     try {
-      const res = await fetch("/api/subscribe", {
+      const res = await fetch("/api/type-subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
           afterfeel_type: type,
           referred_by: referredBy.current,
+          tracking: getTrackingData(),
         }),
       });
       const data = await res.json();
@@ -239,7 +250,6 @@ function Result({ type }: { type: AfterfeelType }) {
   // ─── Declaration Vote ───
   async function voteDeclaration(key: string) {
     if (votedDecls.has(key)) return;
-
     track.declarationTap(key);
 
     // Optimistic update
@@ -247,19 +257,17 @@ function Result({ type }: { type: AfterfeelType }) {
     setVotedDecls((prev) => new Set(prev).add(key));
 
     try {
-      const res = await fetch("/api/declarations", {
+      const res = await fetch("/api/type-declarations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ statement_key: key, visitor_id: getVisitorId() }),
       });
       const data = await res.json();
-
       if (data.success) {
-        // 서버 카운트로 보정
         setDeclCounts((prev) => ({ ...prev, [key]: data.vote_count }));
       }
     } catch {
-      // 이미 optimistic 처리됨
+      // Optimistic already applied
     }
   }
 
@@ -281,11 +289,10 @@ function Result({ type }: { type: AfterfeelType }) {
     }
   }
 
-  // ─── RENDER ───
   return (
     <section className="phase result-phase">
       <div className="result-wrap">
-        {/* ═══ CARD (밈 전용: identity only) ═══ */}
+        {/* CARD */}
         <div className="card">
           <div className="card-inner">
             <div className="label">Your after-feel type</div>
@@ -296,31 +303,23 @@ function Result({ type }: { type: AfterfeelType }) {
           </div>
         </div>
 
-        {/* ═══ SHARE = #1 CTA ═══ */}
+        {/* SHARE = #1 CTA */}
         <div className="share-zone">
           <div className="share-label">Tell them what you are</div>
           <div className="share-grid">
-            <button className="share-btn" onClick={() => doShare("ig")}>
-              📸 Story
-            </button>
-            <button className="share-btn" onClick={() => doShare("sms")}>
-              💬 Text
-            </button>
-            <button className="share-btn" onClick={() => doShare("x")}>
-              𝕏 Post
-            </button>
+            <button className="share-btn" onClick={() => doShare("ig")}>📸 Story</button>
+            <button className="share-btn" onClick={() => doShare("sms")}>💬 Text</button>
+            <button className="share-btn" onClick={() => doShare("x")}>𝕏 Post</button>
           </div>
           <div className="copy-row" onClick={() => doShare("link")}>
             <span>teaser.piilk.com/type</span>
-            <span className="copy-label">
-              {copied ? "Copied!" : "Copy link"}
-            </span>
+            <span className="copy-label">{copied ? "Copied!" : "Copy link"}</span>
           </div>
         </div>
 
         <div className="sep" />
 
-        {/* ═══ EMAIL = #2 CTA ═══ */}
+        {/* EMAIL = #2 CTA */}
         <div className="email-section">
           {!emailSent ? (
             <div>
@@ -337,62 +336,41 @@ function Result({ type }: { type: AfterfeelType }) {
                   placeholder="your@email.com"
                   onKeyDown={(e) => e.key === "Enter" && submitEmail()}
                 />
-                <button
-                  className="email-btn"
-                  onClick={submitEmail}
-                  disabled={emailLoading}
-                >
+                <button className="email-btn" onClick={submitEmail} disabled={emailLoading}>
                   {emailLoading ? "..." : "Get early access"}
                 </button>
               </div>
               {emailError && <div className="email-error">{emailError}</div>}
-              <div className="email-note">
-                Shipping nationwide. We&apos;ll let you know first.
-              </div>
+              <div className="email-note">Shipping nationwide. We&apos;ll let you know first.</div>
             </div>
           ) : (
             <div className="email-ok anim-up">
               <div className="email-ok-icon">✓</div>
               <div className="email-ok-head">You&apos;re on the list.</div>
-              <div className="email-ok-sub">
-                We&apos;ll email you when it&apos;s your turn.
-              </div>
+              <div className="email-ok-sub">We&apos;ll email you when it&apos;s your turn.</div>
             </div>
           )}
         </div>
 
-        {/* ═══ REFERRAL (이메일 후) ═══ */}
+        {/* REFERRAL (이메일 후) */}
         {emailSent && (
           <div className="referral anim-up">
             <div className="ref-rank">#{queuePosition.toLocaleString()}</div>
             <div className="ref-rank-label">Your spot in line</div>
             <div className="ref-card">
               <div className="ref-card-title">Skip the line ⚡</div>
-              <div className="ref-tier">
-                <span>3 friends join</span>
-                <span className="ref-tier-reward">20% off at launch</span>
-              </div>
-              <div className="ref-tier">
-                <span>10 friends join</span>
-                <span className="ref-tier-reward">Free first box</span>
-              </div>
-              <div className="ref-tier">
-                <span>25 friends join</span>
-                <span className="ref-tier-reward">50% off for 1 year</span>
-              </div>
+              <div className="ref-tier"><span>3 friends join</span><span className="ref-tier-reward">20% off at launch</span></div>
+              <div className="ref-tier"><span>10 friends join</span><span className="ref-tier-reward">Free first box</span></div>
+              <div className="ref-tier"><span>25 friends join</span><span className="ref-tier-reward">50% off for 1 year</span></div>
             </div>
             <div className="ref-btns">
-              <button className="ref-btn primary" onClick={() => refShare("x")}>
-                Share on 𝕏
-              </button>
-              <button className="ref-btn ghost" onClick={() => refShare("copy")}>
-                {refCopied ? "Copied!" : "Copy your link"}
-              </button>
+              <button className="ref-btn primary" onClick={() => refShare("x")}>Share on 𝕏</button>
+              <button className="ref-btn ghost" onClick={() => refShare("copy")}>{refCopied ? "Copied!" : "Copy your link"}</button>
             </div>
           </div>
         )}
 
-        {/* ═══ PROOF (이메일 후 = BOF) ═══ */}
+        {/* PROOF (이메일 후 = BOF) */}
         {emailSent && (
           <div className="proof-mini anim-up">
             <span className="ptag">30g protein</span>
@@ -404,12 +382,10 @@ function Result({ type }: { type: AfterfeelType }) {
 
         <div className="sep" />
 
-        {/* ═══ DECLARATIONS ═══ */}
+        {/* DECLARATIONS */}
         <div className="declarations">
           <div className="decl-header">
-            <div className="label" style={{ marginBottom: 8 }}>
-              Do you agree?
-            </div>
+            <div className="label" style={{ marginBottom: 8 }}>Do you agree?</div>
             <div className="h3">Tap the ones that feel true.</div>
           </div>
           <div className="decl-list">
@@ -420,9 +396,7 @@ function Result({ type }: { type: AfterfeelType }) {
                 onClick={() => voteDeclaration(d.key)}
               >
                 <span className="decl-text">{d.text}</span>
-                <span className="decl-count">
-                  {(declCounts[d.key] || 0).toLocaleString()} ✊
-                </span>
+                <span className="decl-count">{(declCounts[d.key] || 0).toLocaleString()} ✊</span>
               </div>
             ))}
           </div>
