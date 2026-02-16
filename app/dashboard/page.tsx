@@ -157,28 +157,3 @@ function getUtmColor(source: string) {
     );
   };
 
-
-// ─────────────────────────────────────────
-// STEP 4: Analytics 탭에서 UtmSourceStatsSection 삽입
-// ─────────────────────────────────────────
-
-// Analytics 섹션 내에서, 기존 "grid grid-cols-2 sm:grid-cols-4" (Visitors/Sessions/Submits/CVR 카드) 
-// 바로 위에 아래 코드를 추가:
-
-                {/* ✅ NEW: Traffic Source Breakdown */}
-                <UtmSourceStatsSection />
-
-
-// ─────────────────────────────────────────
-// STEP 5: Analytics 상단 4개 카드의 데이터를 visitorStats로 교체 (선택사항)
-// ─────────────────────────────────────────
-
-// 기존 코드:
-//   <p className="text-xl sm:text-2xl font-black text-white">{filteredAnalytics?.totalVisitors}</p>
-//   <p className="text-xl sm:text-2xl font-black text-white">{filteredAnalytics?.totalSessions}</p>
-
-// 변경 코드 (analyticsPeriod === 'all' 일때 visitorStats.total 사용):
-//   const vs = analyticsPeriod === 'today' ? analyticsData?.visitorStats?.today : 
-//              analyticsPeriod === 'all' ? analyticsData?.visitorStats?.total : null;
-//   Visitors: vs?.visitors || filteredAnalytics?.totalVisitors
-//   Sessions: vs?.sessions || filteredAnalytics?.totalSessions
