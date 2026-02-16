@@ -1,3 +1,9 @@
+// ═══════════════════════════════════════════════════════════
+// 📁 파일 위치: app/api/dashboard/participants/route.ts
+// 📌 역할: 대시보드 참여자 목록 API (variant 필터 지원)
+// 📌 사용법: /api/dashboard/participants?source=supabase&variant=type
+// ═══════════════════════════════════════════════════════════
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
@@ -12,7 +18,6 @@ const KLAVIYO_SEGMENTS = {
   C_TOTAL: 'XbMadh',
 };
 
-// ✅ Segment A 세부 세그먼트 ID → sub_reason 매핑
 const KLAVIYO_A_SUB_SEGMENTS: Record<string, string> = {
   'Ypdfd9': 'residue',
   'XeKqr5': 'aftertaste',
@@ -23,10 +28,11 @@ const KLAVIYO_A_SUB_SEGMENTS: Record<string, string> = {
 
 export async function GET(request: NextRequest) {
   const source = request.nextUrl.searchParams.get('source') || 'supabase';
+  const variant = request.nextUrl.searchParams.get('variant') || undefined;
 
   try {
-    if (source === 'supabase') return await getSupabaseParticipants();
-    if (source === 'klaviyo') return await getKlaviyoParticipants();
+    if (source === 'supabase') return await getSupabaseParticipants(variant);
+    if (source === 'klaviyo') return await getKlaviyoParticipants(variant);
     return NextResponse.json({ success: false, error: 'Invalid source' }, { status: 400 });
   } catch (error: any) {
     return NextResponse.json({
@@ -40,15 +46,12 @@ export async function GET(request: NextRequest) {
   }
 }
 
-async function getSupabaseParticipants() {
+// ✅ variant 필터 추가
+async function getSupabaseParticipants(variant?: string) {
   if (!supabaseUrl || !supabaseKey) {
     return NextResponse.json({
-      success: false,
-      error: 'Missing env vars',
-      hasUrl: !!supabaseUrl,
-      hasKey: !!supabaseKey,
-      data: [],
-      total: 0,
+      success: false, error: 'Missing env vars',
+      hasUrl: !!supabaseUrl, hasKey: !!supabaseKey, data: [], total: 0,
     });
   }
 
@@ -56,31 +59,29 @@ async function getSupabaseParticipants() {
 
   const { data: subscribers, error } = await supabase
     .from('piilk_subscribers')
-    .select('id, email, segment, sub_reason, source, created_at, ip_address, device_type, language, timezone, referrer, country, region, city, utm_source, utm_medium, utm_campaign');
+    .select('id, email, segment, sub_reason, source, variant, afterfeel_type, created_at, ip_address, device_type, language, timezone, referrer, country, region, city, utm_source, utm_medium, utm_campaign');
 
   if (error) {
     return NextResponse.json({
-      success: false,
-      error: 'Supabase query error',
-      message: error.message,
-      code: error.code,
-      hint: error.hint,
-      details: error.details,
-      data: [],
-      total: 0,
+      success: false, error: 'Supabase query error',
+      message: error.message, code: error.code, hint: error.hint, details: error.details,
+      data: [], total: 0,
     });
   }
 
   if (!subscribers) {
-    return NextResponse.json({
-      success: false,
-      error: 'No data returned',
-      data: [],
-      total: 0,
-    });
+    return NextResponse.json({ success: false, error: 'No data returned', data: [], total: 0 });
   }
 
-  const data = subscribers.map((row: any) => ({
+  // ✅ variant 필터 적용
+  let filtered = subscribers;
+  if (variant === 'type') {
+    filtered = subscribers.filter((row: any) => row.variant === 'type');
+  } else if (variant === 'main') {
+    filtered = subscribers.filter((row: any) => !row.variant || row.variant !== 'type');
+  }
+
+  const data = filtered.map((row: any) => ({
     id: row.id?.toString() || '',
     email: row.email || '',
     name: '',
@@ -88,6 +89,8 @@ async function getSupabaseParticipants() {
     sub_reason: row.sub_reason || '',
     signed_up_at: row.created_at || '',
     source: row.source || 'supabase',
+    variant: row.variant || '',
+    afterfeel_type: row.afterfeel_type || '',
     ip_address: row.ip_address || '',
     device_type: row.device_type || '',
     language: row.language || '',
@@ -106,7 +109,8 @@ async function getSupabaseParticipants() {
   return NextResponse.json({ success: true, data, total: data.length });
 }
 
-async function getKlaviyoParticipants() {
+// ✅ Klaviyo - variant 필터 (properties.variant로 필터)
+async function getKlaviyoParticipants(variant?: string) {
   if (!KLAVIYO_API_KEY) {
     return NextResponse.json({ success: false, error: 'Klaviyo not configured', data: [], total: 0 });
   }
@@ -117,8 +121,7 @@ async function getKlaviyoParticipants() {
     { id: KLAVIYO_SEGMENTS.C_TOTAL, segment: 'C' },
   ];
 
-  // ✅ Segment A 세부 세그먼트 프로필도 가져와서 sub_reason 매핑
-  const subSegmentProfiles = new Map<string, string>(); // email -> sub_reason
+  const subSegmentProfiles = new Map<string, string>();
 
   for (const [segId, reason] of Object.entries(KLAVIYO_A_SUB_SEGMENTS)) {
     const profiles = await fetchSegmentProfiles(segId);
@@ -140,7 +143,6 @@ async function getKlaviyoParticipants() {
       const email = (attrs.email || '').toLowerCase();
 
       if (!allProfiles.has(profile.id)) {
-        // ✅ sub_reason: Klaviyo properties에 있으면 사용, 없으면 세부 세그먼트에서 역추적
         let subReason = props.sub_reason || '';
         if (!subReason && seg.segment === 'A' && email) {
           subReason = subSegmentProfiles.get(email) || '';
@@ -156,6 +158,8 @@ async function getKlaviyoParticipants() {
           sub_reason: subReason,
           signed_up_at: attrs.created || '',
           source: 'klaviyo',
+          variant: props.variant || '',
+          afterfeel_type: props.afterfeel_type || '',
           ip_address: '',
           device_type: props.device_type || '',
           language: props.language || '',
@@ -172,7 +176,15 @@ async function getKlaviyoParticipants() {
     }
   }
 
-  const data = Array.from(allProfiles.values());
+  let data = Array.from(allProfiles.values());
+
+  // ✅ variant 필터 적용
+  if (variant === 'type') {
+    data = data.filter(p => p.variant === 'type');
+  } else if (variant === 'main') {
+    data = data.filter(p => !p.variant || p.variant !== 'type');
+  }
+
   data.sort((a, b) => (b.signed_up_at || '').localeCompare(a.signed_up_at || ''));
 
   return NextResponse.json({ success: true, data, total: data.length });
