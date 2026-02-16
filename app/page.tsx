@@ -52,10 +52,6 @@ export default function TeaserPage() {
   const scrollLocked = useRef(false);
   const prevPhase = useRef(1);
 
-  // Refs for inputs to maintain focus
-  const heroInputRef = useRef<HTMLInputElement>(null);
-  const ctaInputRef = useRef<HTMLInputElement>(null);
-
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const utmParams = getUTMParams();
@@ -203,13 +199,12 @@ export default function TeaserPage() {
   };
 
   /* ─── Inline email form renderer ─── */
-  const renderEmailForm = (source: string, inputRef: React.RefObject<HTMLInputElement | null>) => (
+  const renderEmailForm = (source: string) => (
     <div className="email-module">
       {!isSubmitted ? (
         <>
           <div className="email-form-row">
             <input
-              ref={inputRef}
               type="email"
               className="email-input"
               value={email}
@@ -289,7 +284,7 @@ export default function TeaserPage() {
             <p className="hero-desc">Heavy after. Film that lingers. You know the moment.</p>
             <p className="hero-proof">30g protein · 7 ingredients · Dairy-free</p>
             <div className="email-wrap">
-              {renderEmailForm('hero', heroInputRef)}
+              {renderEmailForm('hero')}
             </div>
           </div>
           <div className="scroll-cue-bottom">
@@ -307,7 +302,7 @@ export default function TeaserPage() {
               <p>We obsessed over what happens after you drink it.</p>
             </div>
             <div className="cta-wrap">
-              {renderEmailForm('cta', ctaInputRef)}
+              {renderEmailForm('cta')}
             </div>
             <div className="footer-area">
               <p className="footer-brand">PIILK™ by ARMORED FRESH</p>
