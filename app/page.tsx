@@ -88,10 +88,17 @@ export default function TeaserPage() {
     };
 
     let touchY = 0;
-    const handleTouchStart = (e: TouchEvent) => { touchY = e.touches[0].clientY; };
+    let touchTarget: EventTarget | null = null;
+    const handleTouchStart = (e: TouchEvent) => {
+      touchY = e.touches[0].clientY;
+      touchTarget = e.target;
+    };
     const handleTouchEnd = (e: TouchEvent) => {
+      // Don't advance if touch started on email module
+      const el = touchTarget as HTMLElement | null;
+      if (el && el.closest && el.closest('.email-module')) return;
       const diff = touchY - e.changedTouches[0].clientY;
-      if (Math.abs(diff) < 50) return;
+      if (Math.abs(diff) < 80) return;
       go(diff > 0 ? 1 : -1);
     };
 
