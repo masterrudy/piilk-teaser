@@ -104,7 +104,7 @@ let query = supabase
   .from('piilk_events')
   .select('event_name, event_data, session_id, visitor_id, variant, country, city, device_type, utm_source, utm_medium, utm_campaign, created_at')
   .order('created_at', { ascending: true })
-  .limit(10000);
+.range(0, 9999);
 
     if (variant === 'type') {
       query = query.eq('variant', 'type');
