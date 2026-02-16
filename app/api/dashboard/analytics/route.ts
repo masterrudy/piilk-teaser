@@ -1,6 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 // 📁 파일 위치: app/api/dashboard/analytics/route.ts
 // 📌 역할: 대시보드 퍼널 분석 API (variant 필터 지원)
+// 📌 추가: UTM 소스별 방문자/이벤트 상세 + Today/Total 분리
 // 📌 페이지네이션: 1,000행씩 반복 fetch → 전체 데이터 수집
 // ═══════════════════════════════════════════════════════════
 
@@ -78,6 +79,10 @@ function toNYCMonthKey(dateStr: string): string {
   return `${year}-${String(month).padStart(2, '0')}`;
 }
 
+function getTodayNYC(): string {
+  return nycDateFmt.format(new Date());
+}
+
 /* ─── Quiz Type → Main Teaser 이벤트명 매핑 ─── */
 const TYPE_EVENT_MAP: Record<string, string> = {
   quiz_start: 'step1_cta_click',
@@ -130,10 +135,122 @@ async function fetchAllEvents(variant?: string) {
   return allEvents;
 }
 
+/* ─── UTM 소스별 상세 통계 생성 ─── */
+function buildUtmSourceStats(events: any[], normalizedEvents: any[], todayStr: string) {
+  // 전체(Total) UTM 통계
+  const utmTotal: Record<string, {
+    visitors: Set<string>;
+    sessions: Set<string>;
+    events: number;
+    page_views: number;
+    submits: Set<string>;
+  }> = {};
+
+  // 오늘(Today) UTM 통계
+  const utmToday: Record<string, {
+    visitors: Set<string>;
+    sessions: Set<string>;
+    events: number;
+    page_views: number;
+    submits: Set<string>;
+  }> = {};
+
+  const initUtm = () => ({
+    visitors: new Set<string>(),
+    sessions: new Set<string>(),
+    events: 0,
+    page_views: 0,
+    submits: new Set<string>(),
+  });
+
+  normalizedEvents.forEach((ev, idx) => {
+    const source = events[idx].utm_source || 'Direct';
+    const vid = ev.visitor_id || 'unknown';
+    const sid = ev.session_id || ev.visitor_id || 'unknown';
+    const day = toNYCDateStr(ev.created_at);
+
+    // Total
+    if (!utmTotal[source]) utmTotal[source] = initUtm();
+    utmTotal[source].visitors.add(vid);
+    utmTotal[source].sessions.add(sid);
+    utmTotal[source].events++;
+    if (ev.event_name === 'page_view') utmTotal[source].page_views++;
+    if (ev.event_name === 'step4_submit') utmTotal[source].submits.add(sid);
+
+    // Today
+    if (day === todayStr) {
+      if (!utmToday[source]) utmToday[source] = initUtm();
+      utmToday[source].visitors.add(vid);
+      utmToday[source].sessions.add(sid);
+      utmToday[source].events++;
+      if (ev.event_name === 'page_view') utmToday[source].page_views++;
+      if (ev.event_name === 'step4_submit') utmToday[source].submits.add(sid);
+    }
+  });
+
+  const formatUtmMap = (map: typeof utmTotal) =>
+    Object.entries(map)
+      .map(([source, data]) => ({
+        source,
+        visitors: data.visitors.size,
+        sessions: data.sessions.size,
+        events: data.events,
+        page_views: data.page_views,
+        submits: data.submits.size,
+        cvr: data.visitors.size > 0 ? ((data.submits.size / data.visitors.size) * 100).toFixed(1) : '0',
+      }))
+      .sort((a, b) => b.visitors - a.visitors);
+
+  return {
+    total: formatUtmMap(utmTotal),
+    today: formatUtmMap(utmToday),
+  };
+}
+
+/* ─── 방문자 통계 (Today / Total) ─── */
+function buildVisitorStats(events: any[], normalizedEvents: any[], todayStr: string) {
+  const totalVisitors = new Set<string>();
+  const totalSessions = new Set<string>();
+  const todayVisitors = new Set<string>();
+  const todaySessions = new Set<string>();
+  let totalEvents = 0;
+  let todayEvents = 0;
+
+  events.forEach(ev => {
+    const vid = ev.visitor_id || 'unknown';
+    const sid = ev.session_id || ev.visitor_id || 'unknown';
+    const day = toNYCDateStr(ev.created_at);
+
+    totalVisitors.add(vid);
+    totalSessions.add(sid);
+    totalEvents++;
+
+    if (day === todayStr) {
+      todayVisitors.add(vid);
+      todaySessions.add(sid);
+      todayEvents++;
+    }
+  });
+
+  return {
+    total: {
+      visitors: totalVisitors.size,
+      sessions: totalSessions.size,
+      events: totalEvents,
+    },
+    today: {
+      visitors: todayVisitors.size,
+      sessions: todaySessions.size,
+      events: todayEvents,
+    },
+  };
+}
+
 export async function GET(request: NextRequest) {
   try {
     const variant = request.nextUrl.searchParams.get('variant') || undefined;
     const isTypeVariant = variant === 'type';
+    const todayStr = getTodayNYC();
 
     // ✅ 페이지네이션으로 전체 이벤트 가져오기
     const events = await fetchAllEvents(variant);
@@ -146,6 +263,8 @@ export async function GET(request: NextRequest) {
         daily: [],
         hourly: [],
         utmPerformance: [],
+        utmSourceStats: { total: [], today: [] },
+        visitorStats: { total: { visitors: 0, sessions: 0, events: 0 }, today: { visitors: 0, sessions: 0, events: 0 } },
         segmentDistribution: {},
         reasonDistribution: {},
         totalVisitors: 0,
@@ -155,6 +274,7 @@ export async function GET(request: NextRequest) {
         monthly: [],
         rawEvents: [],
         _totalFetched: 0,
+        _todayNYC: todayStr,
       });
     }
 
@@ -240,7 +360,7 @@ export async function GET(request: NextRequest) {
       count: hourMap[i] || 0,
     }));
 
-    // ─── UTM Performance ───
+    // ─── UTM Performance (기존 호환) ───
     const utmMap: Record<string, { views: Set<string>; submits: Set<string> }> = {};
     normalizedEvents.forEach(ev => {
       const source = ev.utm_source || 'Direct';
@@ -258,6 +378,12 @@ export async function GET(request: NextRequest) {
         cvr: data.views.size > 0 ? ((data.submits.size / data.views.size) * 100).toFixed(1) : '0',
       }))
       .sort((a, b) => b.views - a.views);
+
+    // ✅ NEW: UTM 소스별 상세 통계 (Today + Total)
+    const utmSourceStats = buildUtmSourceStats(events, normalizedEvents, todayStr);
+
+    // ✅ NEW: 방문자 통계 (Today + Total)
+    const visitorStats = buildVisitorStats(events, normalizedEvents, todayStr);
 
     // ─── Segment distribution ───
     const segmentDistribution: Record<string, number> = {};
@@ -337,6 +463,8 @@ export async function GET(request: NextRequest) {
       daily,
       hourly,
       utmPerformance,
+      utmSourceStats,
+      visitorStats,
       segmentDistribution,
       reasonDistribution,
       totalVisitors: uniqueVisitors.size,
@@ -345,6 +473,7 @@ export async function GET(request: NextRequest) {
       weekday,
       monthly,
       _totalFetched: events.length,
+      _todayNYC: todayStr,
       rawEvents: normalizedEvents.map(ev => ({
         n: ev.event_name,
         d: toNYCDateStr(ev.created_at),
