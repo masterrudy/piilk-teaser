@@ -148,10 +148,37 @@ export default function TeaserPage() {
           email_domain: email.split('@')[1] || '',
           source,
         });
+     
         if (typeof window !== 'undefined' && window.gtag) {
           window.gtag('event', 'generate_lead', { method: 'email_signup', signup_source: source });
         }
+        // ✅ Meta Pixel — Lead 전환
+        if (typeof window !== 'undefined' && (window as any).fbq) {
+          (window as any).fbq('track', 'Lead', {
+            content_name: 'piilk_main_teaser',
+            content_category: 'teaser_signup',
+          });
+          (window as any).fbq('track', 'CompleteRegistration', {
+            content_name: 'piilk_main_teaser',
+            value: 1,
+            currency: 'USD',
+          });
+        }
+
+        // ✅ TikTok Pixel — Lead 전환
+        if (typeof window !== 'undefined' && (window as any).ttq) {
+          (window as any).ttq.track('SubmitForm', {
+            content_name: 'piilk_main_teaser',
+          });
+          (window as any).ttq.track('CompleteRegistration', {
+            content_name: 'piilk_main_teaser',
+            value: 1,
+            currency: 'USD',
+          });
+        }
+
         setIsSubmitted(true);
+        
       } else {
         alert(data.error || 'Something went wrong. Please try again.');
       }
