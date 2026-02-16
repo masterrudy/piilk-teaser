@@ -1,7 +1,6 @@
 // ═══════════════════════════════════════════════════════════
 // 📁 파일 위치: app/api/type-declarations/route.ts
-// 📌 역할: 선언문 투표 API (RPC 없이 직접 쿼리)
-// 📌 GET → 카운트 조회 / POST → 투표 (중복 방지)
+// 📌 역할: 선언문 투표 API (직접 쿼리)
 // ═══════════════════════════════════════════════════════════
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
@@ -27,7 +26,7 @@ export async function GET() {
   }
 }
 
-// POST: 선언문 투표 (RPC 없이 직접 처리)
+// POST: 선언문 투표
 export async function POST(req: NextRequest) {
   try {
     const { statement_key, visitor_id } = await req.json();
@@ -45,54 +44,52 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (existing) {
-      // 이미 투표함 → 현재 카운트만 반환
-      const { data: current } = await supabase
+      const { data: row } = await supabase
         .from("piilk_declarations")
         .select("vote_count")
         .eq("statement_key", statement_key)
         .single();
-
-      return NextResponse.json({
-        success: true,
-        vote_count: current?.vote_count || 0,
-      });
+      return NextResponse.json({ success: true, vote_count: row?.vote_count || 0 });
     }
 
     // 2) 투표 기록 삽입
-    const { error: insertError } = await supabase
+    const { error: insertErr } = await supabase
       .from("piilk_declaration_votes")
       .insert({ statement_key, visitor_id });
 
-    if (insertError) throw insertError;
+    if (insertErr) {
+      console.error("Insert vote error:", insertErr);
+      throw insertErr;
+    }
 
-    // 3) vote_count +1 업데이트
-    const { data: decl, error: updateError } = await supabase
-      .from("piilk_declarations")
-      .update({ vote_count: supabase.rpc ? undefined : 0 }) // placeholder
-      .eq("statement_key", statement_key)
-      .select("vote_count")
-      .single();
-
-    // supabase-js에서 increment가 안 되므로 raw SQL 사용
-    // 대신 2단계로 처리: 현재값 읽고 +1
-    const { data: currentRow } = await supabase
+    // 3) 현재 vote_count 읽기
+    const { data: current, error: readErr } = await supabase
       .from("piilk_declarations")
       .select("vote_count")
       .eq("statement_key", statement_key)
       .single();
 
-    const newCount = (currentRow?.vote_count || 0) + 1;
+    if (readErr) {
+      console.error("Read count error:", readErr);
+      throw readErr;
+    }
 
-    const { error: upErr } = await supabase
+    const newCount = (current?.vote_count ?? 0) + 1;
+
+    // 4) vote_count 업데이트
+    const { error: updateErr } = await supabase
       .from("piilk_declarations")
       .update({ vote_count: newCount })
       .eq("statement_key", statement_key);
 
-    if (upErr) throw upErr;
+    if (updateErr) {
+      console.error("Update count error:", updateErr);
+      throw updateErr;
+    }
 
     return NextResponse.json({ success: true, vote_count: newCount });
   } catch (err) {
     console.error("Declarations POST error:", err);
-    return NextResponse.json({ error: "failed" }, { status: 500 });
+    return NextResponse.json({ error: "failed", detail: String(err) }, { status: 500 });
   }
 }
