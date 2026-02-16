@@ -1,9 +1,6 @@
 // ═══════════════════════════════════════════════════════════
 // 📁 파일 위치: app/api/dashboard/analytics/route.ts
 // 📌 역할: 대시보드 퍼널 분석 API (variant 필터 지원)
-// 📌 사용법: /api/dashboard/analytics?variant=type (퀴즈만)
-//           /api/dashboard/analytics?variant=main (메인 티저만)
-//           /api/dashboard/analytics (전체)
 // ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -41,12 +38,12 @@ const nycMonthFmt = new Intl.DateTimeFormat('en-US', {
 });
 
 function toNYCDateStr(dateStr: string): string {
-  return nycDateFmt.format(new Date(dateStr)); // YYYY-MM-DD
+  return nycDateFmt.format(new Date(dateStr));
 }
 
 function toNYCHour(dateStr: string): number {
   const h = nycHourFmt.format(new Date(dateStr));
-  return parseInt(h, 10) % 24; // "24" → 0
+  return parseInt(h, 10) % 24;
 }
 
 function toNYCDay(dateStr: string): number {
@@ -64,7 +61,6 @@ function toNYCMonth(dateStr: string): number {
 }
 
 function toNYCWeekKey(dateStr: string): string {
-  const d = new Date(dateStr);
   const nycDate = toNYCDateStr(dateStr);
   const [y, m, day] = nycDate.split('-').map(Number);
   const jan1 = new Date(y, 0, 1);
@@ -100,17 +96,20 @@ export async function GET(request: NextRequest) {
     const variant = request.nextUrl.searchParams.get('variant') || undefined;
     const isTypeVariant = variant === 'type';
 
-let query = supabase
-  .from('piilk_events')
-  .select('event_name, event_data, session_id, visitor_id, variant, country, city, device_type, utm_source, utm_medium, utm_campaign, created_at')
-  .order('created_at', { ascending: true })
-.range(0, 9999);
+    // ✅ Step 1: SELECT
+    let query = supabase
+      .from('piilk_events')
+      .select('event_name, event_data, session_id, visitor_id, variant, country, city, device_type, utm_source, utm_medium, utm_campaign, created_at');
 
+    // ✅ Step 2: FILTER (필터를 먼저 적용)
     if (variant === 'type') {
       query = query.eq('variant', 'type');
     } else if (variant === 'main') {
       query = query.or('variant.is.null,variant.neq.type');
     }
+
+    // ✅ Step 3: ORDER + RANGE (필터 적용 후)
+    query = query.order('created_at', { ascending: true }).range(0, 9999);
 
     const { data: events, error } = await query;
 
