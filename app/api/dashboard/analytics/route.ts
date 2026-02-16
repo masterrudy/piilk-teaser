@@ -3,6 +3,7 @@
 // 📌 역할: 대시보드 퍼널 분석 API (variant 필터 지원)
 // 📌 추가: UTM 소스별 방문자/이벤트 상세 + Today/Total 분리
 // 📌 페이지네이션: 1,000행씩 반복 fetch → 전체 데이터 수집
+// 📌 수정: totalVisitors/totalSessions를 visitorStats와 통일
 // ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -84,12 +85,15 @@ function getTodayNYC(): string {
 }
 
 /* ─── Quiz Type → Main Teaser 이벤트명 매핑 ─── */
+// ✅ 수정: email_focus 매핑 추가 (Quiz Type에서 이메일 입력 관련 이벤트)
 const TYPE_EVENT_MAP: Record<string, string> = {
   quiz_start: 'step1_cta_click',
   quiz_complete: 'step2_answer',
   type_result: 'step2_answer',
-  email_submit: 'step4_submit',
+  email_focus: 'step3_email_focus',      // ✅ 추가: 이메일 포커스 이벤트 매핑
+  email_input: 'step3_email_focus',      // ✅ 추가: 이메일 입력 이벤트도 매핑
   share_click: 'step3_email_focus',
+  email_submit: 'step4_submit',
   declaration_tap: 'declaration_tap',
   referral_share: 'referral_share',
 };
@@ -135,9 +139,17 @@ async function fetchAllEvents(variant?: string) {
   return allEvents;
 }
 
+/* ─── 안전한 session/visitor ID 추출 (통일된 로직) ─── */
+function getSid(ev: any): string {
+  return ev.session_id || ev.visitor_id || 'unknown';
+}
+
+function getVid(ev: any): string {
+  return ev.visitor_id || 'unknown';
+}
+
 /* ─── UTM 소스별 상세 통계 생성 ─── */
 function buildUtmSourceStats(events: any[], normalizedEvents: any[], todayStr: string) {
-  // 전체(Total) UTM 통계
   const utmTotal: Record<string, {
     visitors: Set<string>;
     sessions: Set<string>;
@@ -146,7 +158,6 @@ function buildUtmSourceStats(events: any[], normalizedEvents: any[], todayStr: s
     submits: Set<string>;
   }> = {};
 
-  // 오늘(Today) UTM 통계
   const utmToday: Record<string, {
     visitors: Set<string>;
     sessions: Set<string>;
@@ -165,13 +176,16 @@ function buildUtmSourceStats(events: any[], normalizedEvents: any[], todayStr: s
 
   normalizedEvents.forEach((ev, idx) => {
     const source = events[idx].utm_source || 'Direct';
-    const vid = ev.visitor_id || 'unknown';
-    const sid = ev.session_id || ev.visitor_id || 'unknown';
+    const vid = getVid(ev);
+    const sid = getSid(ev);
     const day = toNYCDateStr(ev.created_at);
+
+    // ✅ 'unknown' ID는 제외
+    if (vid === 'unknown' && sid === 'unknown') return;
 
     // Total
     if (!utmTotal[source]) utmTotal[source] = initUtm();
-    utmTotal[source].visitors.add(vid);
+    if (vid !== 'unknown') utmTotal[source].visitors.add(vid);
     utmTotal[source].sessions.add(sid);
     utmTotal[source].events++;
     if (ev.event_name === 'page_view') utmTotal[source].page_views++;
@@ -180,7 +194,7 @@ function buildUtmSourceStats(events: any[], normalizedEvents: any[], todayStr: s
     // Today
     if (day === todayStr) {
       if (!utmToday[source]) utmToday[source] = initUtm();
-      utmToday[source].visitors.add(vid);
+      if (vid !== 'unknown') utmToday[source].visitors.add(vid);
       utmToday[source].sessions.add(sid);
       utmToday[source].events++;
       if (ev.event_name === 'page_view') utmToday[source].page_views++;
@@ -208,6 +222,7 @@ function buildUtmSourceStats(events: any[], normalizedEvents: any[], todayStr: s
 }
 
 /* ─── 방문자 통계 (Today / Total) ─── */
+// ✅ 수정: 통일된 ID 로직 사용 + 'unknown' 제외
 function buildVisitorStats(events: any[], normalizedEvents: any[], todayStr: string) {
   const totalVisitors = new Set<string>();
   const totalSessions = new Set<string>();
@@ -217,17 +232,18 @@ function buildVisitorStats(events: any[], normalizedEvents: any[], todayStr: str
   let todayEvents = 0;
 
   events.forEach(ev => {
-    const vid = ev.visitor_id || 'unknown';
-    const sid = ev.session_id || ev.visitor_id || 'unknown';
+    const vid = getVid(ev);
+    const sid = getSid(ev);
     const day = toNYCDateStr(ev.created_at);
 
-    totalVisitors.add(vid);
-    totalSessions.add(sid);
+    // ✅ 유효한 ID만 카운트
+    if (vid !== 'unknown') totalVisitors.add(vid);
+    if (sid !== 'unknown') totalSessions.add(sid);
     totalEvents++;
 
     if (day === todayStr) {
-      todayVisitors.add(vid);
-      todaySessions.add(sid);
+      if (vid !== 'unknown') todayVisitors.add(vid);
+      if (sid !== 'unknown') todaySessions.add(sid);
       todayEvents++;
     }
   });
@@ -293,8 +309,8 @@ export async function GET(request: NextRequest) {
     }
 
     normalizedEvents.forEach(ev => {
-      const sid = ev.session_id || ev.visitor_id || 'unknown';
-      if (funnelEvents.includes(ev.event_name)) {
+      const sid = getSid(ev);
+      if (sid !== 'unknown' && funnelEvents.includes(ev.event_name)) {
         sessionsByEvent[ev.event_name].add(sid);
       }
     });
@@ -309,12 +325,23 @@ export async function GET(request: NextRequest) {
       const quizStartSessions = new Set<string>();
       events.forEach(ev => {
         if (ev.event_name === 'quiz_start') {
-          quizStartSessions.add(ev.session_id || ev.visitor_id || 'unknown');
+          const sid = getSid(ev);
+          if (sid !== 'unknown') quizStartSessions.add(sid);
         }
       });
       if (funnel['page_view'] === 0 && quizStartSessions.size > 0) {
         funnel['page_view'] = quizStartSessions.size;
       }
+    }
+
+    // ✅ Quiz Type: email_submit 세션은 step3_email_focus에도 포함되어야 함
+    // (이메일을 제출했다면 반드시 포커스도 했으므로)
+    if (isTypeVariant) {
+      const submitSessions = sessionsByEvent['step4_submit'];
+      submitSessions.forEach(sid => {
+        sessionsByEvent['step3_email_focus'].add(sid);
+      });
+      funnel['step3_email_focus'] = sessionsByEvent['step3_email_focus'].size;
     }
 
     // ─── Daily event counts (NYC timezone) ───
@@ -365,7 +392,8 @@ export async function GET(request: NextRequest) {
     normalizedEvents.forEach(ev => {
       const source = ev.utm_source || 'Direct';
       if (!utmMap[source]) utmMap[source] = { views: new Set(), submits: new Set() };
-      const sid = ev.session_id || ev.visitor_id || 'unknown';
+      const sid = getSid(ev);
+      if (sid === 'unknown') return;
       if (ev.event_name === 'page_view' || ev.event_name === 'step1_cta_click') utmMap[source].views.add(sid);
       if (ev.event_name === 'step4_submit') utmMap[source].submits.add(sid);
     });
@@ -379,10 +407,10 @@ export async function GET(request: NextRequest) {
       }))
       .sort((a, b) => b.views - a.views);
 
-    // ✅ NEW: UTM 소스별 상세 통계 (Today + Total)
+    // ✅ UTM 소스별 상세 통계 (Today + Total)
     const utmSourceStats = buildUtmSourceStats(events, normalizedEvents, todayStr);
 
-    // ✅ NEW: 방문자 통계 (Today + Total)
+    // ✅ 방문자 통계 (Today + Total) — 이 값을 totalVisitors/totalSessions에도 재사용
     const visitorStats = buildVisitorStats(events, normalizedEvents, todayStr);
 
     // ─── Segment distribution ───
@@ -412,10 +440,6 @@ export async function GET(request: NextRequest) {
         reasonDistribution[reason] = (reasonDistribution[reason] || 0) + 1;
       });
     }
-
-    // ─── Unique visitors & sessions ───
-    const uniqueVisitors = new Set(events.map(ev => ev.visitor_id).filter(Boolean));
-    const uniqueSessions = new Set(events.map(ev => ev.session_id).filter(Boolean));
 
     // ─── Weekly ───
     const weeklyMap: Record<string, { views: number; submits: number }> = {};
@@ -467,8 +491,9 @@ export async function GET(request: NextRequest) {
       visitorStats,
       segmentDistribution,
       reasonDistribution,
-      totalVisitors: uniqueVisitors.size,
-      totalSessions: uniqueSessions.size,
+      // ✅ 핵심 수정: visitorStats.total 값을 재사용하여 상단/하단 수치 통일
+      totalVisitors: visitorStats.total.visitors,
+      totalSessions: visitorStats.total.sessions,
       weekly,
       weekday,
       monthly,
@@ -478,7 +503,7 @@ export async function GET(request: NextRequest) {
         n: ev.event_name,
         d: toNYCDateStr(ev.created_at),
         h: toNYCHour(ev.created_at),
-        s: ev.session_id || ev.visitor_id || '',
+        s: getSid(ev),
         u: ev.utm_source || '',
         ed: ev.event_data || null,
       })),
