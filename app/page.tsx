@@ -257,13 +257,18 @@ export default function TeaserPage() {
                         type="email"
                         className="email-input"
                         value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/[^a-zA-Z0-9@._+\-]/g, '');
+                          setEmail(v);
+                        }}
+                        onCompositionStart={(e) => e.preventDefault()}
                         onFocus={handleEmailFocus}
                         onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit('hero'); }}
                         placeholder="you@email.com"
                         autoComplete="email"
                         inputMode="email"
                         disabled={isSubmitting}
+                        style={{ imeMode: 'disabled' } as React.CSSProperties}
                       />
                       <button
                         type="button"
@@ -305,13 +310,18 @@ export default function TeaserPage() {
                         type="email"
                         className="email-input"
                         value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/[^a-zA-Z0-9@._+\-]/g, '');
+                          setEmail(v);
+                        }}
+                        onCompositionStart={(e) => e.preventDefault()}
                         onFocus={handleEmailFocus}
                         onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit('cta'); }}
                         placeholder="you@email.com"
                         autoComplete="email"
                         inputMode="email"
                         disabled={isSubmitting}
+                        style={{ imeMode: 'disabled' } as React.CSSProperties}
                       />
                       <button
                         type="button"
