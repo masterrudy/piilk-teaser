@@ -9,7 +9,6 @@ declare global {
   }
 }
 
-/* ─── Utils ─── */
 function getDeviceType(): string {
   if (typeof window === 'undefined') return 'unknown';
   const ua = navigator.userAgent;
@@ -53,6 +52,10 @@ export default function TeaserPage() {
   const scrollLocked = useRef(false);
   const prevPhase = useRef(1);
 
+  // Refs for inputs to maintain focus
+  const heroInputRef = useRef<HTMLInputElement>(null);
+  const ctaInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const utmParams = getUTMParams();
@@ -68,7 +71,7 @@ export default function TeaserPage() {
     trackEvent('page_view');
   }, []);
 
-  /* ─── Scroll/wheel/touch to change phase ─── */
+  /* ─── Scroll/wheel/touch ─── */
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -83,6 +86,9 @@ export default function TeaserPage() {
     };
 
     const handleWheel = (e: WheelEvent) => {
+      // Don't advance if focused on email input
+      const active = document.activeElement;
+      if (active && active.classList.contains('email-input')) return;
       if (Math.abs(e.deltaY) < 30) return;
       go(e.deltaY > 0 ? 1 : -1);
     };
@@ -94,7 +100,6 @@ export default function TeaserPage() {
       touchTarget = e.target;
     };
     const handleTouchEnd = (e: TouchEvent) => {
-      // Don't advance if touch started on email module
       const el = touchTarget as HTMLElement | null;
       if (el && el.closest && el.closest('.email-module')) return;
       const diff = touchY - e.changedTouches[0].clientY;
@@ -112,13 +117,11 @@ export default function TeaserPage() {
     };
   }, [phase]);
 
-  /* ─── Track phase views ─── */
   useEffect(() => {
     if (phase === 2) trackEvent('phase_2_view');
     if (phase === 3) trackEvent('phase_3_view');
   }, [phase]);
 
-  /* ─── Event tracking (Supabase) ─── */
   const trackEvent = useCallback((eventName: string, eventData?: Record<string, any>) => {
     const td = trackingData.current;
     fetch('/api/track', {
@@ -181,10 +184,9 @@ export default function TeaserPage() {
     }
   };
 
-  /* ─── Click/tap anywhere to advance ─── */
+  /* ─── Click/tap to advance ─── */
   const handleSlideClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    // Don't advance when interacting with form elements
     if (target.closest('.email-module')) return;
     if (target.tagName.toLowerCase() === 'input' || target.tagName.toLowerCase() === 'button') return;
     if (phase < 3) {
@@ -193,13 +195,21 @@ export default function TeaserPage() {
     }
   };
 
-  /* ─── Email Module ─── */
-  const EmailModule = ({ source }: { source: string }) => (
+  /* ─── Phase position ─── */
+  const getPhaseClass = (n: number) => {
+    if (n === phase) return 'center';
+    if (n < phase) return 'above';
+    return 'below';
+  };
+
+  /* ─── Inline email form renderer ─── */
+  const renderEmailForm = (source: string, inputRef: React.RefObject<HTMLInputElement | null>) => (
     <div className="email-module">
       {!isSubmitted ? (
         <>
           <div className="email-form-row">
             <input
+              ref={inputRef}
               type="email"
               className="email-input"
               value={email}
@@ -212,6 +222,7 @@ export default function TeaserPage() {
               disabled={isSubmitting}
             />
             <button
+              type="button"
               className="email-btn"
               onClick={() => handleSubmit(source)}
               disabled={isSubmitting || !email}
@@ -226,13 +237,6 @@ export default function TeaserPage() {
       )}
     </div>
   );
-
-  /* ─── Phase position class ─── */
-  const getPhaseClass = (n: number) => {
-    if (n === phase) return 'center';      // 현재: 화면 중앙
-    if (n < phase) return 'above';         // 지나간: 위로 올라감
-    return 'below';                        // 다음: 아래에 대기
-  };
 
   return (
     <main className="piilk-page">
@@ -250,9 +254,7 @@ export default function TeaserPage() {
         <div className="hero-bg-overlay" />
       </div>
 
-      {/* ═══ Content ═══ */}
       <div className="screen-wrap">
-
         {/* Logo */}
         <header className="logo-header">
           <Image
@@ -287,7 +289,7 @@ export default function TeaserPage() {
             <p className="hero-desc">Heavy after. Film that lingers. You know the moment.</p>
             <p className="hero-proof">30g protein · 7 ingredients · Dairy-free</p>
             <div className="email-wrap">
-              <EmailModule source="hero" />
+              {renderEmailForm('hero', heroInputRef)}
             </div>
           </div>
           <div className="scroll-cue-bottom">
@@ -305,7 +307,7 @@ export default function TeaserPage() {
               <p>We obsessed over what happens after you drink it.</p>
             </div>
             <div className="cta-wrap">
-              <EmailModule source="cta" />
+              {renderEmailForm('cta', ctaInputRef)}
             </div>
             <div className="footer-area">
               <p className="footer-brand">PIILK™ by ARMORED FRESH</p>
@@ -351,7 +353,6 @@ export default function TeaserPage() {
           -webkit-font-smoothing: antialiased;
         }
 
-        /* ── BG ── */
         .hero-bg { position:fixed; inset:0; z-index:0; }
         .hero-bg-img { object-fit:cover; transform:scale(1.1); }
         .hero-bg-overlay {
@@ -359,23 +360,15 @@ export default function TeaserPage() {
           background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.3) 40%, rgba(0,0,0,0.65) 100%);
         }
 
-        /* ── Screen ── */
         .screen-wrap { position:relative; z-index:1; width:100%; height:100%; overflow:hidden; }
 
-        /* ── Logo ── */
         .logo-header {
           position:absolute; top:20px; left:50%; transform:translateX(-50%); z-index:10;
         }
         .logo-img { opacity:0.9; cursor:pointer; transition:opacity 0.3s; }
         .logo-img:hover { opacity:0.6; }
 
-        /* ══════════════════════════════════════
-           SLIDES — vertical carousel
-           ══════════════════════════════════════
-           center = 현재 보이는 (translateY 0)
-           above  = 위로 사라짐 (translateY -100vh)
-           below  = 아래에 대기 (translateY +100vh)
-        */
+        /* ── Slides ── */
         .slide {
           position: absolute;
           inset: 0;
@@ -388,29 +381,12 @@ export default function TeaserPage() {
                       opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1);
           will-change: transform, opacity;
         }
+        .slide--center { transform: translateY(0); opacity: 1; pointer-events: auto; }
+        .slide--above  { transform: translateY(-100vh); opacity: 0; pointer-events: none; }
+        .slide--below  { transform: translateY(100vh); opacity: 0; pointer-events: none; }
 
-        .slide--center {
-          transform: translateY(0);
-          opacity: 1;
-          pointer-events: auto;
-        }
-        .slide--above {
-          transform: translateY(-100vh);
-          opacity: 0;
-          pointer-events: none;
-        }
-        .slide--below {
-          transform: translateY(100vh);
-          opacity: 0;
-          pointer-events: none;
-        }
+        .slide-inner { max-width: 680px; width: 100%; }
 
-        .slide-inner {
-          max-width: 680px;
-          width: 100%;
-        }
-
-        /* ── Typography ── */
         .hero-h1 {
           font-family: var(--font);
           font-size: clamp(28px, 7vw, 52px);
@@ -418,18 +394,8 @@ export default function TeaserPage() {
           line-height: 1.15;
           letter-spacing: -0.01em;
         }
-        .hero-desc {
-          margin-top: 16px;
-          font-size: 15px;
-          line-height: 1.5;
-          color: var(--secondary);
-        }
-        .hero-proof {
-          margin-top: 10px;
-          font-size: 13px;
-          color: var(--muted);
-          letter-spacing: 0.02em;
-        }
+        .hero-desc { margin-top:16px; font-size:15px; line-height:1.5; color:var(--secondary); }
+        .hero-proof { margin-top:10px; font-size:13px; color:var(--muted); letter-spacing:0.02em; }
 
         .why-title {
           font-family: var(--font);
@@ -439,27 +405,17 @@ export default function TeaserPage() {
           letter-spacing: -0.01em;
           margin-bottom: 16px;
         }
-        .why-body {
-          font-size: 15px;
-          line-height: 1.5;
-          color: var(--secondary);
-        }
-        .why-body p + p { margin-top: 6px; }
+        .why-body { font-size:15px; line-height:1.5; color:var(--secondary); }
+        .why-body p + p { margin-top:6px; }
 
-        /* ── Email wrap ── */
         .email-wrap, .cta-wrap {
           margin-top: 32px;
           max-width: 460px;
           margin-left: auto;
           margin-right: auto;
         }
-        .cta-hint {
-          font-size: 15px;
-          color: var(--secondary);
-          margin-bottom: 16px;
-        }
 
-        /* ── Scroll cue — fixed at bottom of slide ── */
+        /* ── Scroll cue ── */
         .scroll-cue-bottom {
           position: absolute;
           bottom: 32px;
@@ -472,130 +428,80 @@ export default function TeaserPage() {
           opacity: 0.4;
         }
         .scroll-cue-bottom span {
-          font-size: 12px;
-          color: var(--muted);
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
+          font-size:12px; color:var(--muted); letter-spacing:0.06em; text-transform:uppercase;
         }
         .scroll-cue-bottom .arrow {
-          width: 16px; height: 16px;
-          border-right: 1.5px solid var(--muted);
-          border-bottom: 1.5px solid var(--muted);
-          transform: rotate(45deg);
-          animation: bounce 2s ease-in-out infinite;
+          width:16px; height:16px;
+          border-right:1.5px solid var(--muted);
+          border-bottom:1.5px solid var(--muted);
+          transform:rotate(45deg);
+          animation:bounce 2s ease-in-out infinite;
         }
         @keyframes bounce {
-          0%,100% { transform: rotate(45deg) translateY(0); }
-          50%     { transform: rotate(45deg) translateY(5px); }
+          0%,100% { transform:rotate(45deg) translateY(0); }
+          50%     { transform:rotate(45deg) translateY(5px); }
         }
 
         /* ── Footer ── */
-        .footer-area { margin-top: 40px; }
-        .footer-brand {
-          font-size: 9px; letter-spacing: 0.25em;
-          color: var(--muted); text-transform: uppercase; font-weight: 500;
-        }
-        .footer-sub {
-          font-size: 9px; letter-spacing: 0.15em;
-          color: var(--muted); margin-top: 4px; font-weight: 500;
-        }
+        .footer-area { margin-top:40px; }
+        .footer-brand { font-size:9px; letter-spacing:0.25em; color:var(--muted); text-transform:uppercase; font-weight:500; }
+        .footer-sub { font-size:9px; letter-spacing:0.15em; color:var(--muted); margin-top:4px; font-weight:500; }
 
-        /* ══════════════════════════════════════
-           EMAIL MODULE
-           ══════════════════════════════════════ */
-        .email-module { width: 100%; }
-        .email-form-row {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
+        /* ── Email ── */
+        .email-module { width:100%; }
+        .email-form-row { display:flex; flex-direction:column; gap:10px; }
         .email-input {
-          width: 100%;
-          height: var(--tap);
-          padding: 14px;
-          background: var(--input-bg);
-          border: 1px solid var(--border);
-          border-radius: var(--radius);
-          color: #fff;
-          font-family: var(--font);
-          font-size: 16px;
-          outline: none;
-          transition: border-color 0.2s;
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
+          width:100%; height:var(--tap); padding:14px;
+          background:var(--input-bg);
+          border:1px solid var(--border);
+          border-radius:var(--radius);
+          color:#fff;
+          font-family:var(--font); font-size:16px;
+          outline:none;
+          transition:border-color 0.2s;
+          backdrop-filter:blur(8px);
+          -webkit-backdrop-filter:blur(8px);
         }
-        .email-input::placeholder { color: var(--muted); }
-        .email-input:focus { border-color: var(--accent); }
-        .email-input:disabled { opacity: 0.4; cursor: not-allowed; }
+        .email-input::placeholder { color:var(--muted); }
+        .email-input:focus { border-color:var(--accent); }
+        .email-input:disabled { opacity:0.4; cursor:not-allowed; }
 
         .email-btn {
-          width: 100%;
-          height: var(--tap);
-          background: var(--accent);
-          color: #000;
-          border: none;
-          border-radius: var(--radius);
-          font-family: var(--font);
-          font-size: 16px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
-          box-shadow: 0 0 20px rgba(191, 255, 0, 0.3);
+          width:100%; height:var(--tap);
+          background:var(--accent);
+          color:#000; border:none;
+          border-radius:var(--radius);
+          font-family:var(--font); font-size:16px; font-weight:600;
+          cursor:pointer;
+          transition:background 0.2s, transform 0.1s, box-shadow 0.2s;
+          box-shadow:0 0 20px rgba(191,255,0,0.3);
         }
-        .email-btn:hover {
-          background: var(--accent-hover);
-          box-shadow: 0 0 30px rgba(191, 255, 0, 0.5);
-        }
-        .email-btn:active { transform: scale(0.98); }
-        .email-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .email-btn:hover { background:var(--accent-hover); box-shadow:0 0 30px rgba(191,255,0,0.5); }
+        .email-btn:active { transform:scale(0.98); }
+        .email-btn:disabled { opacity:0.4; cursor:not-allowed; box-shadow:none; }
 
-        .email-trust {
-          margin-top: 10px;
-          font-size: 12px;
-          color: var(--muted);
-          text-align: center;
-        }
-        .email-success {
-          font-size: 14px;
-          color: var(--success);
-          font-weight: 500;
-          text-align: center;
-          animation: fadeIn 300ms ease forwards;
-        }
-        @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+        .email-trust { margin-top:10px; font-size:12px; color:var(--muted); text-align:center; }
+        .email-success { font-size:14px; color:var(--success); font-weight:500; text-align:center; animation:fadeIn 300ms ease forwards; }
+        @keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
 
         /* ── Dots ── */
         .dots {
-          position: absolute;
-          right: 20px;
-          top: 50%;
-          transform: translateY(-50%);
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          z-index: 10;
+          position:absolute; right:20px; top:50%; transform:translateY(-50%);
+          display:flex; flex-direction:column; gap:12px; z-index:10;
         }
         .dot {
-          width: 8px; height: 8px;
-          border-radius: 50%;
-          border: 1px solid rgba(255,255,255,0.3);
-          background: transparent;
-          cursor: pointer;
-          padding: 0;
-          transition: all 0.3s;
+          width:8px; height:8px; border-radius:50%;
+          border:1px solid rgba(255,255,255,0.3);
+          background:transparent; cursor:pointer; padding:0;
+          transition:all 0.3s;
         }
-        .dot.active {
-          background: var(--accent);
-          border-color: var(--accent);
-          transform: scale(1.3);
-        }
-        .dot:hover { border-color: rgba(255,255,255,0.6); }
+        .dot.active { background:var(--accent); border-color:var(--accent); transform:scale(1.3); }
+        .dot:hover { border-color:rgba(255,255,255,0.6); }
 
-        /* ── Desktop ── */
-        @media (min-width: 768px) {
-          .email-form-row { flex-direction: row; }
-          .email-form-row .email-input { flex: 1; min-width: 0; }
-          .email-form-row .email-btn { width: auto; min-width: 180px; flex-shrink: 0; }
+        @media (min-width:768px) {
+          .email-form-row { flex-direction:row; }
+          .email-form-row .email-input { flex:1; min-width:0; }
+          .email-form-row .email-btn { width:auto; min-width:180px; flex-shrink:0; }
         }
       `}</style>
     </main>
