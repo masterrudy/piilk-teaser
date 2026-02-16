@@ -469,8 +469,16 @@ export default function DashboardPage() {
     filteredRaw.filter((ev:any)=>ev.n==='step2_answer').forEach((ev:any)=>{const seg=ev.ed?.segment||'Unknown';segDist[seg]=(segDist[seg]||0)+1;});
     const reasonDist: Record<string,number> = {};
     filteredRaw.filter((ev:any)=>ev.n==='step3_reason_select').forEach((ev:any)=>{const r=ev.ed?.reason||'Unknown';reasonDist[r]=(reasonDist[r]||0)+1;});
-    const uv = new Set(filteredRaw.map((ev:any)=>ev.s).filter(Boolean));
-    return {...analyticsData,funnel,daily:filteredDaily,weekly,weekday,monthly,utmPerformance,hourly,segmentDistribution:segDist,reasonDistribution:reasonDist,totalVisitors:uv.size,totalSessions:uv.size};
+    
+const uvSessions = new Set(filteredRaw.map((ev:any)=>ev.s).filter(Boolean));
+const uvVisitors = new Set(filteredRaw.map((ev:any)=>ev.v || ev.s).filter(Boolean));
+if (variant === 'type') {
+  const submitSids = sessionsByEvt['step4_submit'];
+  submitSids.forEach((sid:string) => { sessionsByEvt['step3_email_focus'].add(sid); });
+  funnel['step3_email_focus'] = sessionsByEvt['step3_email_focus'].size;
+}
+return {...analyticsData,funnel,daily:filteredDaily,weekly,weekday,monthly,utmPerformance,hourly,segmentDistribution:segDist,reasonDistribution:reasonDist,totalVisitors:uvVisitors.size,totalSessions:uvSessions.size};
+    
   }, [analyticsData, analyticsPeriod]);
 
   const segColor = (s?: string) => {
