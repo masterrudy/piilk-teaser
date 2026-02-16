@@ -1,5 +1,11 @@
+// ═══════════════════════════════════════════════════════════
+// 📁 파일 위치: app/type/layout.tsx
+// 📌 역할: /type 전용 레이아웃
+// 📌 OG 태그 + Twitter Card + Google Fonts 로드
+// ═══════════════════════════════════════════════════════════
+
 import type { Metadata } from "next";
-import "./b-styles.css";
+import "./styles.css";
 
 export const metadata: Metadata = {
   title: "The After-feel Project | PIILK™",
