@@ -270,6 +270,10 @@ export default function TeaserPage() {
             <div className="email-wrap">
               <EmailModule source="hero" />
             </div>
+            <div className="scroll-cue">
+              <span>Scroll</span>
+              <div className="arrow" />
+            </div>
           </div>
         </div>
 
