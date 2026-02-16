@@ -479,14 +479,14 @@ export default function TeaserPage() {
 
         /* ── Email ── */
         .email-module { width:100%; }
-        .email-form-row { display:flex; flex-direction:column; gap:10px; }
+        .email-form-row { display:flex; flex-direction:column; gap:8px; }
         .email-input {
-          width:100%; height:var(--tap); padding:14px;
+          width:100%; height:44px; padding:0 14px;
           background:var(--input-bg);
           border:1px solid var(--border);
-          border-radius:var(--radius);
+          border-radius:10px;
           color:#fff;
-          font-family:var(--font); font-size:16px;
+          font-family:var(--font); font-size:15px;
           outline:none;
           transition:border-color 0.2s;
           backdrop-filter:blur(8px);
@@ -497,20 +497,20 @@ export default function TeaserPage() {
         .email-input:disabled { opacity:0.4; cursor:not-allowed; }
 
         .email-btn {
-          width:100%; height:var(--tap);
+          width:100%; height:44px;
           background:var(--accent);
           color:#000; border:none;
-          border-radius:var(--radius);
-          font-family:var(--font); font-size:16px; font-weight:600;
+          border-radius:10px;
+          font-family:var(--font); font-size:15px; font-weight:600;
           cursor:pointer;
           transition:background 0.2s, transform 0.1s, box-shadow 0.2s;
-          box-shadow:0 0 20px rgba(191,255,0,0.3);
+          box-shadow:0 0 16px rgba(191,255,0,0.25);
         }
-        .email-btn:hover { background:var(--accent-hover); box-shadow:0 0 30px rgba(191,255,0,0.5); }
+        .email-btn:hover { background:var(--accent-hover); box-shadow:0 0 24px rgba(191,255,0,0.4); }
         .email-btn:active { transform:scale(0.98); }
         .email-btn:disabled { opacity:0.4; cursor:not-allowed; box-shadow:none; }
 
-        .email-trust { margin-top:10px; font-size:12px; color:var(--muted); text-align:center; }
+        .email-trust { margin-top:8px; font-size:11px; color:var(--muted); text-align:center; }
         .email-success { font-size:14px; color:var(--success); font-weight:500; text-align:center; animation:fadeIn 300ms ease forwards; }
         @keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
 
@@ -531,7 +531,25 @@ export default function TeaserPage() {
         @media (min-width:768px) {
           .email-form-row { flex-direction:row; }
           .email-form-row .email-input { flex:1; min-width:0; }
-          .email-form-row .email-btn { width:auto; min-width:180px; flex-shrink:0; }
+          .email-form-row .email-btn { width:auto; min-width:160px; flex-shrink:0; }
+        }
+
+        /* ── Mobile optimization ── */
+        @media (max-width:767px) {
+          .slide { padding: 60px 20px 30px; }
+          .hero-h1 { font-size: clamp(24px, 8vw, 36px); }
+          .hero-desc { font-size: 14px; margin-top: 12px; }
+          .hero-proof { font-size: 12px; margin-top: 8px; }
+          .why-title { font-size: clamp(22px, 7vw, 32px); }
+          .why-body { font-size: 14px; }
+          .email-wrap, .cta-wrap { margin-top: 24px; max-width: 320px; padding: 0 16px; }
+          .email-input { height: 42px; font-size: 14px; border-radius: 8px; }
+          .email-btn { height: 42px; font-size: 14px; border-radius: 8px; }
+          .scroll-cue-bottom { bottom: 20px; }
+          .logo-header { top: 14px; }
+          .logo-img { width: 60px !important; height: auto !important; }
+          .dots { right: 12px; }
+          .dot { width: 6px; height: 6px; }
         }
       `}</style>
     </main>
