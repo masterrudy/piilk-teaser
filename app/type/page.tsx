@@ -360,9 +360,10 @@ function Result({ type }: { type: AfterfeelType }) {
             <div className="ref-rank-label">Your spot in line</div>
             <div className="ref-card">
               <div className="ref-card-title">Skip the line ⚡</div>
-              <div className="ref-tier"><span>3 friends join</span><span className="ref-tier-reward">20% off at launch</span></div>
-              <div className="ref-tier"><span>10 friends join</span><span className="ref-tier-reward">Free first box</span></div>
-              <div className="ref-tier"><span>25 friends join</span><span className="ref-tier-reward">50% off for 1 year</span></div>
+// 수정 (변경 후)
+<div className="ref-tier"><span>3 friends join</span><span className="ref-tier-reward">Free shipping on first case</span></div>
+<div className="ref-tier"><span>10 friends join</span><span className="ref-tier-reward">+2 bottles free with first case</span></div>
+<div className="ref-tier"><span>25 friends join</span><span className="ref-tier-reward">Free 18-pack case</span></div>
             </div>
             <div className="ref-btns">
               <button className="ref-btn primary" onClick={() => refShare("x")}>Share on 𝕏</button>
