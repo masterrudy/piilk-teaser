@@ -24,6 +24,12 @@ interface DashboardData {
     B: { total: number; percentage: string };
     C: { total: number; percentage: string };
   };
+  quizBreakdown?: {
+    brick: number;
+    chalk: number;
+    zombie: number;
+    gambler: number;
+  };
 }
 
 interface ApiResponse {
@@ -51,6 +57,7 @@ interface Participant {
   utm_source?: string;
   utm_medium?: string;
   utm_campaign?: string;
+  afterfeel_type?: string;
 }
 
 interface ParticipantsResponse {
@@ -58,6 +65,15 @@ interface ParticipantsResponse {
   data: Participant[];
   total: number;
 }
+
+/* ─────────────────────────── Quiz Type Labels ─────────────────────────── */
+
+const QUIZ_TYPE_LABELS: Record<string, { name: string; icon: string; color: string; bgColor: string; borderColor: string }> = {
+  brick: { name: 'Brick Stomach', icon: '🧱', color: 'text-orange-400', bgColor: 'from-orange-950/40 to-zinc-900/60', borderColor: 'border-orange-900/40' },
+  chalk: { name: 'Chalk Mouth', icon: '🦷', color: 'text-slate-300', bgColor: 'from-slate-900/40 to-zinc-900/60', borderColor: 'border-slate-700/40' },
+  zombie: { name: 'Post-Shake Zombie', icon: '🧟', color: 'text-green-400', bgColor: 'from-green-950/40 to-zinc-900/60', borderColor: 'border-green-900/40' },
+  gambler: { name: '30-Min Gambler', icon: '🎰', color: 'text-yellow-400', bgColor: 'from-yellow-950/40 to-zinc-900/60', borderColor: 'border-yellow-900/40' },
+};
 
 /* ─────────────────────────── Component ─────────────────────────── */
 
@@ -306,7 +322,14 @@ export default function DashboardPage() {
       const q = searchQuery.toLowerCase();
       list = list.filter(p => p.email?.toLowerCase().includes(q) || p.name?.toLowerCase().includes(q) || p.segment?.toLowerCase().includes(q) || p.sub_reason?.toLowerCase().includes(q) || p.country?.toLowerCase().includes(q) || p.city?.toLowerCase().includes(q) || p.ip_address?.includes(q));
     }
-    if (segmentFilter !== 'all') list = list.filter(p => p.segment === segmentFilter);
+    if (segmentFilter !== 'all') {
+      // ✅ Quiz Type: afterfeel_type으로 필터
+      if (variant === 'type') {
+        list = list.filter(p => p.sub_reason === segmentFilter || p.afterfeel_type === segmentFilter);
+      } else {
+        list = list.filter(p => p.segment === segmentFilter);
+      }
+    }
     if (reasonFilter !== 'all') list = list.filter(p => p.sub_reason === reasonFilter);
     if (domainFilter) list = list.filter(p => p.email?.toLowerCase().endsWith('@' + domainFilter.toLowerCase()));
     if (countryFilter) list = list.filter(p => p.country === countryFilter);
@@ -322,7 +345,7 @@ export default function DashboardPage() {
       return 0;
     });
     return list;
-  }, [currentParticipants, searchQuery, segmentFilter, reasonFilter, domainFilter, countryFilter, cityFilter, deviceFilter, dateFrom, dateTo, sortField, sortDir]);
+  }, [currentParticipants, searchQuery, segmentFilter, reasonFilter, domainFilter, countryFilter, cityFilter, deviceFilter, dateFrom, dateTo, sortField, sortDir, variant]);
 
   const handleSort = (field: typeof sortField) => {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -330,8 +353,8 @@ export default function DashboardPage() {
   };
 
   const exportToCSV = () => {
-    const headers = ['Email', 'Segment', 'Reason', 'Country', 'Region', 'City', 'Device', 'Language', 'Timezone', 'IP', 'Referrer', 'UTM Source', 'UTM Medium', 'UTM Campaign', 'Source', 'Signed Up'];
-    const rows = filteredParticipants.map(p => [p.email||'', p.segment||'', p.sub_reason||'', p.country||'', p.region||'', p.city||'', p.device_type||'', p.language||'', p.timezone||'', p.ip_address||'', p.referrer||'', p.utm_source||'', p.utm_medium||'', p.utm_campaign||'', p.source||'', p.signed_up_at||'']);
+    const headers = ['Email', 'Segment', 'Reason', 'AfterfeelType', 'Country', 'Region', 'City', 'Device', 'Language', 'Timezone', 'IP', 'Referrer', 'UTM Source', 'UTM Medium', 'UTM Campaign', 'Source', 'Signed Up'];
+    const rows = filteredParticipants.map(p => [p.email||'', p.segment||'', p.sub_reason||'', p.afterfeel_type||'', p.country||'', p.region||'', p.city||'', p.device_type||'', p.language||'', p.timezone||'', p.ip_address||'', p.referrer||'', p.utm_source||'', p.utm_medium||'', p.utm_campaign||'', p.source||'', p.signed_up_at||'']);
     const csv = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -339,6 +362,17 @@ export default function DashboardPage() {
     link.download = `piilk-${variant}-participants-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click(); URL.revokeObjectURL(url);
   };
+
+  // ✅ Quiz Type: afterfeel_type별 카운트
+  const quizTypeCounts = useMemo(() => {
+    if (variant !== 'type') return null;
+    const counts: Record<string, number> = { brick: 0, chalk: 0, zombie: 0, gambler: 0 };
+    currentParticipants.forEach(p => {
+      const type = p.afterfeel_type || p.sub_reason || '';
+      if (counts.hasOwnProperty(type)) counts[type]++;
+    });
+    return counts;
+  }, [currentParticipants, variant]);
 
   const availableMonths = useMemo(() => {
     if (!analyticsData?.daily) return [];
@@ -412,9 +446,21 @@ export default function DashboardPage() {
   }, [analyticsData, analyticsPeriod]);
 
   const segColor = (s?: string) => {
+    if (variant === 'type') {
+      const t = QUIZ_TYPE_LABELS[s || ''];
+      if (t) return `bg-zinc-800/30 ${t.color} border-zinc-700/30`;
+    }
     switch(s) { case 'A': return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'; case 'B': return 'bg-amber-500/20 text-amber-400 border-amber-500/30'; case 'C': return 'bg-sky-500/20 text-sky-400 border-sky-500/30'; default: return 'bg-zinc-700/30 text-zinc-400 border-zinc-600/30'; }
   };
-  const segLabel = (s?: string) => { switch(s) { case 'A': return 'Switcher'; case 'B': return 'Skeptic'; case 'C': return 'Newbie'; default: return s||'—'; } };
+  const segLabel = (s?: string, p?: Participant) => {
+    // ✅ Quiz Type: afterfeel_type 라벨 사용
+    if (variant === 'type') {
+      const type = p?.afterfeel_type || p?.sub_reason || s || '';
+      const t = QUIZ_TYPE_LABELS[type];
+      return t ? t.name : type || 'afterfeel_quiz';
+    }
+    switch(s) { case 'A': return 'Switcher'; case 'B': return 'Skeptic'; case 'C': return 'Newbie'; default: return s||'—'; }
+  };
   const fmtDate = (d?: string) => { if(!d)return'—'; try{ const dt=new Date(d); return dt.toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'})+' '+dt.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}); }catch{return d;} };
   const fmtShortDate = (d: string) => { const p=d.split('-'); return `${p[1]}/${p[2]}`; };
   const deviceIcon = (d?: string) => { switch(d) { case 'mobile': return '\u{1F4F1}'; case 'desktop': return '\u{1F4BB}'; case 'tablet': return '\u{1F4DF}'; default: return '—'; } };
@@ -575,7 +621,7 @@ export default function DashboardPage() {
         {viewMode === 'overview' && data ? (
           <>
             <section className="relative overflow-hidden bg-gradient-to-br from-zinc-900/80 to-zinc-950 border border-zinc-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:p-8">
-              <div className={`absolute inset-0 bg-gradient-to-r ${activeSource === 'klaviyo' ? 'from-purple-500/5' : 'from-emerald-500/5'} to-transparent`} />
+              <div className={`absolute inset-0 bg-gradient-to-r ${variant === 'type' ? 'from-purple-500/5' : activeSource === 'klaviyo' ? 'from-purple-500/5' : 'from-emerald-500/5'} to-transparent`} />
               <div className="relative">
                 <div className="flex items-end justify-between gap-4 mb-4 sm:mb-6">
                   <div>
@@ -589,11 +635,11 @@ export default function DashboardPage() {
                   </div>
                   <div className="text-right">
                     <p className="text-zinc-500 text-xs sm:text-sm">Goal: {goal.toLocaleString()}</p>
-                    <p className={`text-xl sm:text-2xl font-bold ${activeSource === 'klaviyo' ? 'text-purple-500' : 'text-emerald-500'}`}>{progress.toFixed(1)}%</p>
+                    <p className={`text-xl sm:text-2xl font-bold ${variant === 'type' ? 'text-purple-500' : activeSource === 'klaviyo' ? 'text-purple-500' : 'text-emerald-500'}`}>{progress.toFixed(1)}%</p>
                   </div>
                 </div>
                 <div className="h-1.5 sm:h-2 bg-zinc-800/50 rounded-full overflow-hidden">
-                  <div className={`h-full rounded-full transition-all duration-1000 ${activeSource === 'klaviyo' ? 'bg-gradient-to-r from-purple-600 to-purple-400' : 'bg-gradient-to-r from-emerald-600 to-emerald-400'}`} style={{ width: `${progress}%` }} />
+                  <div className={`h-full rounded-full transition-all duration-1000 ${variant === 'type' ? 'bg-gradient-to-r from-purple-600 to-purple-400' : activeSource === 'klaviyo' ? 'bg-gradient-to-r from-purple-600 to-purple-400' : 'bg-gradient-to-r from-emerald-600 to-emerald-400'}`} style={{ width: `${progress}%` }} />
                 </div>
                 <div className="flex justify-between mt-1.5 sm:mt-2 text-[10px] sm:text-xs text-zinc-700 font-mono"><span>0</span><span>5K</span><span>10K</span><span>15K</span></div>
               </div>
@@ -601,51 +647,77 @@ export default function DashboardPage() {
 
             {dailySignups.length > 0 && <SignupChart daily={dailySignups} cumulative={cumulativeSignups} />}
 
-            {/* Segments */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
-              <div className="lg:col-span-2 bg-gradient-to-br from-emerald-950/40 to-zinc-900/60 border border-emerald-900/40 rounded-xl sm:rounded-2xl p-4 sm:p-6 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 sm:w-48 h-32 sm:h-48 bg-emerald-500/10 rounded-full blur-3xl" />
-                <div className="relative">
-                  <div className="flex items-start justify-between mb-4 sm:mb-6">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1"><span className="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-emerald-500 rounded-full animate-pulse" /><p className="text-[10px] sm:text-xs text-emerald-400 uppercase tracking-widest font-bold">Segment A</p></div>
-                      <h2 className="text-lg sm:text-xl font-bold text-white">Switchers</h2>
-                      <p className="text-zinc-500 text-[10px] sm:text-xs">Yes - Core Target</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-4xl sm:text-5xl lg:text-6xl font-black text-emerald-400">{data.segments.A.total}</p>
-                      <p className="text-emerald-600 text-base sm:text-lg font-bold">{data.segments.A.percentage}%</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
-                    {data.segments.A.breakdown && [
-                      { label: 'Residue', value: data.segments.A.breakdown.residue },
-                      { label: 'Aftertaste', value: data.segments.A.breakdown.aftertaste },
-                      { label: 'Heaviness', value: data.segments.A.breakdown.heaviness },
-                      { label: 'Habit', value: data.segments.A.breakdown.habit },
-                      { label: 'Lapsed', value: data.segments.A.breakdown.lapsed },
-                    ].map((item) => (
-                      <div key={item.label} className="bg-black/40 rounded-lg sm:rounded-xl p-2 sm:p-3 text-center border border-emerald-900/20">
-                        <p className="text-lg sm:text-2xl font-black text-white">{item.value}</p>
-                        <p className="text-[7px] sm:text-[9px] text-emerald-500/80 uppercase tracking-wider font-semibold mt-0.5 sm:mt-1 leading-tight">{item.label}</p>
+            {/* ✅ Segments — Quiz Type vs Main Teaser */}
+            {variant === 'type' ? (
+              /* ═══ QUIZ TYPE: 4개 타입 카드 ═══ */
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                {Object.entries(QUIZ_TYPE_LABELS).map(([key, label]) => {
+                  const count = data.quizBreakdown?.[key as keyof typeof data.quizBreakdown] ?? quizTypeCounts?.[key] ?? 0;
+                  const pct = data.total > 0 ? ((count / data.total) * 100).toFixed(1) : '0';
+                  return (
+                    <div key={key} className={`bg-gradient-to-br ${label.bgColor} border ${label.borderColor} rounded-xl sm:rounded-2xl p-4 sm:p-5 relative overflow-hidden`}>
+                      <div className="absolute top-0 right-0 w-20 h-20 opacity-10 text-6xl flex items-center justify-center pointer-events-none">{label.icon}</div>
+                      <div className="relative">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-lg">{label.icon}</span>
+                          <p className={`text-[9px] sm:text-xs uppercase tracking-widest font-bold ${label.color}`}>{label.name}</p>
+                        </div>
+                        <div className="flex items-end justify-between mt-3">
+                          <p className={`text-3xl sm:text-4xl font-black ${label.color}`}>{count}</p>
+                          <p className={`text-sm sm:text-base font-bold ${label.color} opacity-70`}>{pct}%</p>
+                        </div>
                       </div>
-                    ))}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              /* ═══ MAIN TEASER: 기존 A/B/C 세그먼트 ═══ */
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
+                <div className="lg:col-span-2 bg-gradient-to-br from-emerald-950/40 to-zinc-900/60 border border-emerald-900/40 rounded-xl sm:rounded-2xl p-4 sm:p-6 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-32 sm:w-48 h-32 sm:h-48 bg-emerald-500/10 rounded-full blur-3xl" />
+                  <div className="relative">
+                    <div className="flex items-start justify-between mb-4 sm:mb-6">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1"><span className="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-emerald-500 rounded-full animate-pulse" /><p className="text-[10px] sm:text-xs text-emerald-400 uppercase tracking-widest font-bold">Segment A</p></div>
+                        <h2 className="text-lg sm:text-xl font-bold text-white">Switchers</h2>
+                        <p className="text-zinc-500 text-[10px] sm:text-xs">Yes - Core Target</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-4xl sm:text-5xl lg:text-6xl font-black text-emerald-400">{data.segments.A.total}</p>
+                        <p className="text-emerald-600 text-base sm:text-lg font-bold">{data.segments.A.percentage}%</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+                      {data.segments.A.breakdown && [
+                        { label: 'Residue', value: data.segments.A.breakdown.residue },
+                        { label: 'Aftertaste', value: data.segments.A.breakdown.aftertaste },
+                        { label: 'Heaviness', value: data.segments.A.breakdown.heaviness },
+                        { label: 'Habit', value: data.segments.A.breakdown.habit },
+                        { label: 'Lapsed', value: data.segments.A.breakdown.lapsed },
+                      ].map((item) => (
+                        <div key={item.label} className="bg-black/40 rounded-lg sm:rounded-xl p-2 sm:p-3 text-center border border-emerald-900/20">
+                          <p className="text-lg sm:text-2xl font-black text-white">{item.value}</p>
+                          <p className="text-[7px] sm:text-[9px] text-emerald-500/80 uppercase tracking-wider font-semibold mt-0.5 sm:mt-1 leading-tight">{item.label}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 lg:grid-cols-1 gap-3 sm:gap-4">
+                  <div className="bg-gradient-to-br from-amber-950/30 to-zinc-900/50 border border-amber-900/30 rounded-xl sm:rounded-2xl p-3 sm:p-5">
+                    <div className="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3"><span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-amber-500 rounded-full" /><p className="text-[9px] sm:text-xs text-amber-500 uppercase tracking-widest font-bold">Segment B</p></div>
+                    <h3 className="text-base sm:text-lg font-bold text-white">Skeptics</h3><p className="text-zinc-500 text-[10px] sm:text-xs mb-2 sm:mb-3">No - Unaware</p>
+                    <div className="flex items-end justify-between"><p className="text-3xl sm:text-4xl font-black text-amber-400">{data.segments.B.total}</p><p className="text-amber-600 text-sm sm:text-base font-bold">{data.segments.B.percentage}%</p></div>
+                  </div>
+                  <div className="bg-gradient-to-br from-sky-950/30 to-zinc-900/50 border border-sky-900/30 rounded-xl sm:rounded-2xl p-3 sm:p-5">
+                    <div className="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3"><span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-sky-500 rounded-full" /><p className="text-[9px] sm:text-xs text-sky-500 uppercase tracking-widest font-bold">Segment C</p></div>
+                    <h3 className="text-base sm:text-lg font-bold text-white">Newbies</h3><p className="text-zinc-500 text-[10px] sm:text-xs mb-2 sm:mb-3">New to Protein</p>
+                    <div className="flex items-end justify-between"><p className="text-3xl sm:text-4xl font-black text-sky-400">{data.segments.C.total}</p><p className="text-sky-600 text-sm sm:text-base font-bold">{data.segments.C.percentage}%</p></div>
                   </div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 lg:grid-cols-1 gap-3 sm:gap-4">
-                <div className="bg-gradient-to-br from-amber-950/30 to-zinc-900/50 border border-amber-900/30 rounded-xl sm:rounded-2xl p-3 sm:p-5">
-                  <div className="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3"><span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-amber-500 rounded-full" /><p className="text-[9px] sm:text-xs text-amber-500 uppercase tracking-widest font-bold">Segment B</p></div>
-                  <h3 className="text-base sm:text-lg font-bold text-white">Skeptics</h3><p className="text-zinc-500 text-[10px] sm:text-xs mb-2 sm:mb-3">No - Unaware</p>
-                  <div className="flex items-end justify-between"><p className="text-3xl sm:text-4xl font-black text-amber-400">{data.segments.B.total}</p><p className="text-amber-600 text-sm sm:text-base font-bold">{data.segments.B.percentage}%</p></div>
-                </div>
-                <div className="bg-gradient-to-br from-sky-950/30 to-zinc-900/50 border border-sky-900/30 rounded-xl sm:rounded-2xl p-3 sm:p-5">
-                  <div className="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3"><span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-sky-500 rounded-full" /><p className="text-[9px] sm:text-xs text-sky-500 uppercase tracking-widest font-bold">Segment C</p></div>
-                  <h3 className="text-base sm:text-lg font-bold text-white">Newbies</h3><p className="text-zinc-500 text-[10px] sm:text-xs mb-2 sm:mb-3">New to Protein</p>
-                  <div className="flex items-end justify-between"><p className="text-3xl sm:text-4xl font-black text-sky-400">{data.segments.C.total}</p><p className="text-sky-600 text-sm sm:text-base font-bold">{data.segments.C.percentage}%</p></div>
-                </div>
-              </div>
-            </div>
+            )}
 
             {/* Tracking Analytics */}
             {trackingAnalytics && trackingAnalytics.hasTrackingData && (
@@ -674,12 +746,25 @@ export default function DashboardPage() {
         {/* ══════ PARTICIPANTS ══════ */}
         {viewMode === 'participants' && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-              <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-3 sm:p-4"><p className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-widest mb-1">Total</p><p className="text-xl sm:text-2xl font-black text-white">{currentParticipants.length}</p></div>
-              <div className="bg-emerald-950/30 border border-emerald-900/30 rounded-xl p-3 sm:p-4"><p className="text-[10px] sm:text-xs text-emerald-500 uppercase tracking-widest mb-1">Seg A</p><p className="text-xl sm:text-2xl font-black text-emerald-400">{currentParticipants.filter(p => p.segment === 'A').length}</p></div>
-              <div className="bg-amber-950/30 border border-amber-900/30 rounded-xl p-3 sm:p-4"><p className="text-[10px] sm:text-xs text-amber-500 uppercase tracking-widest mb-1">Seg B</p><p className="text-xl sm:text-2xl font-black text-amber-400">{currentParticipants.filter(p => p.segment === 'B').length}</p></div>
-              <div className="bg-sky-950/30 border border-sky-900/30 rounded-xl p-3 sm:p-4"><p className="text-[10px] sm:text-xs text-sky-500 uppercase tracking-widest mb-1">Seg C</p><p className="text-xl sm:text-2xl font-black text-sky-400">{currentParticipants.filter(p => p.segment === 'C').length}</p></div>
-            </div>
+            {/* ✅ Participants 상단 카드 — Quiz Type vs Main */}
+            {variant === 'type' ? (
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3">
+                <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-3 sm:p-4"><p className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-widest mb-1">Total</p><p className="text-xl sm:text-2xl font-black text-white">{currentParticipants.length}</p></div>
+                {Object.entries(QUIZ_TYPE_LABELS).map(([key, label]) => (
+                  <div key={key} className={`bg-gradient-to-br ${label.bgColor} border ${label.borderColor} rounded-xl p-3 sm:p-4`}>
+                    <p className={`text-[10px] sm:text-xs ${label.color} uppercase tracking-widest mb-1`}>{label.icon} {key}</p>
+                    <p className={`text-xl sm:text-2xl font-black ${label.color}`}>{quizTypeCounts?.[key] ?? 0}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-3 sm:p-4"><p className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-widest mb-1">Total</p><p className="text-xl sm:text-2xl font-black text-white">{currentParticipants.length}</p></div>
+                <div className="bg-emerald-950/30 border border-emerald-900/30 rounded-xl p-3 sm:p-4"><p className="text-[10px] sm:text-xs text-emerald-500 uppercase tracking-widest mb-1">Seg A</p><p className="text-xl sm:text-2xl font-black text-emerald-400">{currentParticipants.filter(p => p.segment === 'A').length}</p></div>
+                <div className="bg-amber-950/30 border border-amber-900/30 rounded-xl p-3 sm:p-4"><p className="text-[10px] sm:text-xs text-amber-500 uppercase tracking-widest mb-1">Seg B</p><p className="text-xl sm:text-2xl font-black text-amber-400">{currentParticipants.filter(p => p.segment === 'B').length}</p></div>
+                <div className="bg-sky-950/30 border border-sky-900/30 rounded-xl p-3 sm:p-4"><p className="text-[10px] sm:text-xs text-sky-500 uppercase tracking-widest mb-1">Seg C</p><p className="text-xl sm:text-2xl font-black text-sky-400">{currentParticipants.filter(p => p.segment === 'C').length}</p></div>
+              </div>
+            )}
 
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
               <div className="relative flex-1">
@@ -687,8 +772,23 @@ export default function DashboardPage() {
                 <input type="text" placeholder="Search email, country, city, IP..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-white text-sm focus:outline-none focus:border-zinc-600 placeholder-zinc-600" />
                 {searchQuery && <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg></button>}
               </div>
+              {/* ✅ 세그먼트 필터 — Quiz Type vs Main */}
               <select value={segmentFilter} onChange={e => setSegmentFilter(e.target.value)} className="px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-white text-sm focus:outline-none focus:border-zinc-600 cursor-pointer min-w-[140px]">
-                <option value="all">All Segments</option><option value="A">A - Switchers</option><option value="B">B - Skeptics</option><option value="C">C - Newbies</option>
+                <option value="all">All Segments</option>
+                {variant === 'type' ? (
+                  <>
+                    <option value="brick">🧱 Brick Stomach</option>
+                    <option value="chalk">🦷 Chalk Mouth</option>
+                    <option value="zombie">🧟 Post-Shake Zombie</option>
+                    <option value="gambler">🎰 30-Min Gambler</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="A">A - Switchers</option>
+                    <option value="B">B - Skeptics</option>
+                    <option value="C">C - Newbies</option>
+                  </>
+                )}
               </select>
               <button onClick={() => setShowAdvancedFilters(!showAdvancedFilters)} className={`px-4 py-2.5 border rounded-xl text-sm flex items-center gap-2 justify-center transition-colors ${showAdvancedFilters || activeFilterCount > 0 ? 'bg-purple-600 border-purple-600 text-white' : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:bg-zinc-800 hover:text-white'}`}>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
@@ -747,7 +847,7 @@ export default function DashboardPage() {
                     <table className="w-full text-left">
                       <thead><tr className="border-b border-zinc-800/80 bg-zinc-900/60">
                         <th className="px-3 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold w-10">#</th>
-                        {[{f:'email' as const,l:'Email'},{f:'segment' as const,l:'Seg'},{f:null,l:'Reason'},{f:'country' as const,l:'Location'},{f:null,l:'Device'},{f:'signed_up_at' as const,l:'Date'}].map(col => (
+                        {[{f:'email' as const,l:'Email'},{f:'segment' as const,l:variant === 'type' ? 'Type' : 'Seg'},{f:null,l:'Reason'},{f:'country' as const,l:'Location'},{f:null,l:'Device'},{f:'signed_up_at' as const,l:'Date'}].map(col => (
                           <th key={col.l} className={`px-3 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold ${col.f ? 'cursor-pointer hover:text-zinc-300 select-none' : ''}`} onClick={() => col.f && handleSort(col.f)}>
                             <span className="flex items-center gap-1">{col.l}{col.f && sortField === col.f && <span className="text-white">{sortDir === 'asc' ? '\u2191' : '\u2193'}</span>}</span>
                           </th>
@@ -759,7 +859,7 @@ export default function DashboardPage() {
                           <tr key={p.id || i} className="border-b border-zinc-800/40 hover:bg-zinc-800/30 transition-colors">
                             <td className="px-3 py-3 text-xs text-zinc-600 font-mono">{i + 1}</td>
                             <td className="px-3 py-3 text-sm text-white font-medium max-w-[180px] truncate">{p.email}</td>
-                            <td className="px-3 py-3"><span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-md border ${segColor(p.segment)}`}>{segLabel(p.segment)}</span></td>
+                            <td className="px-3 py-3"><span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-md border ${segColor(variant === 'type' ? (p.afterfeel_type || p.sub_reason) : p.segment)}`}>{segLabel(p.segment, p)}</span></td>
                             <td className="px-3 py-3 text-xs text-zinc-400 max-w-[100px] truncate">{p.sub_reason || '—'}</td>
                             <td className="px-3 py-3 text-xs text-zinc-300 whitespace-nowrap">{p.city && p.country ? `${p.city}, ${p.country}` : p.country || '—'}</td>
                             <td className="px-3 py-3 text-sm whitespace-nowrap">{deviceIcon(p.device_type)}</td>
@@ -777,7 +877,7 @@ export default function DashboardPage() {
                     <div key={p.id || i} className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-3 space-y-2" onClick={() => setSelectedParticipant(p)}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1"><p className="text-sm font-medium text-white truncate">{p.email}</p><div className="flex items-center gap-2 mt-0.5">{p.city && <span className="text-[10px] text-zinc-500">{p.city}, {p.country}</span>}{p.device_type && <span className="text-xs">{deviceIcon(p.device_type)}</span>}</div></div>
-                        <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-md border shrink-0 ${segColor(p.segment)}`}>{segLabel(p.segment)}</span>
+                        <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-md border shrink-0 ${segColor(variant === 'type' ? (p.afterfeel_type || p.sub_reason) : p.segment)}`}>{segLabel(p.segment, p)}</span>
                       </div>
                       <div className="flex items-center justify-between text-[10px]">{p.sub_reason && <span className="text-zinc-500 truncate mr-2">{p.sub_reason}</span>}<span className="text-zinc-600 font-mono whitespace-nowrap ml-auto">{fmtDate(p.signed_up_at)}</span></div>
                     </div>
@@ -797,11 +897,11 @@ export default function DashboardPage() {
                 <button onClick={() => setSelectedParticipant(null)} className="text-zinc-500 hover:text-white p-1"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
               </div>
               <div className="flex items-center gap-3">
-                <span className={`inline-flex items-center px-3 py-1 text-xs font-bold rounded-lg border ${segColor(selectedParticipant.segment)}`}>{segLabel(selectedParticipant.segment)}</span>
+                <span className={`inline-flex items-center px-3 py-1 text-xs font-bold rounded-lg border ${segColor(variant === 'type' ? (selectedParticipant.afterfeel_type || selectedParticipant.sub_reason) : selectedParticipant.segment)}`}>{segLabel(selectedParticipant.segment, selectedParticipant)}</span>
                 {selectedParticipant.sub_reason && <span className="text-sm text-zinc-400">{selectedParticipant.sub_reason}</span>}
               </div>
               <div className="grid grid-cols-2 gap-3">
-                {[{l:'Country',v:selectedParticipant.country},{l:'Region',v:selectedParticipant.region},{l:'City',v:selectedParticipant.city},{l:'Device',v:selectedParticipant.device_type},{l:'Language',v:selectedParticipant.language},{l:'Timezone',v:selectedParticipant.timezone},{l:'IP Address',v:selectedParticipant.ip_address},{l:'Referrer',v:selectedParticipant.referrer},{l:'UTM Source',v:selectedParticipant.utm_source},{l:'UTM Medium',v:selectedParticipant.utm_medium},{l:'UTM Campaign',v:selectedParticipant.utm_campaign},{l:'Source',v:selectedParticipant.source},{l:'Signed Up',v:fmtDate(selectedParticipant.signed_up_at)}].map(item => (
+                {[{l:'Country',v:selectedParticipant.country},{l:'Region',v:selectedParticipant.region},{l:'City',v:selectedParticipant.city},{l:'Device',v:selectedParticipant.device_type},{l:'Language',v:selectedParticipant.language},{l:'Timezone',v:selectedParticipant.timezone},{l:'IP Address',v:selectedParticipant.ip_address},{l:'Referrer',v:selectedParticipant.referrer},{l:'UTM Source',v:selectedParticipant.utm_source},{l:'UTM Medium',v:selectedParticipant.utm_medium},{l:'UTM Campaign',v:selectedParticipant.utm_campaign},{l:'Source',v:selectedParticipant.source},{l:'Afterfeel Type',v:selectedParticipant.afterfeel_type},{l:'Signed Up',v:fmtDate(selectedParticipant.signed_up_at)}].map(item => (
                   <div key={item.l} className="bg-zinc-800/50 rounded-lg p-2.5"><p className="text-[9px] text-zinc-500 uppercase tracking-widest font-semibold mb-0.5">{item.l}</p><p className="text-xs text-white font-medium truncate">{item.v || '—'}</p></div>
                 ))}
               </div>
