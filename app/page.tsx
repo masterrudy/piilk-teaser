@@ -22,7 +22,7 @@ function getUTMParams(): Record<string, string> {
   if (typeof window === 'undefined') return {};
   const params = new URLSearchParams(window.location.search);
   const utm: Record<string, string> = {};
-  ['utm_source', 'utm_medium', 'utm_campaign'].forEach((key) => {
+  ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'].forEach((key) => {
     const val = params.get(key);
     if (val) utm[key] = val;
   });
@@ -42,18 +42,17 @@ function getOrCreateId(key: string, storage: 'session' | 'local'): string {
 }
 
 export default function TeaserPage() {
-  const [step, setStep] = useState(1);
-  const [branch, setBranch] = useState<string | null>(null);
-  const [selectedReason, setSelectedReason] = useState('');
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [textFaded, setTextFaded] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [heroSwapped, setHeroSwapped] = useState(false);
 
   // ✅ 자동 수집 데이터 (한 번만 캡처)
   const trackingData = useRef<Record<string, string>>({});
   const sessionId = useRef('');
   const visitorId = useRef('');
-  const emailFocusTracked = useRef(false);
+  const leadStartFired = useRef(false);
+  const scrollMilestones = useRef<Record<number, boolean>>({ 25: false, 50: false, 75: false });
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -75,7 +74,57 @@ export default function TeaserPage() {
     trackEvent('page_view');
   }, []);
 
-  /* ─── ✅ Event tracking function ─── */
+  /* ─── ✅ Hero scroll swap ─── */
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleScroll = () => {
+      const heroZone = document.getElementById('heroZone');
+      if (!heroZone) return;
+
+      const rect = heroZone.getBoundingClientRect();
+      const zoneH = heroZone.offsetHeight - window.innerHeight;
+      const scrolled = -rect.top;
+      const progress = Math.max(0, Math.min(1, scrolled / zoneH));
+
+      if (progress > 0.3 && !heroSwapped) {
+        setHeroSwapped(true);
+      } else if (progress <= 0.2 && heroSwapped) {
+        setHeroSwapped(false);
+      }
+
+      // ✅ Scroll depth tracking
+      const totalScroll = document.body.scrollHeight - window.innerHeight;
+      const scrollPct = totalScroll > 0 ? (window.scrollY / totalScroll) * 100 : 0;
+      const st = scrollMilestones.current;
+      if (scrollPct >= 25 && !st[25]) { trackEvent('scroll_25'); st[25] = true; }
+      if (scrollPct >= 50 && !st[50]) { trackEvent('scroll_50'); st[50] = true; }
+      if (scrollPct >= 75 && !st[75]) { trackEvent('scroll_75'); st[75] = true; }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [heroSwapped]);
+
+  /* ─── ✅ Scroll reveal observer ─── */
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add('visible');
+            observer.unobserve(e.target);
+          }
+        });
+      },
+      { threshold: 0.15 }
+    );
+    document.querySelectorAll('.reveal').forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+
+  /* ─── ✅ Event tracking function (Supabase) ─── */
   const trackEvent = useCallback((eventName: string, eventData?: Record<string, any>) => {
     const td = trackingData.current;
     fetch('/api/track', {
@@ -95,64 +144,19 @@ export default function TeaserPage() {
     }).catch(() => {}); // fire-and-forget
   }, []);
 
-  // 공통 버튼 토큰
-  const btnDark =
-    'btn-dark-hover w-full py-4 border border-zinc-500 backdrop-blur-sm text-[13px] sm:text-[14px] font-medium bg-zinc-800/60 text-white transition-colors';
-
-  const btnDarkUpper =
-    'btn-dark-hover w-full py-4 backdrop-blur-sm border border-zinc-500 text-[13px] sm:text-[14px] tracking-[0.2em] uppercase font-medium bg-zinc-800/60 text-white transition-colors';
-
-  const btnWhiteUpper =
-    'w-full py-4 border border-white text-[13px] sm:text-[14px] tracking-[0.2em] uppercase font-semibold bg-white text-black transition-colors hover:bg-white active:bg-white focus:bg-white hover:text-black active:text-black focus:text-black disabled:opacity-70 flex items-center justify-center gap-2';
-
-  const handleBranch = (type: string) => {
-    if (typeof window !== 'undefined' && window.gtag) {
-      const labelMap: Record<string, string> = {
-        A: 'Yes',
-        B_no: 'No',
-        B_never: "I don't drink protein",
-      };
-      window.gtag('event', 'survey_response', {
-        survey_question: 'protein_experience',
-        survey_answer: labelMap[type] || type,
-        survey_segment: type === 'A' ? 'A' : type === 'B_no' ? 'B' : 'C',
-      });
+  /* ─── ✅ Email focus handler (lead_start) ─── */
+  const handleEmailFocus = useCallback(() => {
+    if (!leadStartFired.current) {
+      leadStartFired.current = true;
+      trackEvent('lead_start');
     }
+  }, [trackEvent]);
 
-    // ✅ Track step2_answer
-    const segMap: Record<string, string> = { A: 'A', B_no: 'B', B_never: 'C' };
-    trackEvent('step2_answer', { answer: type, segment: segMap[type] || 'C' });
-
-    setBranch(type);
-    setStep(3);
-
-    setTextFaded(false);
-    setTimeout(() => setTextFaded(true), 500);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email || isSubmitting) return;
+  /* ─── ✅ Email submit handler ─── */
+  const handleSubmit = async (source: string) => {
+    if (!email || !email.includes('@') || !email.includes('.') || isSubmitting || isSubmitted) return;
 
     setIsSubmitting(true);
-
-    let segment = 'C';
-    if (branch === 'A') segment = 'A';
-    else if (branch === 'B_no') segment = 'B';
-    else if (branch === 'B_never') segment = 'C';
-
-    let subReason = '';
-    if (branch === 'A' && selectedReason) {
-      if (selectedReason.includes('left something behind')) subReason = 'residue';
-      else if (selectedReason.includes('aftertaste')) subReason = 'aftertaste';
-      else if (selectedReason.includes('heavy')) subReason = 'heaviness';
-      else if (selectedReason.includes('effort')) subReason = 'habit';
-      else if (selectedReason.includes('stopped')) subReason = 'lapsed';
-    } else if (branch === 'B_no') {
-      subReason = 'not_interested';
-    } else if (branch === 'B_never') {
-      subReason = 'curious';
-    }
 
     try {
       const response = await fetch('/api/subscribe', {
@@ -160,8 +164,8 @@ export default function TeaserPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email,
-          segment,
-          answers: { sub_reason: subReason },
+          segment: 'direct',
+          answers: { sub_reason: '' },
           tracking: trackingData.current,
         }),
       });
@@ -169,9 +173,23 @@ export default function TeaserPage() {
       const data = await response.json();
 
       if (data.success) {
-        // ✅ Track step4_submit
-        trackEvent('step4_submit', { segment, sub_reason: subReason, email_domain: email.split('@')[1] || '' });
-        setStep(4);
+        // ✅ Supabase: track lead_submit
+        trackEvent('lead_submit', {
+          segment: 'direct',
+          sub_reason: '',
+          email_domain: email.split('@')[1] || '',
+          source,
+        });
+
+        // ✅ Google Analytics: generate_lead
+        if (typeof window !== 'undefined' && window.gtag) {
+          window.gtag('event', 'generate_lead', {
+            method: 'email_signup',
+            signup_source: source,
+          });
+        }
+
+        setIsSubmitted(true);
       } else {
         alert(data.error || 'Something went wrong. Please try again.');
       }
@@ -183,313 +201,452 @@ export default function TeaserPage() {
     }
   };
 
-  const resetAll = () => {
-    setStep(1);
-    setBranch(null);
-    setEmail('');
-    setSelectedReason('');
-    setTextFaded(false);
-  };
-
-  const Spinner = () => (
-    <svg className="animate-spin h-5 w-5 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      ></path>
-    </svg>
-  );
-
-  const Footer = () => (
-    <>
-      <p className="text-center text-[9px] tracking-[0.25em] text-zinc-500 uppercase mt-3 font-medium">
-        PIILK™ by ARMORED FRESH
-      </p>
-      <p className="text-center text-[9px] tracking-[0.15em] text-zinc-500 mt-1 font-medium">
-        RTD High Protein Shake.
-      </p>
-    </>
+  /* ─── Email Module (재사용) ─── */
+  const EmailModule = ({ source }: { source: string }) => (
+    <div className="email-module">
+      {!isSubmitted ? (
+        <>
+          <div className="email-form-row">
+            <input
+              type="email"
+              className="email-input"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onFocus={handleEmailFocus}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(source); }}
+              placeholder="you@email.com"
+              autoComplete="email"
+              inputMode="email"
+              disabled={isSubmitting}
+            />
+            <button
+              className="email-btn"
+              onClick={() => handleSubmit(source)}
+              disabled={isSubmitting || !email}
+            >
+              {isSubmitting ? 'Submitting...' : 'Get early access'}
+            </button>
+          </div>
+          <p className="email-trust">No spam. No purchase. Unsubscribe anytime.</p>
+        </>
+      ) : (
+        <p className="email-success">You&apos;re in. Watch for the first note.</p>
+      )}
+    </div>
   );
 
   return (
-    <main className="fixed inset-0 bg-black text-white overflow-hidden">
-      {/* 배경 */}
-      <div className="absolute inset-0">
+    <main className="piilk-page">
+      {/* ═══ Fixed Background ═══ */}
+      <div className="hero-bg">
         <Image
           src="/hero-bg.png"
           alt="Background"
           fill
-          className="object-cover scale-110"
+          className="hero-bg-img"
           style={{ objectPosition: 'center 35%' }}
           priority
           sizes="100vw"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-black/25" />
+        <div className="hero-bg-overlay" />
       </div>
 
-      {/* 콘텐츠 */}
-      <div className="relative z-10 w-full h-full flex flex-col items-center">
-        <div className="w-full max-w-md flex flex-col h-full px-5">
-          {/* 로고 */}
-          <header className="pt-5 pb-2 flex-shrink-0">
-            <Image
-              src="/pillk-logo.png"
-              alt="Piilk"
-              width={80}
-              height={32}
-              className="mx-auto cursor-pointer hover:opacity-70 transition-all duration-500"
-              onClick={resetAll}
-            />
-          </header>
+      {/* ═══ HERO SCROLL ZONE ═══ */}
+      <div className="hero-scroll-zone" id="heroZone">
+        <div className="hero-sticky">
+          <div className="hero-text-wrap">
 
-          <div className="flex-1 flex flex-col justify-end pb-6">
-            {/* Step 1 */}
-            {step === 1 && (
-              <section className="animate-fadeIn">
-                <div className="text-center mb-5">
-                  <h1 className="text-[30px] sm:text-[38px] font-extrabold leading-[1.0] mb-3 tracking-tight">
-                    EVER HAD
-                    <br />
-                    A DRINK
-                    <br />
-                    THAT FELT OFF
-                    <br />
-                    RIGHT AFTER?
-                  </h1>
-                  <p className="text-[15px] sm:text-[17px] text-zinc-300 font-light">
-                    Nothing after. <span className="text-white font-normal">Period.</span>
-                  </p>
-                </div>
+            {/* ── Logo ── */}
+            <div className="hero-logo">
+              <Image
+                src="/pillk-logo.png"
+                alt="Piilk"
+                width={80}
+                height={32}
+                className="logo-img"
+              />
+            </div>
 
-                <button onClick={() => {
-                  // ✅ Track step1_cta_click
-                  trackEvent('step1_cta_click');
-                  setStep(2);
-                }} className={btnDarkUpper}>
-                  Get in line
-                </button>
+            {/* ── Phase 1: Opening question ── */}
+            <div className={`hero-phase phase-1 ${heroSwapped ? 'out' : ''}`}>
+              <h1 className="hero-h1">
+                Ever Had a Drink<br />That Felt Off Right After?
+              </h1>
+              <div className={`hero-scroll-cue ${heroSwapped ? 'hidden' : ''}`}>
+                <span>Scroll</span>
+                <div className="arrow" />
+              </div>
+            </div>
 
-                <p className="text-center text-[10px] tracking-[0.2em] text-zinc-400 uppercase mt-3 font-medium">
-                  Early access. Invite first.
-                </p>
-                <Footer />
-              </section>
-            )}
-
-            {/* Step 2 */}
-            {step === 2 && (
-              <section className="animate-fadeIn">
-                <div className="text-center mb-6">
-                  <p className="text-[22px] sm:text-[26px] font-light leading-[1.2] text-zinc-200 italic">
-                    Ever had a protein drink
-                    <br />
-                    that left something behind?
-                  </p>
-                </div>
-
-                <div className="space-y-3">
-                  {[
-                    { label: 'Yes', value: 'A' },
-                    { label: 'No', value: 'B_no' },
-                    { label: "I don't drink protein", value: 'B_never' },
-                  ].map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => handleBranch(option.value)}
-                      className={`${btnDark} tracking-[0.15em]`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-
-                <Footer />
-              </section>
-            )}
-
-            {/* Step 3 */}
-            {step === 3 && (
-              <section className="animate-fadeIn">
-                <div className="text-center mb-4">
-                  <p
-                    className={`text-[18px] sm:text-[22px] font-light leading-[1.2] italic transition-all duration-[5000ms] ease-out ${
-                      textFaded ? 'text-zinc-600 opacity-40' : 'text-white opacity-100'
-                    }`}
-                  >
-                    Ever had a protein drink
-                    <br />
-                    that left something behind?
-                  </p>
-                </div>
-
-                <div className="border-t border-zinc-700 pt-5">
-                  {branch === 'A' && (
-                    <div className="text-center mb-4">
-                      <h2 className="text-[24px] sm:text-[30px] font-light mb-1 leading-[1.1]">
-                        Protein. Nothing after.
-                      </h2>
-                      <p className="text-zinc-300 text-[14px]">Nothing left behind.</p>
-
-                      <div className="mt-4 text-left">
-                        <label className="block text-[10px] text-zinc-400 tracking-[0.2em] uppercase mb-2 font-medium">
-                          What did it leave behind?
-                        </label>
-                        <select
-                          value={selectedReason}
-                          onChange={(e) => {
-                            setSelectedReason(e.target.value);
-                            // ✅ Track step3_reason_select
-                            if (e.target.value) {
-                              let reason = '';
-                              if (e.target.value.includes('left something behind')) reason = 'residue';
-                              else if (e.target.value.includes('aftertaste')) reason = 'aftertaste';
-                              else if (e.target.value.includes('heavy')) reason = 'heaviness';
-                              else if (e.target.value.includes('effort')) reason = 'habit';
-                              else if (e.target.value.includes('stopped')) reason = 'lapsed';
-                              trackEvent('step3_reason_select', { reason });
-                            }
-                          }}
-                          className="w-full p-4 bg-zinc-800/60 backdrop-blur-sm border border-zinc-500 text-white text-[16px] appearance-none focus:outline-none focus:border-zinc-400 transition-all"
-                        >
-                          <option value="" disabled className="bg-zinc-900">
-                            Select one
-                          </option>
-                          <option value="It left something behind" className="bg-zinc-900">
-                            It left something behind.
-                          </option>
-                          <option value="The aftertaste stayed too long" className="bg-zinc-900">
-                            The aftertaste stayed too long.
-                          </option>
-                          <option value="It felt heavy" className="bg-zinc-900">
-                            It felt heavy.
-                          </option>
-                          <option value="Keeping it up felt like effort" className="bg-zinc-900">
-                            Keeping it up felt like effort.
-                          </option>
-                          <option value="I just stopped, no clear reason" className="bg-zinc-900">
-                            I just stopped, no clear reason.
-                          </option>
-                        </select>
-                      </div>
-                    </div>
-                  )}
-
-                  {branch === 'B_no' && (
-                    <div className="text-center mb-4">
-                      <h2 className="text-[24px] sm:text-[30px] font-light mb-1 leading-[1.1]">
-                        Maybe you just
-                        <br />
-                        haven&apos;t noticed yet.
-                      </h2>
-                      <p className="text-zinc-300 text-[14px]">Protein. Nothing after.</p>
-                    </div>
-                  )}
-
-                  {branch === 'B_never' && (
-                    <div className="text-center mb-4">
-                      <h2 className="text-[24px] sm:text-[30px] font-light mb-1 leading-[1.1]">
-                        Good.
-                        <br />
-                        You get to start clean.
-                      </h2>
-                      <p className="text-zinc-300 text-[14px]">Protein. Nothing after.</p>
-                    </div>
-                  )}
-
-                  <form onSubmit={handleSubmit} className="space-y-3 mt-4">
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      onFocus={() => {
-                        // ✅ Track step3_email_focus (only once per session)
-                        if (!emailFocusTracked.current) {
-                          emailFocusTracked.current = true;
-                          trackEvent('step3_email_focus');
-                        }
-                      }}
-                      placeholder="Enter your email"
-                      className="w-full p-4 bg-zinc-800/60 backdrop-blur-sm border border-zinc-500 text-white text-[16px] placeholder-zinc-400 focus:outline-none focus:border-zinc-400 transition-all"
-                      required
-                    />
-
-                    <button type="submit" disabled={isSubmitting} className={btnWhiteUpper}>
-                      {isSubmitting ? (
-                        <>
-                          <Spinner />
-                          <span>Submitting...</span>
-                        </>
-                      ) : (
-                        'Get early access'
-                      )}
-                    </button>
-                  </form>
-                </div>
-
-                <Footer />
-              </section>
-            )}
-
-            {/* Step 4 */}
-            {step === 4 && (
-              <section className="animate-fadeIn">
-                <div className="text-center py-8">
-                  <div className="w-14 h-14 border-2 border-zinc-500 rounded-full flex items-center justify-center mx-auto mb-5 animate-pulse">
-                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                  </div>
-
-                  <p className="text-[11px] tracking-[0.25em] uppercase text-zinc-400 mb-5 font-medium">
-                    You&apos;re on the list
-                  </p>
-
-                  <Image src="/pillk-logo.png" alt="Piilk" width={90} height={36} className="mx-auto mb-4" />
-
-                  <p className="text-[16px] sm:text-[18px] text-zinc-300 font-light">
-                    Nothing after. <span className="text-white font-normal">Period.</span>
-                  </p>
-                </div>
-
-                <Footer />
-              </section>
-            )}
+            {/* ── Phase 2: Brand answer + email ── */}
+            <div className={`hero-phase phase-2 ${heroSwapped ? 'in' : ''}`}>
+              <h1 className="hero-h1">
+                PIILK is built for<br />what&apos;s left behind.
+              </h1>
+              <p className="hero-desc">Heavy after. Film that lingers. You know the moment.</p>
+              <p className="hero-proof">30g protein · 7 ingredients · Dairy-free</p>
+              <div className="hero-email-wrap">
+                <EmailModule source="hero" />
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
+      {/* ═══ CONTENT ═══ */}
+      <div className="content-sections">
+        {/* ── WHY ── */}
+        <section className="why-section">
+          <div className="why-inner reveal">
+            <h2>Why we built PIILK</h2>
+            <div className="why-body">
+              <p>Most shakes obsess over macros.</p>
+              <p>We obsessed over what happens after you drink it.</p>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Second CTA ── */}
+        <section className="cta2-section">
+          <div className="cta2-inner reveal">
+            <p className="cta2-hint">Get the invite when access opens.</p>
+            <EmailModule source="cta" />
+          </div>
+        </section>
+
+        {/* ── Footer ── */}
+        <footer className="piilk-footer">
+          <p className="footer-brand">PIILK™ by ARMORED FRESH</p>
+          <p className="footer-sub">RTD High Protein Shake.</p>
+        </footer>
+      </div>
+
       <style jsx global>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        .animate-fadeIn {
-          animation: fadeIn 0.5s ease-out forwards;
+        /* ══════════════════════════════════════
+           CSS VARIABLES — NEON DARK SYSTEM
+           ══════════════════════════════════════ */
+        :root {
+          --bg:             #000000;
+          --text-primary:   #FFFFFF;
+          --text-secondary: #CCCCCC;
+          --text-muted:     #888888;
+          --accent:         #D4FF00;
+          --accent-hover:   #E5FF33;
+          --border:         #1A1A1A;
+          --input-bg:       #111111;
+          --success:        #00FF88;
+
+          --max-w: 640px;
+          --px: 24px;
+          --radius: 12px;
+          --tap: 52px;
+
+          --font-display: 'DM Sans', system-ui, sans-serif;
+          --font-body:    'DM Sans', system-ui, sans-serif;
         }
 
-        @media (hover: hover) and (pointer: fine) {
-          .btn-dark-hover:hover {
-            background-color: rgba(255, 255, 255, 1) !important;
-            color: #000 !important;
-          }
+        /* ══════════════════════════════════════
+           BASE
+           ══════════════════════════════════════ */
+        .piilk-page {
+          background: var(--bg);
+          color: var(--text-primary);
+          font-family: var(--font-body);
+          line-height: 1.4;
+          overflow-x: hidden;
+          -webkit-font-smoothing: antialiased;
         }
 
-        .btn-dark-hover {
-          -webkit-tap-highlight-color: transparent;
+        /* ══════════════════════════════════════
+           FIXED BACKGROUND IMAGE
+           ══════════════════════════════════════ */
+        .hero-bg {
+          position: fixed;
+          top: 0; left: 0;
+          width: 100%; height: 100vh;
+          z-index: 0;
         }
-        .btn-dark-hover:active,
-        .btn-dark-hover:focus {
-          background-color: rgba(39, 39, 42, 0.6) !important;
-          color: #fff !important;
+        .hero-bg-img {
+          object-fit: cover;
+          transform: scale(1.1);
+        }
+        .hero-bg-overlay {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(
+            180deg,
+            rgba(0, 0, 0, 0.1) 0%,
+            rgba(0, 0, 0, 0.2) 40%,
+            rgba(0, 0, 0, 0.55) 100%
+          );
+        }
+
+        /* ══════════════════════════════════════
+           HERO SCROLL ZONE
+           ══════════════════════════════════════ */
+        .hero-scroll-zone {
+          position: relative;
+          z-index: 1;
+          height: 200vh;
+        }
+        .hero-sticky {
+          position: sticky;
+          top: 0;
+          height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+          padding: 0 var(--px);
+        }
+        .hero-text-wrap {
+          max-width: 680px;
+          position: relative;
+          width: 100%;
+        }
+
+        /* ── Logo ── */
+        .hero-logo {
+          position: absolute;
+          top: -120px;
+          left: 50%;
+          transform: translateX(-50%);
+        }
+        .logo-img {
+          opacity: 0.9;
+          transition: opacity 0.3s ease;
+        }
+        .logo-img:hover {
+          opacity: 0.6;
+        }
+
+        /* ── Hero phases ── */
+        .hero-phase {
+          transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        .phase-1 {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        .phase-1.out {
+          opacity: 0;
+          transform: translateY(-20px);
+        }
+        .phase-2 {
+          position: absolute;
+          top: 0; left: 0; right: 0;
+          opacity: 0;
+          transform: translateY(20px);
+          transition: opacity 0.5s ease 0.15s, transform 0.5s ease 0.15s;
+        }
+        .phase-2.in {
+          opacity: 1;
+          transform: translateY(0);
+        }
+
+        .hero-h1 {
+          font-family: var(--font-display);
+          font-size: clamp(30px, 7vw, 52px);
+          font-weight: 700;
+          line-height: 1.15;
+          color: var(--text-primary);
+          letter-spacing: -0.01em;
+        }
+        .hero-desc {
+          margin-top: 16px;
+          font-size: 15px;
+          line-height: 1.5;
+          color: var(--text-secondary);
+        }
+        .hero-proof {
+          margin-top: 10px;
+          font-size: 13px;
+          color: var(--text-muted);
+          letter-spacing: 0.02em;
+        }
+        .hero-email-wrap {
+          margin-top: 24px;
+          width: 100%;
+          max-width: 420px;
+          margin-left: auto;
+          margin-right: auto;
+          text-align: left;
+        }
+
+        /* ── Scroll cue ── */
+        .hero-scroll-cue {
+          margin-top: 48px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+          opacity: 0.4;
+          transition: opacity 0.3s ease;
+        }
+        .hero-scroll-cue.hidden { opacity: 0; }
+        .hero-scroll-cue span {
+          font-size: 12px;
+          color: var(--text-muted);
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+        }
+        .hero-scroll-cue .arrow {
+          width: 16px; height: 16px;
+          border-right: 1.5px solid var(--text-muted);
+          border-bottom: 1.5px solid var(--text-muted);
+          transform: rotate(45deg);
+          animation: bounce 2s ease-in-out infinite;
+        }
+        @keyframes bounce {
+          0%, 100% { transform: rotate(45deg) translateY(0); }
+          50% { transform: rotate(45deg) translateY(5px); }
+        }
+
+        /* ══════════════════════════════════════
+           CONTENT SECTIONS
+           ══════════════════════════════════════ */
+        .content-sections {
+          position: relative;
+          z-index: 2;
+        }
+
+        /* ── Email Module ── */
+        .email-module { width: 100%; }
+        .email-form-row {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .email-input {
+          width: 100%;
+          height: var(--tap);
+          padding: 14px;
+          background: var(--input-bg);
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          color: var(--text-primary);
+          font-family: var(--font-body);
+          font-size: 16px;
           outline: none;
+          transition: border-color 0.2s;
+        }
+        .email-input::placeholder { color: var(--text-muted); }
+        .email-input:focus { border-color: var(--accent); }
+        .email-input:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .email-btn {
+          width: 100%;
+          height: var(--tap);
+          background: var(--accent);
+          color: var(--bg);
+          border: none;
+          border-radius: var(--radius);
+          font-family: var(--font-body);
+          font-size: 16px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.2s, transform 0.1s;
+        }
+        .email-btn:hover { background: var(--accent-hover); }
+        .email-btn:active { transform: scale(0.98); }
+        .email-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .email-trust {
+          margin-top: 10px;
+          font-size: 12px;
+          color: var(--text-muted);
+        }
+        .email-success {
+          margin-top: 10px;
+          font-size: 14px;
+          color: var(--success);
+          font-weight: 500;
+          animation: fadeIn 150ms ease forwards;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* ── WHY Section ── */
+        .why-section {
+          padding: 100px var(--px) 80px;
+          background: var(--bg);
+        }
+        .why-inner {
+          max-width: var(--max-w);
+          margin: 0 auto;
+          text-align: center;
+        }
+        .why-section h2 {
+          font-family: var(--font-display);
+          font-size: clamp(30px, 7vw, 52px);
+          font-weight: 700;
+          color: var(--text-primary);
+          margin-bottom: 16px;
+          line-height: 1.15;
+          letter-spacing: -0.01em;
+        }
+        .why-body {
+          font-size: 15px;
+          line-height: 1.5;
+          color: var(--text-secondary);
+        }
+        .why-body p + p { margin-top: 6px; }
+
+        /* ── Second CTA ── */
+        .cta2-section {
+          padding: 80px var(--px) 100px;
+          background: var(--bg);
+        }
+        .cta2-inner {
+          max-width: var(--max-w);
+          margin: 0 auto;
+          text-align: center;
+        }
+        .cta2-hint {
+          font-size: 15px;
+          color: var(--text-secondary);
+          margin-bottom: 20px;
+          line-height: 1.5;
+        }
+
+        /* ── Footer ── */
+        .piilk-footer {
+          padding: 40px var(--px) 60px;
+          background: var(--bg);
+          text-align: center;
+        }
+        .footer-brand {
+          font-size: 9px;
+          letter-spacing: 0.25em;
+          color: var(--text-muted);
+          text-transform: uppercase;
+          font-weight: 500;
+        }
+        .footer-sub {
+          font-size: 9px;
+          letter-spacing: 0.15em;
+          color: var(--text-muted);
+          margin-top: 4px;
+          font-weight: 500;
+        }
+
+        /* ── Scroll reveal ── */
+        .reveal {
+          opacity: 0;
+          transform: translateY(20px);
+          transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+        .reveal.visible {
+          opacity: 1;
+          transform: translateY(0);
+        }
+
+        /* ── Desktop ── */
+        @media (min-width: 768px) {
+          .why-section { padding: 120px 48px 100px; }
+          .cta2-section { padding: 100px 48px 120px; }
+          .email-form-row { flex-direction: row; }
+          .email-form-row .email-input { flex: 1; min-width: 0; }
+          .email-form-row .email-btn { width: auto; min-width: 180px; flex-shrink: 0; }
         }
       `}</style>
     </main>
