@@ -1,497 +1,464 @@
-'use client';
+// ═══════════════════════════════════════════════════════════
+// 📁 파일 위치: app/type/page.tsx
+// 📌 역할: /type 메인 페이지 (V9 Hybrid 전체)
+// 📌 플로우: Hero → Quiz 3문항 → Result (Share #1 → Email #2 → Referral → Declaration)
+// 📌 모든 API 호출은 /api/type-* 경로 사용 (A안 완전 분리)
+// ═══════════════════════════════════════════════════════════
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import Image from 'next/image';
+"use client";
 
-declare global {
-  interface Window {
-    gtag?: (...args: unknown[]) => void;
-  }
-}
+import { useState, useEffect, useCallback, useRef } from "react";
+import Image from "next/image";
+import {
+  QUIZ_QUESTIONS,
+  AFTERFEEL_TYPES,
+  DECLARATIONS,
+  SHARE_URL,
+  getShareText,
+  calcAfterfeelType,
+  type AfterfeelType,
+} from "@/lib/quiz-data";
+import { track } from "@/lib/ga4";
 
-/* ─── 디바이스/브라우저 자동 감지 유틸 ─── */
-function getDeviceType(): string {
-  if (typeof window === 'undefined') return 'unknown';
-  const ua = navigator.userAgent;
-  if (/tablet|ipad|playbook|silk/i.test(ua)) return 'tablet';
-  if (/mobile|iphone|ipod|android.*mobile|windows phone|blackberry/i.test(ua)) return 'mobile';
-  return 'desktop';
-}
-
-function getUTMParams(): Record<string, string> {
-  if (typeof window === 'undefined') return {};
-  const params = new URLSearchParams(window.location.search);
-  const utm: Record<string, string> = {};
-  ['utm_source', 'utm_medium', 'utm_campaign'].forEach((key) => {
-    const val = params.get(key);
-    if (val) utm[key] = val;
-  });
-  return utm;
-}
-
-/* ─── Session/Visitor ID 생성 ─── */
-function getOrCreateId(key: string, storage: 'session' | 'local'): string {
-  if (typeof window === 'undefined') return '';
-  const store = storage === 'session' ? sessionStorage : localStorage;
-  let id = store.getItem(key);
+// ─── Visitor ID ───
+function getVisitorId(): string {
+  if (typeof window === "undefined") return "";
+  let id = localStorage.getItem("piilk_vid");
   if (!id) {
-    id = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    store.setItem(key, id);
+    id = crypto.randomUUID();
+    localStorage.setItem("piilk_vid", id);
   }
   return id;
 }
 
-export default function TeaserPage() {
-  const [step, setStep] = useState(1);
-  const [branch, setBranch] = useState<string | null>(null);
-  const [selectedReason, setSelectedReason] = useState('');
-  const [email, setEmail] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [textFaded, setTextFaded] = useState(false);
+// ─── URL에서 referral code 추출 ───
+function getReferralFromURL(): string | null {
+  if (typeof window === "undefined") return null;
+  return new URLSearchParams(window.location.search).get("ref") || null;
+}
 
-  // ✅ 자동 수집 데이터 (한 번만 캡처)
-  const trackingData = useRef<Record<string, string>>({});
-  const sessionId = useRef('');
-  const visitorId = useRef('');
-  const emailFocusTracked = useRef(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const utmParams = getUTMParams();
-
-    trackingData.current = {
-      device_type: getDeviceType(),
-      language: navigator.language || '',
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
-      referrer: document.referrer || '',
-      ...utmParams,
-    };
-
-    sessionId.current = getOrCreateId('piilk_session', 'session');
-    visitorId.current = getOrCreateId('piilk_visitor', 'local');
-
-    // ✅ Track page_view
-    trackEvent('page_view');
-  }, []);
-
-  /* ─── ✅ Event tracking function ─── */
-  const trackEvent = useCallback((eventName: string, eventData?: Record<string, any>) => {
-    const td = trackingData.current;
-    fetch('/api/track', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        event_name: eventName,
-        event_data: eventData || null,
-        session_id: sessionId.current,
-        visitor_id: visitorId.current,
-        device_type: td.device_type || null,
-        referrer: td.referrer || null,
-        utm_source: td.utm_source || null,
-        utm_medium: td.utm_medium || null,
-        utm_campaign: td.utm_campaign || null,
-      }),
-    }).catch(() => {}); // fire-and-forget
-  }, []);
-
-  // 공통 버튼 토큰
-  const btnDark =
-    'btn-dark-hover w-full py-4 border border-zinc-500 backdrop-blur-sm text-[13px] sm:text-[14px] font-medium bg-zinc-800/60 text-white transition-colors';
-
-  const btnDarkUpper =
-    'btn-dark-hover w-full py-4 backdrop-blur-sm border border-zinc-500 text-[13px] sm:text-[14px] tracking-[0.2em] uppercase font-medium bg-zinc-800/60 text-white transition-colors';
-
-  const btnWhiteUpper =
-    'w-full py-4 border border-white text-[13px] sm:text-[14px] tracking-[0.2em] uppercase font-semibold bg-white text-black transition-colors hover:bg-white active:bg-white focus:bg-white hover:text-black active:text-black focus:text-black disabled:opacity-70 flex items-center justify-center gap-2';
-
-  const handleBranch = (type: string) => {
-    if (typeof window !== 'undefined' && window.gtag) {
-      const labelMap: Record<string, string> = {
-        A: 'Yes',
-        B_no: 'No',
-        B_never: "I don't drink protein",
-      };
-      window.gtag('event', 'survey_response', {
-        survey_question: 'protein_experience',
-        survey_answer: labelMap[type] || type,
-        survey_segment: type === 'A' ? 'A' : type === 'B_no' ? 'B' : 'C',
-      });
-    }
-
-    // ✅ Track step2_answer
-    const segMap: Record<string, string> = { A: 'A', B_no: 'B', B_never: 'C' };
-    trackEvent('step2_answer', { answer: type, segment: segMap[type] || 'C' });
-
-    setBranch(type);
-    setStep(3);
-
-    setTextFaded(false);
-    setTimeout(() => setTextFaded(true), 500);
+// ─── 브라우저 트래킹 데이터 수집 ───
+function getTrackingData() {
+  if (typeof window === "undefined") return {};
+  const params = new URLSearchParams(window.location.search);
+  return {
+    device_type: /Mobile|Android|iPhone/i.test(navigator.userAgent) ? "mobile" : "desktop",
+    language: navigator.language || null,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
+    referrer: document.referrer || null,
+    utm_source: params.get("utm_source") || null,
+    utm_medium: params.get("utm_medium") || null,
+    utm_campaign: params.get("utm_campaign") || null,
   };
+}
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email || isSubmitting) return;
+// ═══════════════════════════════════════════
+// HERO
+// ═══════════════════════════════════════════
+function Hero({ onStart }: { onStart: () => void }) {
+  return (
+    <section className="phase hero-phase">
+      <div className="hero-inner">
+        <h1 className="h1 anim-up">
+          It&apos;s not the protein.
+          <br />
+          It&apos;s the <em>after.</em>
+        </h1>
+        <p className="body anim-up d1">
+          That heavy feeling after. The film that lingers.
+          <br />
+          We call it <strong>after-feel</strong> — everyone has a type.
+        </p>
+        <button className="btn-primary anim-up d2" onClick={onStart}>
+          Find your type
+        </button>
+        <div className="caption anim-up d3">30 seconds</div>
+      </div>
+    </section>
+  );
+}
 
-    setIsSubmitting(true);
+// ═══════════════════════════════════════════
+// QUIZ
+// ═══════════════════════════════════════════
+function Quiz({ onComplete }: { onComplete: (type: AfterfeelType) => void }) {
+  const [qi, setQi] = useState(0);
+  const [answers, setAnswers] = useState<string[]>([]);
+  const [picked, setPicked] = useState(false);
 
-    let segment = 'C';
-    if (branch === 'A') segment = 'A';
-    else if (branch === 'B_no') segment = 'B';
-    else if (branch === 'B_never') segment = 'C';
+  const q = QUIZ_QUESTIONS[qi];
 
-    let subReason = '';
-    if (branch === 'A' && selectedReason) {
-      if (selectedReason.includes('left something behind')) subReason = 'residue';
-      else if (selectedReason.includes('aftertaste')) subReason = 'aftertaste';
-      else if (selectedReason.includes('heavy')) subReason = 'heaviness';
-      else if (selectedReason.includes('effort')) subReason = 'habit';
-      else if (selectedReason.includes('stopped')) subReason = 'lapsed';
-    } else if (branch === 'B_no') {
-      subReason = 'not_interested';
-    } else if (branch === 'B_never') {
-      subReason = 'curious';
-    }
+  function pick(group: string) {
+    if (picked) return;
+    setPicked(true);
+    const next = [...answers, group];
+    setAnswers(next);
 
-    try {
-      const response = await fetch('/api/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          segment,
-          answers: { sub_reason: subReason },
-          tracking: trackingData.current,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        // ✅ Track step4_submit
-        trackEvent('step4_submit', { segment, sub_reason: subReason, email_domain: email.split('@')[1] || '' });
-        setStep(4);
+    setTimeout(() => {
+      if (qi + 1 < QUIZ_QUESTIONS.length) {
+        setQi(qi + 1);
+        setPicked(false);
       } else {
-        alert(data.error || 'Something went wrong. Please try again.');
+        const result = calcAfterfeelType(next);
+        track.quizComplete(result);
+        onComplete(result);
       }
-    } catch (error) {
-      console.error('Error:', error);
-      alert('Something went wrong. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const resetAll = () => {
-    setStep(1);
-    setBranch(null);
-    setEmail('');
-    setSelectedReason('');
-    setTextFaded(false);
-  };
-
-  const Spinner = () => (
-    <svg className="animate-spin h-5 w-5 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      ></path>
-    </svg>
-  );
-
-  const Footer = () => (
-    <>
-      <p className="text-center text-[9px] tracking-[0.25em] text-zinc-500 uppercase mt-3 font-medium">
-        PIILK™ by ARMORED FRESH
-      </p>
-      <p className="text-center text-[9px] tracking-[0.15em] text-zinc-500 mt-1 font-medium">
-        RTD High Protein Shake.
-      </p>
-    </>
-  );
+    }, 300);
+  }
 
   return (
-    <main className="fixed inset-0 bg-black text-white overflow-hidden">
-      {/* 배경 */}
-      <div className="absolute inset-0">
-        <Image
-          src="/hero-bg.png"
-          alt="Background"
-          fill
-          className="object-cover scale-110"
-          style={{ objectPosition: 'center 35%' }}
-          priority
-          sizes="100vw"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-black/25" />
+    <section className="phase quiz-phase">
+      <div className="wrap">
+        <div className="quiz-dots">
+          {QUIZ_QUESTIONS.map((_, i) => (
+            <div key={i} className={`qdot ${i < qi ? "done" : i === qi ? "now" : ""}`} />
+          ))}
+        </div>
+        <div className="caption" style={{ marginBottom: 8 }}>
+          {qi + 1} of {QUIZ_QUESTIONS.length}
+        </div>
+        <h2 className="h2 quiz-q">{q.question}</h2>
+        <div className="quiz-opts">
+          {q.options.map((o, j) => (
+            <div
+              key={`${qi}-${j}`}
+              className={`qo ${picked && answers[qi] === o.group ? "pk" : ""}`}
+              onClick={() => pick(o.group)}
+              style={{ animation: `up .35s cubic-bezier(.16,1,.3,1) ${j * 0.04}s both` }}
+            >
+              <span className="qo-icon">{o.icon}</span>
+              <span>{o.text}</span>
+            </div>
+          ))}
+        </div>
       </div>
+    </section>
+  );
+}
 
-      {/* 콘텐츠 */}
-      <div className="relative z-10 w-full h-full flex flex-col items-center">
-        <div className="w-full max-w-md flex flex-col h-full px-5">
-          {/* 로고 */}
-          <header className="pt-5 pb-2 flex-shrink-0">
-            <Image
-              src="/pillk-logo.png"
-              alt="Piilk"
-              width={80}
-              height={32}
-              className="mx-auto cursor-pointer hover:opacity-70 transition-all duration-500"
-              onClick={resetAll}
-            />
-          </header>
+// ═══════════════════════════════════════════
+// RESULT
+// ═══════════════════════════════════════════
+function Result({ type }: { type: AfterfeelType }) {
+  const t = AFTERFEEL_TYPES[type];
 
-          <div className="flex-1 flex flex-col justify-end pb-6">
-            {/* Step 1 */}
-            {step === 1 && (
-              <section className="animate-fadeIn">
-                <div className="text-center mb-5">
-                  <h1 className="text-[30px] sm:text-[38px] font-extrabold leading-[1.0] mb-3 tracking-tight">
-                    EVER HAD
-                    <br />
-                    A DRINK
-                    <br />
-                    THAT FELT OFF
-                    <br />
-                    RIGHT AFTER?
-                  </h1>
-                  <p className="text-[15px] sm:text-[17px] text-zinc-300 font-light">
-                    Nothing after. <span className="text-white font-normal">Period.</span>
-                  </p>
-                </div>
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailError, setEmailError] = useState("");
+  const [referralCode, setReferralCode] = useState("");
+  const [queuePosition, setQueuePosition] = useState(0);
+  const [declCounts, setDeclCounts] = useState<Record<string, number>>({});
+  const [votedDecls, setVotedDecls] = useState<Set<string>>(new Set());
+  const [copied, setCopied] = useState(false);
+  const [refCopied, setRefCopied] = useState(false);
 
-                <button onClick={() => {
-                  // ✅ Track step1_cta_click
-                  trackEvent('step1_cta_click');
-                  setStep(2);
-                }} className={btnDarkUpper}>
-                  Get in line
+  const emailRef = useRef<HTMLInputElement>(null);
+  const referredBy = useRef<string | null>(null);
+
+  useEffect(() => {
+    referredBy.current = getReferralFromURL();
+    track.typeResult(type);
+
+    // Declaration 카운트 로드
+    fetch("/api/type-declarations")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.declarations) {
+          const counts: Record<string, number> = {};
+          data.declarations.forEach(
+            (d: { statement_key: string; vote_count: number }) => {
+              counts[d.statement_key] = d.vote_count;
+            }
+          );
+          setDeclCounts(counts);
+        }
+      })
+      .catch(() => {});
+  }, [type]);
+
+  // ─── Share ───
+  const doShare = useCallback(
+    (channel: string) => {
+      track.shareClick(channel, type);
+      const txt = getShareText(t.name);
+
+      switch (channel) {
+        case "x":
+          window.open(
+            `https://twitter.com/intent/tweet?text=${encodeURIComponent(txt)}&url=${encodeURIComponent(SHARE_URL)}`,
+            "_blank"
+          );
+          break;
+        case "ig":
+          // TODO: html2canvas → PNG for IG Stories
+          alert("Production: html2canvas → saves card as PNG for IG Stories.");
+          break;
+        case "sms":
+          window.open(`sms:?&body=${encodeURIComponent(txt + " " + SHARE_URL)}`);
+          break;
+        case "link":
+          navigator.clipboard?.writeText(txt + " " + SHARE_URL);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1800);
+          break;
+      }
+    },
+    [t.name, type]
+  );
+
+  // ─── Email ───
+  async function submitEmail() {
+    const email = emailRef.current?.value.trim();
+    if (!email || !email.includes("@") || !email.includes(".")) {
+      setEmailError("Please enter a valid email.");
+      return;
+    }
+    setEmailLoading(true);
+    setEmailError("");
+
+    try {
+      const res = await fetch("/api/type-subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          afterfeel_type: type,
+          referred_by: referredBy.current,
+          tracking: getTrackingData(),
+        }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setReferralCode(data.referral_code);
+        setQueuePosition(data.queue_position);
+        setEmailSent(true);
+        track.emailSubmit(type);
+      } else {
+        setEmailError(
+          data.error === "invalid_email"
+            ? "Please enter a valid email."
+            : "Something went wrong. Try again."
+        );
+      }
+    } catch {
+      setEmailError("Connection error. Try again.");
+    } finally {
+      setEmailLoading(false);
+    }
+  }
+
+  // ─── Declaration Vote ───
+  async function voteDeclaration(key: string) {
+    if (votedDecls.has(key)) return;
+    track.declarationTap(key);
+
+    // Optimistic update
+    setDeclCounts((prev) => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
+    setVotedDecls((prev) => new Set(prev).add(key));
+
+    try {
+      const res = await fetch("/api/type-declarations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ statement_key: key, visitor_id: getVisitorId() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setDeclCounts((prev) => ({ ...prev, [key]: data.vote_count }));
+      }
+    } catch {
+      // Optimistic already applied
+    }
+  }
+
+  // ─── Referral Share ───
+  function refShare(channel: string) {
+    track.referralShare(channel);
+    const refUrl = `${SHARE_URL}?ref=${referralCode}`;
+    const txt = `I'm #${queuePosition.toLocaleString()} on the PIILK™ list. Something better is coming:`;
+
+    if (channel === "x") {
+      window.open(
+        `https://twitter.com/intent/tweet?text=${encodeURIComponent(txt)}&url=${encodeURIComponent(refUrl)}`,
+        "_blank"
+      );
+    } else {
+      navigator.clipboard?.writeText(refUrl);
+      setRefCopied(true);
+      setTimeout(() => setRefCopied(false), 1800);
+    }
+  }
+
+  return (
+    <section className="phase result-phase">
+      <div className="result-wrap">
+        {/* CARD */}
+        <div className="card">
+          <div className="card-inner">
+            <div className="label">Your after-feel type</div>
+            <div className="type-icon">{t.icon}</div>
+            <div className="type-name">{t.name}</div>
+            <div className="type-tagline">{t.tagline}</div>
+            <div className="card-foot">PIILK™ by Armored Fresh</div>
+          </div>
+        </div>
+
+        {/* SHARE = #1 CTA */}
+        <div className="share-zone">
+          <div className="share-label">Tell them what you are</div>
+          <div className="share-grid">
+            <button className="share-btn" onClick={() => doShare("ig")}>📸 Story</button>
+            <button className="share-btn" onClick={() => doShare("sms")}>💬 Text</button>
+            <button className="share-btn" onClick={() => doShare("x")}>𝕏 Post</button>
+          </div>
+          <div className="copy-row" onClick={() => doShare("link")}>
+            <span>teaser.piilk.com/type</span>
+            <span className="copy-label">{copied ? "Copied!" : "Copy link"}</span>
+          </div>
+        </div>
+
+        <div className="sep" />
+
+        {/* EMAIL = #2 CTA */}
+        <div className="email-section">
+          {!emailSent ? (
+            <div>
+              <div className="email-bridge">
+                PIILK™ — a protein shake designed to leave nothing behind.
+                <br />
+                <strong>Want to try zero after-feel?</strong>
+              </div>
+              <div className="email-row">
+                <input
+                  ref={emailRef}
+                  type="email"
+                  className="email-input"
+                  placeholder="your@email.com"
+                  onKeyDown={(e) => e.key === "Enter" && submitEmail()}
+                />
+                <button className="email-btn" onClick={submitEmail} disabled={emailLoading}>
+                  {emailLoading ? "..." : "Get early access"}
                 </button>
+              </div>
+              {emailError && <div className="email-error">{emailError}</div>}
+              <div className="email-note">Shipping nationwide. We&apos;ll let you know first.</div>
+            </div>
+          ) : (
+            <div className="email-ok anim-up">
+              <div className="email-ok-icon">✓</div>
+              <div className="email-ok-head">You&apos;re on the list.</div>
+              <div className="email-ok-sub">We&apos;ll email you when it&apos;s your turn.</div>
+            </div>
+          )}
+        </div>
 
-                <p className="text-center text-[10px] tracking-[0.2em] text-zinc-400 uppercase mt-3 font-medium">
-                  Early access. Invite first.
-                </p>
-                <Footer />
-              </section>
-            )}
+        {/* REFERRAL (이메일 후) */}
+        {emailSent && (
+          <div className="referral anim-up">
+            <div className="ref-rank">#{queuePosition.toLocaleString()}</div>
+            <div className="ref-rank-label">Your spot in line</div>
+            <div className="ref-card">
+              <div className="ref-card-title">Skip the line ⚡</div>
+              <div className="ref-tier"><span>3 friends join</span><span className="ref-tier-reward">20% off at launch</span></div>
+              <div className="ref-tier"><span>10 friends join</span><span className="ref-tier-reward">Free first box</span></div>
+              <div className="ref-tier"><span>25 friends join</span><span className="ref-tier-reward">50% off for 1 year</span></div>
+            </div>
+            <div className="ref-btns">
+              <button className="ref-btn primary" onClick={() => refShare("x")}>Share on 𝕏</button>
+              <button className="ref-btn ghost" onClick={() => refShare("copy")}>{refCopied ? "Copied!" : "Copy your link"}</button>
+            </div>
+          </div>
+        )}
 
-            {/* Step 2 */}
-            {step === 2 && (
-              <section className="animate-fadeIn">
-                <div className="text-center mb-6">
-                  <p className="text-[22px] sm:text-[26px] font-light leading-[1.2] text-zinc-200 italic">
-                    Ever had a protein drink
-                    <br />
-                    that left something behind?
-                  </p>
-                </div>
+        {/* PROOF (이메일 후 = BOF) */}
+        {emailSent && (
+          <div className="proof-mini anim-up">
+            <span className="ptag">30g protein</span>
+            <span className="ptag">7 ingredients</span>
+            <span className="ptag">Dairy-free</span>
+            <span className="ptag">Nothing after.</span>
+          </div>
+        )}
 
-                <div className="space-y-3">
-                  {[
-                    { label: 'Yes', value: 'A' },
-                    { label: 'No', value: 'B_no' },
-                    { label: "I don't drink protein", value: 'B_never' },
-                  ].map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => handleBranch(option.value)}
-                      className={`${btnDark} tracking-[0.15em]`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
+        <div className="sep" />
 
-                <Footer />
-              </section>
-            )}
-
-            {/* Step 3 */}
-            {step === 3 && (
-              <section className="animate-fadeIn">
-                <div className="text-center mb-4">
-                  <p
-                    className={`text-[18px] sm:text-[22px] font-light leading-[1.2] italic transition-all duration-[5000ms] ease-out ${
-                      textFaded ? 'text-zinc-600 opacity-40' : 'text-white opacity-100'
-                    }`}
-                  >
-                    Ever had a protein drink
-                    <br />
-                    that left something behind?
-                  </p>
-                </div>
-
-                <div className="border-t border-zinc-700 pt-5">
-                  {branch === 'A' && (
-                    <div className="text-center mb-4">
-                      <h2 className="text-[24px] sm:text-[30px] font-light mb-1 leading-[1.1]">
-                        Protein. Nothing after.
-                      </h2>
-                      <p className="text-zinc-300 text-[14px]">Nothing left behind.</p>
-
-                      <div className="mt-4 text-left">
-                        <label className="block text-[10px] text-zinc-400 tracking-[0.2em] uppercase mb-2 font-medium">
-                          What did it leave behind?
-                        </label>
-                        <select
-                          value={selectedReason}
-                          onChange={(e) => {
-                            setSelectedReason(e.target.value);
-                            // ✅ Track step3_reason_select
-                            if (e.target.value) {
-                              let reason = '';
-                              if (e.target.value.includes('left something behind')) reason = 'residue';
-                              else if (e.target.value.includes('aftertaste')) reason = 'aftertaste';
-                              else if (e.target.value.includes('heavy')) reason = 'heaviness';
-                              else if (e.target.value.includes('effort')) reason = 'habit';
-                              else if (e.target.value.includes('stopped')) reason = 'lapsed';
-                              trackEvent('step3_reason_select', { reason });
-                            }
-                          }}
-                          className="w-full p-4 bg-zinc-800/60 backdrop-blur-sm border border-zinc-500 text-white text-[16px] appearance-none focus:outline-none focus:border-zinc-400 transition-all"
-                        >
-                          <option value="" disabled className="bg-zinc-900">
-                            Select one
-                          </option>
-                          <option value="It left something behind" className="bg-zinc-900">
-                            It left something behind.
-                          </option>
-                          <option value="The aftertaste stayed too long" className="bg-zinc-900">
-                            The aftertaste stayed too long.
-                          </option>
-                          <option value="It felt heavy" className="bg-zinc-900">
-                            It felt heavy.
-                          </option>
-                          <option value="Keeping it up felt like effort" className="bg-zinc-900">
-                            Keeping it up felt like effort.
-                          </option>
-                          <option value="I just stopped, no clear reason" className="bg-zinc-900">
-                            I just stopped, no clear reason.
-                          </option>
-                        </select>
-                      </div>
-                    </div>
-                  )}
-
-                  {branch === 'B_no' && (
-                    <div className="text-center mb-4">
-                      <h2 className="text-[24px] sm:text-[30px] font-light mb-1 leading-[1.1]">
-                        Maybe you just
-                        <br />
-                        haven&apos;t noticed yet.
-                      </h2>
-                      <p className="text-zinc-300 text-[14px]">Protein. Nothing after.</p>
-                    </div>
-                  )}
-
-                  {branch === 'B_never' && (
-                    <div className="text-center mb-4">
-                      <h2 className="text-[24px] sm:text-[30px] font-light mb-1 leading-[1.1]">
-                        Good.
-                        <br />
-                        You get to start clean.
-                      </h2>
-                      <p className="text-zinc-300 text-[14px]">Protein. Nothing after.</p>
-                    </div>
-                  )}
-
-                  <form onSubmit={handleSubmit} className="space-y-3 mt-4">
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      onFocus={() => {
-                        // ✅ Track step3_email_focus (only once per session)
-                        if (!emailFocusTracked.current) {
-                          emailFocusTracked.current = true;
-                          trackEvent('step3_email_focus');
-                        }
-                      }}
-                      placeholder="Enter your email"
-                      className="w-full p-4 bg-zinc-800/60 backdrop-blur-sm border border-zinc-500 text-white text-[16px] placeholder-zinc-400 focus:outline-none focus:border-zinc-400 transition-all"
-                      required
-                    />
-
-                    <button type="submit" disabled={isSubmitting} className={btnWhiteUpper}>
-                      {isSubmitting ? (
-                        <>
-                          <Spinner />
-                          <span>Submitting...</span>
-                        </>
-                      ) : (
-                        'Get early access'
-                      )}
-                    </button>
-                  </form>
-                </div>
-
-                <Footer />
-              </section>
-            )}
-
-            {/* Step 4 */}
-            {step === 4 && (
-              <section className="animate-fadeIn">
-                <div className="text-center py-8">
-                  <div className="w-14 h-14 border-2 border-zinc-500 rounded-full flex items-center justify-center mx-auto mb-5 animate-pulse">
-                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                  </div>
-
-                  <p className="text-[11px] tracking-[0.25em] uppercase text-zinc-400 mb-5 font-medium">
-                    You&apos;re on the list
-                  </p>
-
-                  <Image src="/pillk-logo.png" alt="Piilk" width={90} height={36} className="mx-auto mb-4" />
-
-                  <p className="text-[16px] sm:text-[18px] text-zinc-300 font-light">
-                    Nothing after. <span className="text-white font-normal">Period.</span>
-                  </p>
-                </div>
-
-                <Footer />
-              </section>
-            )}
+        {/* DECLARATIONS */}
+        <div className="declarations">
+          <div className="decl-header">
+            <div className="label" style={{ marginBottom: 8 }}>Do you agree?</div>
+            <div className="h3">Tap the ones that feel true.</div>
+          </div>
+          <div className="decl-list">
+            {DECLARATIONS.map((d) => (
+              <div
+                key={d.key}
+                className={`decl-item ${votedDecls.has(d.key) ? "voted" : ""}`}
+                onClick={() => voteDeclaration(d.key)}
+              >
+                <span className="decl-text">{d.text}</span>
+                <span className="decl-count">{(declCounts[d.key] || 0).toLocaleString()} ✊</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
+    </section>
+  );
+}
 
-      <style jsx global>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        .animate-fadeIn {
-          animation: fadeIn 0.5s ease-out forwards;
-        }
+// ═══════════════════════════════════════════
+// MAIN PAGE
+// ═══════════════════════════════════════════
+export default function TeaserType() {
+  const [phase, setPhase] = useState<"hero" | "quiz" | "result">("hero");
+  const [resultType, setResultType] = useState<AfterfeelType>("brick");
+  const [progress, setProgress] = useState(0);
 
-        @media (hover: hover) and (pointer: fine) {
-          .btn-dark-hover:hover {
-            background-color: rgba(255, 255, 255, 1) !important;
-            color: #000 !important;
-          }
-        }
+  function startQuiz() {
+    setPhase("quiz");
+    setProgress(10);
+    track.quizStart();
+  }
 
-        .btn-dark-hover {
-          -webkit-tap-highlight-color: transparent;
-        }
-        .btn-dark-hover:active,
-        .btn-dark-hover:focus {
-          background-color: rgba(39, 39, 42, 0.6) !important;
-          color: #fff !important;
-          outline: none;
-        }
-      `}</style>
-    </main>
+  function handleQuizComplete(type: AfterfeelType) {
+    setResultType(type);
+    setPhase("result");
+    setProgress(100);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function goHome() {
+    setPhase("hero");
+    setProgress(0);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  return (
+    <>
+      <nav className="nav">
+        <a className="nav-logo" onClick={goHome} style={{ cursor: "pointer" }}>
+          <Image
+            src="/pillk-logo.png"
+            alt="PIILK"
+            width={80}
+            height={32}
+            className="hover:opacity-70 transition-all duration-500"
+          />
+        </a>
+        <span className="nav-right">by Armored Fresh</span>
+      </nav>
+
+      <div className="progress-bar" style={{ width: `${progress}%` }} />
+
+      {phase === "hero" && <Hero onStart={startQuiz} />}
+      {phase === "quiz" && <Quiz onComplete={handleQuizComplete} />}
+      {phase === "result" && <Result type={resultType} />}
+
+      <footer className="footer">
+        <div>PIILK™ by Armored Fresh</div>
+        <div>© 2026 Armoredfresh Inc.</div>
+      </footer>
+    </>
   );
 }
