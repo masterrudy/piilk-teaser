@@ -14,25 +14,80 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-/* ─── NYC timezone helper ─── */
-function toNYC(dateStr: string): Date {
-  return new Date(new Date(dateStr).toLocaleString('en-US', { timeZone: 'America/New_York' }));
-}
+/* ─── NYC timezone helpers (Intl-based, server-safe) ─── */
+const nycDateFmt = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'America/New_York',
+  year: 'numeric', month: '2-digit', day: '2-digit',
+});
+
+const nycHourFmt = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'America/New_York',
+  hour: 'numeric', hour12: false,
+});
+
+const nycWeekdayFmt = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'America/New_York',
+  weekday: 'short',
+});
+
+const nycYearFmt = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'America/New_York',
+  year: 'numeric',
+});
+
+const nycMonthFmt = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'America/New_York',
+  month: 'numeric',
+});
 
 function toNYCDateStr(dateStr: string): string {
-  const d = toNYC(dateStr);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return nycDateFmt.format(new Date(dateStr)); // YYYY-MM-DD
+}
+
+function toNYCHour(dateStr: string): number {
+  const h = nycHourFmt.format(new Date(dateStr));
+  return parseInt(h, 10) % 24; // "24" → 0
+}
+
+function toNYCDay(dateStr: string): number {
+  const dayStr = nycWeekdayFmt.format(new Date(dateStr));
+  const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return dayMap[dayStr] ?? 0;
+}
+
+function toNYCYear(dateStr: string): number {
+  return parseInt(nycYearFmt.format(new Date(dateStr)), 10);
+}
+
+function toNYCMonth(dateStr: string): number {
+  return parseInt(nycMonthFmt.format(new Date(dateStr)), 10);
+}
+
+function toNYCWeekKey(dateStr: string): string {
+  const d = new Date(dateStr);
+  const nycDate = toNYCDateStr(dateStr);
+  const [y, m, day] = nycDate.split('-').map(Number);
+  const jan1 = new Date(y, 0, 1);
+  const nycD = new Date(y, m - 1, day);
+  const weekNum = Math.ceil(((nycD.getTime() - jan1.getTime()) / 86400000 + jan1.getDay() + 1) / 7);
+  return `${y}-W${String(weekNum).padStart(2, '0')}`;
+}
+
+function toNYCMonthKey(dateStr: string): string {
+  const year = toNYCYear(dateStr);
+  const month = toNYCMonth(dateStr);
+  return `${year}-${String(month).padStart(2, '0')}`;
 }
 
 /* ─── Quiz Type → Main Teaser 이벤트명 매핑 ─── */
 const TYPE_EVENT_MAP: Record<string, string> = {
   quiz_start: 'step1_cta_click',
   quiz_complete: 'step2_answer',
-  type_result: 'step2_answer',       // result 표시도 step2 완료로 간주
+  type_result: 'step2_answer',
   email_submit: 'step4_submit',
-  share_click: 'step3_email_focus',   // share를 funnel 중간 단계로 매핑
-  declaration_tap: 'declaration_tap', // 그대로 유지
-  referral_share: 'referral_share',   // 그대로 유지
+  share_click: 'step3_email_focus',
+  declaration_tap: 'declaration_tap',
+  referral_share: 'referral_share',
 };
 
 function normalizeEventName(eventName: string, isTypeVariant: boolean): string {
@@ -45,7 +100,6 @@ export async function GET(request: NextRequest) {
     const variant = request.nextUrl.searchParams.get('variant') || undefined;
     const isTypeVariant = variant === 'type';
 
-    // ✅ variant 필터를 Supabase 쿼리에 적용
     let query = supabase
       .from('piilk_events')
       .select('event_name, event_data, session_id, visitor_id, variant, country, city, device_type, utm_source, utm_medium, utm_campaign, created_at')
@@ -83,7 +137,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // ✅ 이벤트 이름 정규화 (Quiz Type일 때 매핑 적용)
+    // ✅ 이벤트 이름 정규화
     const normalizedEvents = events.map(ev => ({
       ...ev,
       event_name: normalizeEventName(ev.event_name, isTypeVariant),
@@ -109,7 +163,7 @@ export async function GET(request: NextRequest) {
       funnel[e] = sessionsByEvent[e].size;
     }
 
-    // ✅ Quiz Type: quiz_start를 page_view로도 카운트 (퀴즈 시작 = 페이지 방문)
+    // ✅ Quiz Type: quiz_start를 page_view로도 카운트
     if (isTypeVariant) {
       const quizStartSessions = new Set<string>();
       events.forEach(ev => {
@@ -117,7 +171,6 @@ export async function GET(request: NextRequest) {
           quizStartSessions.add(ev.session_id || ev.visitor_id || 'unknown');
         }
       });
-      // page_view가 없으면 quiz_start를 page_view로 사용
       if (funnel['page_view'] === 0 && quizStartSessions.size > 0) {
         funnel['page_view'] = quizStartSessions.size;
       }
@@ -156,7 +209,7 @@ export async function GET(request: NextRequest) {
     // ─── Hourly distribution ───
     const hourMap: Record<number, number> = {};
     normalizedEvents.filter(ev => ev.event_name === 'step4_submit').forEach(ev => {
-      const hour = toNYC(ev.created_at).getHours();
+      const hour = toNYCHour(ev.created_at);
       hourMap[hour] = (hourMap[hour] || 0) + 1;
     });
 
@@ -185,10 +238,9 @@ export async function GET(request: NextRequest) {
       }))
       .sort((a, b) => b.views - a.views);
 
-    // ─── Segment distribution (Quiz Type: afterfeel_type 사용) ───
+    // ─── Segment distribution ───
     const segmentDistribution: Record<string, number> = {};
     if (isTypeVariant) {
-      // Quiz Type: quiz_complete/type_result의 afterfeel_type으로 분류
       events.filter(ev => ev.event_name === 'quiz_complete' || ev.event_name === 'type_result').forEach(ev => {
         const seg = ev.event_data?.afterfeel_type || 'Unknown';
         segmentDistribution[seg] = (segmentDistribution[seg] || 0) + 1;
@@ -200,7 +252,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // ─── Reason distribution (Quiz Type: afterfeel_type 사용) ───
+    // ─── Reason distribution ───
     const reasonDistribution: Record<string, number> = {};
     if (isTypeVariant) {
       events.filter(ev => ev.event_name === 'email_submit').forEach(ev => {
@@ -221,10 +273,7 @@ export async function GET(request: NextRequest) {
     // ─── Weekly ───
     const weeklyMap: Record<string, { views: number; submits: number }> = {};
     normalizedEvents.forEach(ev => {
-      const d = toNYC(ev.created_at);
-      const jan1 = new Date(d.getFullYear(), 0, 1);
-      const weekNum = Math.ceil(((d.getTime() - jan1.getTime()) / 86400000 + jan1.getDay() + 1) / 7);
-      const key = `${d.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+      const key = toNYCWeekKey(ev.created_at);
       if (!weeklyMap[key]) weeklyMap[key] = { views: 0, submits: 0 };
       if (ev.event_name === 'page_view' || ev.event_name === 'step1_cta_click') weeklyMap[key].views++;
       if (ev.event_name === 'step4_submit') weeklyMap[key].submits++;
@@ -238,7 +287,7 @@ export async function GET(request: NextRequest) {
     const weekdayMap: Record<number, { views: number; submits: number }> = {};
     for (let i = 0; i < 7; i++) weekdayMap[i] = { views: 0, submits: 0 };
     normalizedEvents.forEach(ev => {
-      const dow = toNYC(ev.created_at).getDay();
+      const dow = toNYCDay(ev.created_at);
       if (ev.event_name === 'page_view' || ev.event_name === 'step1_cta_click') weekdayMap[dow].views++;
       if (ev.event_name === 'step4_submit') weekdayMap[dow].submits++;
     });
@@ -251,8 +300,7 @@ export async function GET(request: NextRequest) {
     // ─── Monthly ───
     const monthlyMap: Record<string, { views: number; submits: number }> = {};
     normalizedEvents.forEach(ev => {
-      const d = toNYC(ev.created_at);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const key = toNYCMonthKey(ev.created_at);
       if (!monthlyMap[key]) monthlyMap[key] = { views: 0, submits: 0 };
       if (ev.event_name === 'page_view' || ev.event_name === 'step1_cta_click') monthlyMap[key].views++;
       if (ev.event_name === 'step4_submit') monthlyMap[key].submits++;
@@ -278,7 +326,7 @@ export async function GET(request: NextRequest) {
       rawEvents: normalizedEvents.map(ev => ({
         n: ev.event_name,
         d: toNYCDateStr(ev.created_at),
-        h: toNYC(ev.created_at).getHours(),
+        h: toNYCHour(ev.created_at),
         s: ev.session_id || ev.visitor_id || '',
         u: ev.utm_source || '',
         ed: ev.event_data || null,
