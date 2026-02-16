@@ -42,23 +42,22 @@ function getOrCreateId(key: string, storage: 'session' | 'local'): string {
 }
 
 export default function TeaserPage() {
+  const [phase, setPhase] = useState(1);
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [heroSwapped, setHeroSwapped] = useState(false);
 
-  // ✅ 자동 수집 데이터 (한 번만 캡처)
+  // ✅ 자동 수집 데이터
   const trackingData = useRef<Record<string, string>>({});
   const sessionId = useRef('');
   const visitorId = useRef('');
   const leadStartFired = useRef(false);
-  const scrollMilestones = useRef<Record<number, boolean>>({ 25: false, 50: false, 75: false });
+  const scrollLocked = useRef(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const utmParams = getUTMParams();
-
     trackingData.current = {
       device_type: getDeviceType(),
       language: navigator.language || '',
@@ -74,57 +73,60 @@ export default function TeaserPage() {
     trackEvent('page_view');
   }, []);
 
-  /* ─── ✅ Hero scroll swap ─── */
+  /* ─── ✅ Scroll/wheel to advance phase ─── */
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const handleScroll = () => {
-      const heroZone = document.getElementById('heroZone');
-      if (!heroZone) return;
-
-      const rect = heroZone.getBoundingClientRect();
-      const zoneH = heroZone.offsetHeight - window.innerHeight;
-      const scrolled = -rect.top;
-      const progress = Math.max(0, Math.min(1, scrolled / zoneH));
-
-      if (progress > 0.3 && !heroSwapped) {
-        setHeroSwapped(true);
-      } else if (progress <= 0.2 && heroSwapped) {
-        setHeroSwapped(false);
+    const handleWheel = (e: WheelEvent) => {
+      if (scrollLocked.current) return;
+      if (e.deltaY > 30 && phase < 3) {
+        scrollLocked.current = true;
+        setPhase((p) => Math.min(p + 1, 3));
+        setTimeout(() => { scrollLocked.current = false; }, 800);
+      } else if (e.deltaY < -30 && phase > 1) {
+        scrollLocked.current = true;
+        setPhase((p) => Math.max(p - 1, 1));
+        setTimeout(() => { scrollLocked.current = false; }, 800);
       }
-
-      // ✅ Scroll depth tracking
-      const totalScroll = document.body.scrollHeight - window.innerHeight;
-      const scrollPct = totalScroll > 0 ? (window.scrollY / totalScroll) * 100 : 0;
-      const st = scrollMilestones.current;
-      if (scrollPct >= 25 && !st[25]) { trackEvent('scroll_25'); st[25] = true; }
-      if (scrollPct >= 50 && !st[50]) { trackEvent('scroll_50'); st[50] = true; }
-      if (scrollPct >= 75 && !st[75]) { trackEvent('scroll_75'); st[75] = true; }
     };
 
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [heroSwapped]);
+    // Touch support
+    let touchStartY = 0;
+    const handleTouchStart = (e: TouchEvent) => {
+      touchStartY = e.touches[0].clientY;
+    };
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (scrollLocked.current) return;
+      const diff = touchStartY - e.changedTouches[0].clientY;
+      if (diff > 50 && phase < 3) {
+        scrollLocked.current = true;
+        setPhase((p) => Math.min(p + 1, 3));
+        setTimeout(() => { scrollLocked.current = false; }, 800);
+      } else if (diff < -50 && phase > 1) {
+        scrollLocked.current = true;
+        setPhase((p) => Math.max(p - 1, 1));
+        setTimeout(() => { scrollLocked.current = false; }, 800);
+      }
+    };
 
-  /* ─── ✅ Scroll reveal observer ─── */
+    window.addEventListener('wheel', handleWheel, { passive: true });
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+    return () => {
+      window.removeEventListener('wheel', handleWheel);
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [phase]);
+
+  /* ─── ✅ Track phase changes ─── */
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((e) => {
-          if (e.isIntersecting) {
-            e.target.classList.add('visible');
-            observer.unobserve(e.target);
-          }
-        });
-      },
-      { threshold: 0.15 }
-    );
-    document.querySelectorAll('.reveal').forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, []);
+    if (phase === 2) trackEvent('phase_2_view');
+    if (phase === 3) trackEvent('phase_3_view');
+  }, [phase]);
 
-  /* ─── ✅ Event tracking function (Supabase) ─── */
+  /* ─── ✅ Event tracking (Supabase) ─── */
   const trackEvent = useCallback((eventName: string, eventData?: Record<string, any>) => {
     const td = trackingData.current;
     fetch('/api/track', {
@@ -141,10 +143,10 @@ export default function TeaserPage() {
         utm_medium: td.utm_medium || null,
         utm_campaign: td.utm_campaign || null,
       }),
-    }).catch(() => {}); // fire-and-forget
+    }).catch(() => {});
   }, []);
 
-  /* ─── ✅ Email focus handler (lead_start) ─── */
+  /* ─── ✅ Email focus (lead_start) ─── */
   const handleEmailFocus = useCallback(() => {
     if (!leadStartFired.current) {
       leadStartFired.current = true;
@@ -152,7 +154,7 @@ export default function TeaserPage() {
     }
   }, [trackEvent]);
 
-  /* ─── ✅ Email submit handler ─── */
+  /* ─── ✅ Email submit ─── */
   const handleSubmit = async (source: string) => {
     if (!email || !email.includes('@') || !email.includes('.') || isSubmitting || isSubmitted) return;
 
@@ -173,7 +175,6 @@ export default function TeaserPage() {
       const data = await response.json();
 
       if (data.success) {
-        // ✅ Supabase: track lead_submit
         trackEvent('lead_submit', {
           segment: 'direct',
           sub_reason: '',
@@ -181,7 +182,6 @@ export default function TeaserPage() {
           source,
         });
 
-        // ✅ Google Analytics: generate_lead
         if (typeof window !== 'undefined' && window.gtag) {
           window.gtag('event', 'generate_lead', {
             method: 'email_signup',
@@ -201,7 +201,12 @@ export default function TeaserPage() {
     }
   };
 
-  /* ─── Email Module (재사용) ─── */
+  /* ─── Click to advance ─── */
+  const handleAdvance = () => {
+    if (phase < 3) setPhase((p) => p + 1);
+  };
+
+  /* ─── Email Module ─── */
   const EmailModule = ({ source }: { source: string }) => (
     <div className="email-module">
       {!isSubmitted ? (
@@ -235,6 +240,20 @@ export default function TeaserPage() {
     </div>
   );
 
+  /* ─── Phase indicator dots ─── */
+  const PhaseDots = () => (
+    <div className="phase-dots">
+      {[1, 2, 3].map((n) => (
+        <button
+          key={n}
+          className={`phase-dot ${phase === n ? 'active' : ''}`}
+          onClick={() => setPhase(n)}
+          aria-label={`Go to section ${n}`}
+        />
+      ))}
+    </div>
+  );
+
   return (
     <main className="piilk-page">
       {/* ═══ Fixed Background ═══ */}
@@ -251,80 +270,72 @@ export default function TeaserPage() {
         <div className="hero-bg-overlay" />
       </div>
 
-      {/* ═══ HERO SCROLL ZONE ═══ */}
-      <div className="hero-scroll-zone" id="heroZone">
-        <div className="hero-sticky">
-          <div className="hero-text-wrap">
+      {/* ═══ Fixed Full-screen Content ═══ */}
+      <div className="screen-container">
 
-            {/* ── Logo ── */}
-            <div className="hero-logo">
-              <Image
-                src="/pillk-logo.png"
-                alt="Piilk"
-                width={80}
-                height={32}
-                className="logo-img"
-              />
-            </div>
+        {/* ── Logo ── */}
+        <header className="logo-header">
+          <Image
+            src="/pillk-logo.png"
+            alt="Piilk"
+            width={80}
+            height={32}
+            className="logo-img"
+            onClick={() => setPhase(1)}
+          />
+        </header>
 
-            {/* ── Phase 1: Opening question ── */}
-            <div className={`hero-phase phase-1 ${heroSwapped ? 'out' : ''}`}>
-              <h1 className="hero-h1">
-                Ever Had a Drink<br />That Felt Off Right After?
-              </h1>
-              <div className={`hero-scroll-cue ${heroSwapped ? 'hidden' : ''}`}>
-                <span>Scroll</span>
-                <div className="arrow" />
-              </div>
-            </div>
-
-            {/* ── Phase 2: Brand answer + email ── */}
-            <div className={`hero-phase phase-2 ${heroSwapped ? 'in' : ''}`}>
-              <h1 className="hero-h1">
-                PIILK is built for<br />what&apos;s left behind.
-              </h1>
-              <p className="hero-desc">Heavy after. Film that lingers. You know the moment.</p>
-              <p className="hero-proof">30g protein · 7 ingredients · Dairy-free</p>
-              <div className="hero-email-wrap">
-                <EmailModule source="hero" />
-              </div>
+        {/* ── Phase 1 ── */}
+        <div className={`phase phase-1 ${phase === 1 ? 'active' : ''}`}>
+          <div className="phase-content" onClick={handleAdvance} style={{ cursor: 'pointer' }}>
+            <h1 className="hero-h1">
+              Ever Had a Drink<br />That Felt Off<br />Right After?
+            </h1>
+            <div className="scroll-cue">
+              <span>Scroll</span>
+              <div className="arrow" />
             </div>
           </div>
         </div>
-      </div>
 
-      {/* ═══ CONTENT ═══ */}
-      <div className="content-sections">
-        {/* ── WHY ── */}
-        <section className="why-section">
-          <div className="why-inner reveal">
-            <h2>Why we built PIILK</h2>
+        {/* ── Phase 2 ── */}
+        <div className={`phase phase-2 ${phase === 2 ? 'active' : ''}`}>
+          <div className="phase-content">
+            <h1 className="hero-h1">
+              PIILK is built for<br />what&apos;s left behind.
+            </h1>
+            <p className="hero-desc">Heavy after. Film that lingers. You know the moment.</p>
+            <p className="hero-proof">30g protein · 7 ingredients · Dairy-free</p>
+            <div className="hero-email-wrap">
+              <EmailModule source="hero" />
+            </div>
+          </div>
+        </div>
+
+        {/* ── Phase 3 ── */}
+        <div className={`phase phase-3 ${phase === 3 ? 'active' : ''}`}>
+          <div className="phase-content">
+            <h2 className="why-title">Why we built PIILK</h2>
             <div className="why-body">
               <p>Most shakes obsess over macros.</p>
               <p>We obsessed over what happens after you drink it.</p>
             </div>
+            <div className="phase3-cta">
+              <p className="cta-hint">Get the invite when access opens.</p>
+              <EmailModule source="cta" />
+            </div>
+            <footer className="piilk-footer">
+              <p className="footer-brand">PIILK™ by ARMORED FRESH</p>
+              <p className="footer-sub">RTD High Protein Shake.</p>
+            </footer>
           </div>
-        </section>
+        </div>
 
-        {/* ── Second CTA ── */}
-        <section className="cta2-section">
-          <div className="cta2-inner reveal">
-            <p className="cta2-hint">Get the invite when access opens.</p>
-            <EmailModule source="cta" />
-          </div>
-        </section>
-
-        {/* ── Footer ── */}
-        <footer className="piilk-footer">
-          <p className="footer-brand">PIILK™ by ARMORED FRESH</p>
-          <p className="footer-sub">RTD High Protein Shake.</p>
-        </footer>
+        {/* ── Phase dots ── */}
+        <PhaseDots />
       </div>
 
       <style jsx global>{`
-        /* ══════════════════════════════════════
-           CSS VARIABLES — NEON DARK SYSTEM
-           ══════════════════════════════════════ */
         :root {
           --bg:             #000000;
           --text-primary:   #FFFFFF;
@@ -335,35 +346,30 @@ export default function TeaserPage() {
           --border:         #1A1A1A;
           --input-bg:       rgba(17, 17, 17, 0.7);
           --success:        #00FF88;
-
-          --max-w: 640px;
-          --px: 24px;
-          --radius: 12px;
-          --tap: 52px;
-
-          --font-display: 'DM Sans', system-ui, sans-serif;
-          --font-body:    'DM Sans', system-ui, sans-serif;
+          --radius:         12px;
+          --tap:            52px;
+          --font-display:   'DM Sans', system-ui, sans-serif;
+          --font-body:      'DM Sans', system-ui, sans-serif;
         }
 
-        /* ══════════════════════════════════════
-           BASE
-           ══════════════════════════════════════ */
+        html, body {
+          margin: 0; padding: 0;
+          overflow: hidden;
+          height: 100%;
+        }
         .piilk-page {
+          position: fixed;
+          inset: 0;
           background: var(--bg);
           color: var(--text-primary);
           font-family: var(--font-body);
-          line-height: 1.4;
-          overflow-x: hidden;
           -webkit-font-smoothing: antialiased;
         }
 
-        /* ══════════════════════════════════════
-           FIXED BACKGROUND IMAGE
-           ══════════════════════════════════════ */
+        /* ── Background ── */
         .hero-bg {
           position: fixed;
-          top: 0; left: 0;
-          width: 100%; height: 100vh;
+          inset: 0;
           z-index: 0;
         }
         .hero-bg-img {
@@ -375,88 +381,63 @@ export default function TeaserPage() {
           inset: 0;
           background: linear-gradient(
             180deg,
-            rgba(0, 0, 0, 0.1) 0%,
-            rgba(0, 0, 0, 0.2) 40%,
-            rgba(0, 0, 0, 0.55) 100%
+            rgba(0,0,0,0.15) 0%,
+            rgba(0,0,0,0.25) 40%,
+            rgba(0,0,0,0.6) 100%
           );
         }
 
-        /* ══════════════════════════════════════
-           HERO SCROLL ZONE
-           ══════════════════════════════════════ */
-        .hero-scroll-zone {
+        /* ── Screen container ── */
+        .screen-container {
           position: relative;
           z-index: 1;
-          height: 200vh;
+          width: 100%;
+          height: 100%;
         }
-        .hero-sticky {
-          position: sticky;
-          top: 0;
-          height: 100vh;
+
+        /* ── Logo ── */
+        .logo-header {
+          position: absolute;
+          top: 20px;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 10;
+        }
+        .logo-img {
+          opacity: 0.9;
+          cursor: pointer;
+          transition: opacity 0.3s;
+        }
+        .logo-img:hover { opacity: 0.6; }
+
+        /* ── Phases ── */
+        .phase {
+          position: absolute;
+          inset: 0;
           display: flex;
           align-items: center;
           justify-content: center;
           text-align: center;
-          padding: 0 var(--px);
+          padding: 0 24px;
+          opacity: 0;
+          transform: translateY(30px);
+          pointer-events: none;
+          transition: opacity 0.6s ease, transform 0.6s ease;
         }
-        .hero-text-wrap {
-          max-width: 680px;
-          position: relative;
-          width: 100%;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          min-height: 300px;
-        }
-
-        /* ── Logo ── */
-        .hero-logo {
-          position: absolute;
-          top: -120px;
-          left: 50%;
-          transform: translateX(-50%);
-        }
-        .logo-img {
-          opacity: 0.9;
-          transition: opacity 0.3s ease;
-        }
-        .logo-img:hover {
-          opacity: 0.6;
-        }
-
-        /* ── Hero phases ── */
-        .hero-phase {
-          transition: opacity 0.5s ease, transform 0.5s ease;
-        }
-        .phase-1 {
+        .phase.active {
           opacity: 1;
           transform: translateY(0);
-        }
-        .phase-1.out {
-          opacity: 0;
-          transform: translateY(-20px);
-        }
-        .phase-2 {
-          position: absolute;
-          top: 50%; left: 0; right: 0;
-          transform: translateY(calc(-50% + 20px));
-          opacity: 0;
-          pointer-events: none;
-          visibility: hidden;
-          transition: opacity 0.5s ease 0.15s, transform 0.5s ease 0.15s, visibility 0s linear 0.65s;
-        }
-        .phase-2.in {
-          opacity: 1;
-          transform: translateY(-50%);
           pointer-events: auto;
-          visibility: visible;
-          transition: opacity 0.5s ease 0.15s, transform 0.5s ease 0.15s, visibility 0s linear 0s;
+        }
+        .phase-content {
+          max-width: 680px;
+          width: 100%;
         }
 
+        /* ── H1 ── */
         .hero-h1 {
           font-family: var(--font-display);
-          font-size: clamp(30px, 7vw, 52px);
+          font-size: clamp(28px, 7vw, 52px);
           font-weight: 700;
           line-height: 1.15;
           color: var(--text-primary);
@@ -475,32 +456,29 @@ export default function TeaserPage() {
           letter-spacing: 0.02em;
         }
         .hero-email-wrap {
-          margin-top: 24px;
-          width: 100%;
-          max-width: 420px;
+          margin-top: 28px;
+          max-width: 460px;
           margin-left: auto;
           margin-right: auto;
           text-align: left;
         }
 
         /* ── Scroll cue ── */
-        .hero-scroll-cue {
+        .scroll-cue {
           margin-top: 48px;
           display: flex;
           flex-direction: column;
           align-items: center;
           gap: 8px;
           opacity: 0.4;
-          transition: opacity 0.3s ease;
         }
-        .hero-scroll-cue.hidden { opacity: 0; }
-        .hero-scroll-cue span {
+        .scroll-cue span {
           font-size: 12px;
           color: var(--text-muted);
           letter-spacing: 0.06em;
           text-transform: uppercase;
         }
-        .hero-scroll-cue .arrow {
+        .scroll-cue .arrow {
           width: 16px; height: 16px;
           border-right: 1.5px solid var(--text-muted);
           border-bottom: 1.5px solid var(--text-muted);
@@ -512,15 +490,54 @@ export default function TeaserPage() {
           50% { transform: rotate(45deg) translateY(5px); }
         }
 
-        /* ══════════════════════════════════════
-           CONTENT SECTIONS
-           ══════════════════════════════════════ */
-        .content-sections {
-          position: relative;
-          z-index: 2;
+        /* ── Phase 3 ── */
+        .why-title {
+          font-family: var(--font-display);
+          font-size: clamp(26px, 6vw, 46px);
+          font-weight: 700;
+          color: var(--text-primary);
+          margin-bottom: 16px;
+          line-height: 1.15;
+          letter-spacing: -0.01em;
+        }
+        .why-body {
+          font-size: 15px;
+          line-height: 1.5;
+          color: var(--text-secondary);
+        }
+        .why-body p + p { margin-top: 6px; }
+        .phase3-cta {
+          margin-top: 48px;
+          max-width: 460px;
+          margin-left: auto;
+          margin-right: auto;
+          text-align: center;
+        }
+        .cta-hint {
+          font-size: 15px;
+          color: var(--text-secondary);
+          margin-bottom: 16px;
+        }
+        .piilk-footer {
+          margin-top: 40px;
+          text-align: center;
+        }
+        .footer-brand {
+          font-size: 9px;
+          letter-spacing: 0.25em;
+          color: var(--text-muted);
+          text-transform: uppercase;
+          font-weight: 500;
+        }
+        .footer-sub {
+          font-size: 9px;
+          letter-spacing: 0.15em;
+          color: var(--text-muted);
+          margin-top: 4px;
+          font-weight: 500;
         }
 
-        /* ── Email Module ── */
+        /* ── Email module ── */
         .email-module { width: 100%; }
         .email-form-row {
           display: flex;
@@ -539,6 +556,8 @@ export default function TeaserPage() {
           font-size: 16px;
           outline: none;
           transition: border-color 0.2s;
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
         }
         .email-input::placeholder { color: var(--text-muted); }
         .email-input:focus { border-color: var(--accent); }
@@ -565,95 +584,49 @@ export default function TeaserPage() {
           margin-top: 10px;
           font-size: 12px;
           color: var(--text-muted);
+          text-align: center;
         }
         .email-success {
           margin-top: 10px;
           font-size: 14px;
           color: var(--success);
           font-weight: 500;
-          animation: fadeIn 150ms ease forwards;
+          text-align: center;
+          animation: fadeIn 300ms ease forwards;
         }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        /* ── WHY Section ── */
-        .why-section {
-          padding: 100px var(--px) 80px;
+        /* ── Phase dots ── */
+        .phase-dots {
+          position: absolute;
+          right: 20px;
+          top: 50%;
+          transform: translateY(-50%);
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          z-index: 10;
+        }
+        .phase-dot {
+          width: 8px; height: 8px;
+          border-radius: 50%;
+          border: 1px solid rgba(255,255,255,0.3);
           background: transparent;
+          cursor: pointer;
+          padding: 0;
+          transition: all 0.3s ease;
         }
-        .why-inner {
-          max-width: var(--max-w);
-          margin: 0 auto;
-          text-align: center;
+        .phase-dot.active {
+          background: var(--accent);
+          border-color: var(--accent);
+          transform: scale(1.3);
         }
-        .why-section h2 {
-          font-family: var(--font-display);
-          font-size: clamp(30px, 7vw, 52px);
-          font-weight: 700;
-          color: var(--text-primary);
-          margin-bottom: 16px;
-          line-height: 1.15;
-          letter-spacing: -0.01em;
-        }
-        .why-body {
-          font-size: 15px;
-          line-height: 1.5;
-          color: var(--text-secondary);
-        }
-        .why-body p + p { margin-top: 6px; }
-
-        /* ── Second CTA ── */
-        .cta2-section {
-          padding: 80px var(--px) 100px;
-          background: transparent;
-        }
-        .cta2-inner {
-          max-width: 480px;
-          margin: 0 auto;
-          text-align: center;
-        }
-        .cta2-hint {
-          font-size: 15px;
-          color: var(--text-secondary);
-          margin-bottom: 20px;
-          line-height: 1.5;
-        }
-
-        /* ── Footer ── */
-        .piilk-footer {
-          padding: 40px var(--px) 60px;
-          background: transparent;
-          text-align: center;
-        }
-        .footer-brand {
-          font-size: 9px;
-          letter-spacing: 0.25em;
-          color: var(--text-muted);
-          text-transform: uppercase;
-          font-weight: 500;
-        }
-        .footer-sub {
-          font-size: 9px;
-          letter-spacing: 0.15em;
-          color: var(--text-muted);
-          margin-top: 4px;
-          font-weight: 500;
-        }
-
-        /* ── Scroll reveal ── */
-        .reveal {
-          opacity: 0;
-          transform: translateY(20px);
-          transition: opacity 0.6s ease, transform 0.6s ease;
-        }
-        .reveal.visible {
-          opacity: 1;
-          transform: translateY(0);
+        .phase-dot:hover {
+          border-color: rgba(255,255,255,0.6);
         }
 
         /* ── Desktop ── */
         @media (min-width: 768px) {
-          .why-section { padding: 120px 48px 100px; }
-          .cta2-section { padding: 100px 48px 120px; }
           .email-form-row { flex-direction: row; }
           .email-form-row .email-input { flex: 1; min-width: 0; }
           .email-form-row .email-btn { width: auto; min-width: 180px; flex-shrink: 0; }
