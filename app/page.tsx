@@ -174,6 +174,16 @@ export default function TeaserPage() {
     }
   };
 
+  /* ─── Click/tap anywhere to advance ─── */
+  const handleSlideClick = (e: React.MouseEvent) => {
+    const tag = (e.target as HTMLElement).tagName.toLowerCase();
+    if (tag === 'input' || tag === 'button') return;
+    if (phase < 3) {
+      prevPhase.current = phase;
+      setPhase(phase + 1);
+    }
+  };
+
   /* ─── Email Module ─── */
   const EmailModule = ({ source }: { source: string }) => (
     <div className="email-module">
@@ -247,8 +257,8 @@ export default function TeaserPage() {
         </header>
 
         {/* Phase 1 */}
-        <div className={`slide slide--${getPhaseClass(1)}`}>
-          <div className="slide-inner" onClick={() => { if (phase < 3) { prevPhase.current = phase; setPhase(phase + 1); } }} style={{ cursor: phase < 3 ? 'pointer' : 'default' }}>
+        <div className={`slide slide--${getPhaseClass(1)}`} onClick={handleSlideClick} style={{ cursor: phase < 3 ? 'pointer' : 'default' }}>
+          <div className="slide-inner">
             <h1 className="hero-h1">
               Ever Had a Drink<br />That Felt Off<br />Right After?
             </h1>
@@ -260,7 +270,7 @@ export default function TeaserPage() {
         </div>
 
         {/* Phase 2 */}
-        <div className={`slide slide--${getPhaseClass(2)}`}>
+        <div className={`slide slide--${getPhaseClass(2)}`} onClick={handleSlideClick} style={{ cursor: phase < 3 ? 'pointer' : 'default' }}>
           <div className="slide-inner">
             <h1 className="hero-h1">
               PIILK is built for<br />what&apos;s left behind.
@@ -285,10 +295,6 @@ export default function TeaserPage() {
               <p>Most shakes obsess over macros.</p>
               <p>We obsessed over what happens after you drink it.</p>
             </div>
-            <div className="cta-wrap">
-              <p className="cta-hint">Get the invite when access opens.</p>
-              <EmailModule source="cta" />
-            </div>
             <div className="footer-area">
               <p className="footer-brand">PIILK™ by ARMORED FRESH</p>
               <p className="footer-sub">RTD High Protein Shake.</p>
@@ -311,8 +317,8 @@ export default function TeaserPage() {
 
       <style jsx global>{`
         :root {
-          --accent:       #A8BF00;
-          --accent-hover: #C2D91A;
+          --accent:       #BFFF00;
+          --accent-hover: #D4FF33;
           --success:      #00FF88;
           --muted:        #888888;
           --secondary:    #CCCCCC;
@@ -521,9 +527,13 @@ export default function TeaserPage() {
           font-size: 16px;
           font-weight: 600;
           cursor: pointer;
-          transition: background 0.2s, transform 0.1s;
+          transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+          box-shadow: 0 0 20px rgba(191, 255, 0, 0.3);
         }
-        .email-btn:hover { background: var(--accent-hover); }
+        .email-btn:hover {
+          background: var(--accent-hover);
+          box-shadow: 0 0 30px rgba(191, 255, 0, 0.5);
+        }
         .email-btn:active { transform: scale(0.98); }
         .email-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
