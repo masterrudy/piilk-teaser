@@ -28,12 +28,12 @@ const KLAVIYO_SEGMENTS = {
   C_TOTAL: 'XbMadh',
 };
 
-// ✅ Quiz Type 세그먼트 ID
+// ✅ Quiz Type 세그먼트 ID (afterfeel_type 값: brick, chalk, zombie, gambler)
 const KLAVIYO_SEGMENTS_TYPE = {
-  BRICK_STOMACH: 'Sh2BDs',
-  CHALK_MOUTH: 'YumzBn',
-  POST_SHAKE_ZOMBIE: 'SPLpVA',
-  THIRTY_MIN_GAMBLER: 'Rr543U',
+  BRICK: 'Sh2BDs',    // Brick Stomach
+  CHALK: 'YumzBn',    // Chalk Mouth
+  ZOMBIE: 'SPLpVA',   // Post-Shake Zombie
+  GAMBLER: 'Rr543U',  // 30-Min Gambler
 };
 
 // ✅ Quiz Type List ID
@@ -70,7 +70,7 @@ async function getKlaviyoSegmentCount(segmentId: string): Promise<number> {
   return count;
 }
 
-// ✅ Klaviyo List의 전체 프로필 수 가져오기
+// ✅ Klaviyo List 전체 프로필 수
 async function getKlaviyoListCount(listId: string): Promise<number> {
   if (!KLAVIYO_API_KEY || !listId) return 0;
 
@@ -122,43 +122,37 @@ async function getSupabaseStats(variant?: string) {
 
   const total = filtered.length;
 
-  // ✅ Quiz Type: afterfeel_type 기준으로 breakdown
+  // ✅ Quiz Type: afterfeel_type 기준 (값: brick, chalk, zombie, gambler)
   if (variant === 'type') {
-    const brickStomach = filtered.filter(s => s.afterfeel_type === 'brick_stomach').length;
-    const chalkMouth = filtered.filter(s => s.afterfeel_type === 'chalk_mouth').length;
-    const postShakeZombie = filtered.filter(s => s.afterfeel_type === 'post_shake_zombie').length;
-    const thirtyMinGambler = filtered.filter(s => s.afterfeel_type === '30_min_gambler').length;
+    const brick = filtered.filter(s => s.afterfeel_type === 'brick').length;
+    const chalk = filtered.filter(s => s.afterfeel_type === 'chalk').length;
+    const zombie = filtered.filter(s => s.afterfeel_type === 'zombie').length;
+    const gambler = filtered.filter(s => s.afterfeel_type === 'gambler').length;
 
     return {
       total,
       segments: {
         A: {
-          total: brickStomach,
-          percentage: total > 0 ? ((brickStomach / total) * 100).toFixed(1) : '0',
+          total: brick,
+          percentage: total > 0 ? ((brick / total) * 100).toFixed(1) : '0',
           breakdown: {
-            residue: brickStomach,
-            aftertaste: chalkMouth,
-            heaviness: postShakeZombie,
-            habit: thirtyMinGambler,
+            residue: brick,
+            aftertaste: chalk,
+            heaviness: zombie,
+            habit: gambler,
             lapsed: 0,
           },
         },
         B: {
-          total: chalkMouth + postShakeZombie,
-          percentage: total > 0 ? (((chalkMouth + postShakeZombie) / total) * 100).toFixed(1) : '0',
+          total: chalk,
+          percentage: total > 0 ? ((chalk / total) * 100).toFixed(1) : '0',
         },
         C: {
-          total: thirtyMinGambler,
-          percentage: total > 0 ? ((thirtyMinGambler / total) * 100).toFixed(1) : '0',
+          total: zombie + gambler,
+          percentage: total > 0 ? (((zombie + gambler) / total) * 100).toFixed(1) : '0',
         },
       },
-      // ✅ Quiz Type 전용 데이터
-      quizBreakdown: {
-        brick_stomach: brickStomach,
-        chalk_mouth: chalkMouth,
-        post_shake_zombie: postShakeZombie,
-        '30_min_gambler': thirtyMinGambler,
-      },
+      quizBreakdown: { brick, chalk, zombie, gambler },
     };
   }
 
@@ -193,7 +187,7 @@ async function getSupabaseStats(variant?: string) {
   };
 }
 
-// ✅ Main Teaser Klaviyo 데이터
+// ✅ Main Teaser Klaviyo
 async function getKlaviyoStats() {
   const [aTotal, aResidue, aAftertaste, aHeaviness, aHabit, aLapsed, bTotal, cTotal] =
     await Promise.all([
@@ -235,51 +229,44 @@ async function getKlaviyoStats() {
   };
 }
 
-// ✅ NEW: Quiz Type Klaviyo 데이터
+// ✅ Quiz Type Klaviyo
 async function getKlaviyoStatsType() {
-  const [brickStomach, chalkMouth, postShakeZombie, thirtyMinGambler, listTotal] =
+  const [brick, chalk, zombie, gambler, listTotal] =
     await Promise.all([
-      getKlaviyoSegmentCount(KLAVIYO_SEGMENTS_TYPE.BRICK_STOMACH),
-      getKlaviyoSegmentCount(KLAVIYO_SEGMENTS_TYPE.CHALK_MOUTH),
-      getKlaviyoSegmentCount(KLAVIYO_SEGMENTS_TYPE.POST_SHAKE_ZOMBIE),
-      getKlaviyoSegmentCount(KLAVIYO_SEGMENTS_TYPE.THIRTY_MIN_GAMBLER),
+      getKlaviyoSegmentCount(KLAVIYO_SEGMENTS_TYPE.BRICK),
+      getKlaviyoSegmentCount(KLAVIYO_SEGMENTS_TYPE.CHALK),
+      getKlaviyoSegmentCount(KLAVIYO_SEGMENTS_TYPE.ZOMBIE),
+      getKlaviyoSegmentCount(KLAVIYO_SEGMENTS_TYPE.GAMBLER),
       KLAVIYO_LIST_ID_TYPE ? getKlaviyoListCount(KLAVIYO_LIST_ID_TYPE) : Promise.resolve(0),
     ]);
 
-  // List total 또는 세그먼트 합계 중 큰 값 사용
-  const segmentSum = brickStomach + chalkMouth + postShakeZombie + thirtyMinGambler;
+  const segmentSum = brick + chalk + zombie + gambler;
   const total = Math.max(listTotal, segmentSum);
 
   return {
     total,
     segments: {
       A: {
-        total: brickStomach,
-        percentage: total > 0 ? ((brickStomach / total) * 100).toFixed(1) : '0',
+        total: brick,
+        percentage: total > 0 ? ((brick / total) * 100).toFixed(1) : '0',
         breakdown: {
-          residue: brickStomach,
-          aftertaste: chalkMouth,
-          heaviness: postShakeZombie,
-          habit: thirtyMinGambler,
+          residue: brick,
+          aftertaste: chalk,
+          heaviness: zombie,
+          habit: gambler,
           lapsed: 0,
         },
       },
       B: {
-        total: chalkMouth + postShakeZombie,
-        percentage: total > 0 ? (((chalkMouth + postShakeZombie) / total) * 100).toFixed(1) : '0',
+        total: chalk,
+        percentage: total > 0 ? ((chalk / total) * 100).toFixed(1) : '0',
       },
       C: {
-        total: thirtyMinGambler,
-        percentage: total > 0 ? ((thirtyMinGambler / total) * 100).toFixed(1) : '0',
+        total: zombie + gambler,
+        percentage: total > 0 ? (((zombie + gambler) / total) * 100).toFixed(1) : '0',
       },
     },
-    // ✅ Quiz Type 전용 데이터
-    quizBreakdown: {
-      brick_stomach: brickStomach,
-      chalk_mouth: chalkMouth,
-      post_shake_zombie: postShakeZombie,
-      '30_min_gambler': thirtyMinGambler,
-    },
+    quizBreakdown: { brick, chalk, zombie, gambler },
   };
 }
 
@@ -289,7 +276,6 @@ export async function GET(request: NextRequest) {
 
     const [supabaseData, klaviyoData] = await Promise.all([
       getSupabaseStats(variant),
-      // ✅ variant에 따라 다른 Klaviyo 데이터 조회
       variant === 'type' ? getKlaviyoStatsType() : getKlaviyoStats(),
     ]);
 
