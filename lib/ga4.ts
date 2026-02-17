@@ -62,8 +62,38 @@ export const track = {
     send("type_result", { afterfeel_type: type }),
   shareClick: (channel: string, type: string) =>
     send("share_click", { share_channel: channel, afterfeel_type: type }),
-  emailSubmit: (type: string) =>
-    send("email_submit", { afterfeel_type: type }),
+
+
+  
+emailSubmit: (type: string) => {
+    send("email_submit", { afterfeel_type: type });
+    // Meta Pixel
+    if (typeof window !== 'undefined' && (window as any).fbq) {
+      (window as any).fbq('track', 'Lead', {
+        content_name: 'piilk_quiz_type',
+        content_category: 'quiz_signup',
+      });
+      (window as any).fbq('track', 'CompleteRegistration', {
+        content_name: 'piilk_quiz_type',
+        value: 1,
+        currency: 'USD',
+      });
+    }
+    // TikTok Pixel
+    if (typeof window !== 'undefined' && (window as any).ttq) {
+      (window as any).ttq.track('SubmitForm', {
+        content_name: 'piilk_quiz_type',
+      });
+      (window as any).ttq.track('CompleteRegistration', {
+        content_name: 'piilk_quiz_type',
+        value: 1,
+        currency: 'USD',
+      });
+    }
+  },
+
+
+  
   declarationTap: (statementKey: string) =>
     send("declaration_tap", { statement_key: statementKey }),
   referralShare: (channel: string) =>
