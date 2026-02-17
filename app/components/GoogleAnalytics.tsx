@@ -14,8 +14,11 @@ const GA_MEASUREMENT_ID = "G-PFR2X0QFJ2";
 
 function shouldDebugMode() {
   if (typeof window === "undefined") return false;
-  const params = new URLSearchParams(window.location.search);
-  return params.get("debug_ga") === "1";
+  try {
+    return new URLSearchParams(window.location.search).get("debug_ga") === "1";
+  } catch {
+    return false;
+  }
 }
 
 export default function GoogleAnalytics() {
