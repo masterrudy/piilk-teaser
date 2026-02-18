@@ -103,6 +103,7 @@ function sendSupabase(event_type: string, metadata: Params = {}) {
       visitor_id: getVisitorId(),
       session_id: getSessionId(),
       metadata,
+      tracking: getTrackingData(),
     }),
   }).catch(() => {});
 }
