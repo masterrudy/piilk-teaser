@@ -65,9 +65,6 @@ export async function sendNotifications(params: NotifyParams) {
       from: 'PIILK Monitor <onboarding@resend.dev>',
       to: [
         'rudy@armoredfresh.com',
-        'luna.oh@armoredfresh.com',
-        'sara.jo@armoredfresh.com',
-        'ben.park@armoredfresh.com',
       ],
       subject: `🎯 New Signup: ${email}`,
       html: `
