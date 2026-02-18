@@ -38,6 +38,16 @@ function getSessionId(): string {
   return id;
 }
 
+function getTrackingData() {
+  if (typeof window === "undefined") return {};
+  const params = new URLSearchParams(window.location.search);
+  return {
+    utm_source: params.get("utm_source") || null,
+    utm_medium: params.get("utm_medium") || null,
+    utm_campaign: params.get("utm_campaign") || null,
+  };
+}
+
 type QueuedEvent = { event: string; params: Params };
 const gaQueue: QueuedEvent[] = [];
 let flushTimer: number | null = null;
