@@ -91,6 +91,10 @@ function Quiz({ onComplete }: { onComplete: (type: AfterfeelType) => void }) {
   function pick(group: string) {
     if (picked) return;
     setPicked(true);
+
+    // ✅ FIX: 퀴즈 단계별 이탈 추적 (어느 문항에서 떠나는지 파악)
+    track.quizStep(qi + 1, group);
+
     const next = [...answers, group];
     setAnswers(next);
 
@@ -154,6 +158,9 @@ function Result({ type }: { type: AfterfeelType }) {
 
   const emailRef = useRef<HTMLInputElement>(null);
   const referredBy = useRef<string | null>(null);
+
+  // ✅ FIX: 이메일 focus 중복 방지용 ref
+  const emailFocusTracked = useRef(false);
 
   useEffect(() => {
     referredBy.current = getReferralFromURL();
@@ -336,6 +343,13 @@ function Result({ type }: { type: AfterfeelType }) {
                   className="email-input"
                   placeholder="your@email.com"
                   onKeyDown={(e) => e.key === "Enter" && submitEmail()}
+                  // ✅ FIX: 이메일 입력창 최초 클릭 시 1회만 추적
+                  onFocus={() => {
+                    if (!emailFocusTracked.current) {
+                      emailFocusTracked.current = true;
+                      track.emailFocus(type);
+                    }
+                  }}
                 />
                 <button className="email-btn" onClick={submitEmail} disabled={emailLoading}>
                   {emailLoading ? "..." : "Get early access"}
@@ -360,9 +374,9 @@ function Result({ type }: { type: AfterfeelType }) {
             <div className="ref-rank-label">Your spot in line</div>
             <div className="ref-card">
               <div className="ref-card-title">Skip the line ⚡</div>
-<div className="ref-tier"><span>5 friends join</span><span className="ref-tier-reward">Free 7-day trial upgrade</span></div>
-<div className="ref-tier"><span>15 friends join</span><span className="ref-tier-reward">25% off your first case</span></div>
-<div className="ref-tier"><span>30 friends join</span><span className="ref-tier-reward">Free 18-pack case</span></div>
+              <div className="ref-tier"><span>5 friends join</span><span className="ref-tier-reward">Free 7-day trial upgrade</span></div>
+              <div className="ref-tier"><span>15 friends join</span><span className="ref-tier-reward">25% off your first case</span></div>
+              <div className="ref-tier"><span>30 friends join</span><span className="ref-tier-reward">Free 18-pack case</span></div>
             </div>
             <div className="ref-btns">
               <button className="ref-btn primary" onClick={() => refShare("x")}>Share on 𝕏</button>
@@ -415,10 +429,16 @@ export default function TeaserType() {
   const [resultType, setResultType] = useState<AfterfeelType>("brick");
   const [progress, setProgress] = useState(0);
 
+  // ✅ FIX: quizStart 중복 발화 방지 (goHome → 재시작 시 114% 이슈 해결)
+  const hasStarted = useRef(false);
+
   function startQuiz() {
+    if (!hasStarted.current) {
+      track.quizStart();
+      hasStarted.current = true;
+    }
     setPhase("quiz");
     setProgress(10);
-    track.quizStart();
   }
 
   function handleQuizComplete(type: AfterfeelType) {
@@ -429,6 +449,8 @@ export default function TeaserType() {
   }
 
   function goHome() {
+    // ✅ FIX: 홈으로 돌아갈 때 hasStarted 리셋 (재시작 시 정상 추적)
+    hasStarted.current = false;
     setPhase("hero");
     setProgress(0);
     window.scrollTo({ top: 0, behavior: "smooth" });
