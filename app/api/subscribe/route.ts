@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { sendNotifications } from '@/lib/notify';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -201,7 +202,26 @@ export async function POST(request: NextRequest) {
     } else {
       console.log('Klaviyo skipped - missing credentials');
     }
-
+// ── 알림 발송 ──
+    const today = new Date().toISOString().slice(0, 10);
+    const [{ count: todayCount }, { count: totalCount }] = await Promise.all([
+      supabase.from('piilk_subscribers').select('*', { count: 'exact', head: true }).gte('created_at', today),
+      supabase.from('piilk_subscribers').select('*', { count: 'exact', head: true }),
+    ]);
+    sendNotifications({
+      email: email.toLowerCase().trim(),
+      variant: 'main',
+      utmSource,
+      utmMedium,
+      utmCampaign,
+      city: geo.city,
+      country: geo.country,
+      device: deviceType,
+      segment,
+      todayCount: todayCount || 0,
+      totalCount: totalCount || 0,
+    }).catch(() => {});
+    
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Subscribe error:', error);
