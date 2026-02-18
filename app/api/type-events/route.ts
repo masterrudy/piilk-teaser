@@ -13,8 +13,8 @@ const supabase = createClient(
 
 export async function POST(req: NextRequest) {
   try {
-    const { event_type, variant, visitor_id, session_id, metadata } = await req.json();
-
+  const { event_type, variant, visitor_id, session_id, metadata, tracking } = await req.json();
+    
     if (!event_type) {
       return NextResponse.json({ error: "missing_event_type" }, { status: 400 });
     }
