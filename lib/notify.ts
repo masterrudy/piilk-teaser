@@ -1,11 +1,5 @@
 // lib/notify.ts
 const SLACK_WEBHOOK = process.env.SLACK_WEBHOOK_URL!;
-const NOTIFY_EMAILS = [
-  'rudy@armoredfresh.com',
-  'luna.oh@armoredfresh.com',
-  'sara.jo@armoredfresh.com',
-  'ben.park@armoredfresh.com',
-];
 
 interface NotifyParams {
   email: string;
@@ -40,48 +34,53 @@ export async function sendNotifications(params: NotifyParams) {
   const location = [city, country].filter(Boolean).join(', ') || 'Unknown';
   const deviceIcon = device === 'mobile' ? '📱' : device === 'desktop' ? '💻' : '❓';
 
-  const text = [
+  const slackText = [
     `🎯 *New Signup!*`,
     `📧 ${email}`,
     `${variantLabel}`,
-    `🔗 ${source}`,
+    `🔗 Source: ${source}`,
     `🗺️ ${location} ${deviceIcon}`,
     `──────────────`,
     `Today: *${todayCount}* | Total: *${totalCount}*`,
   ].join('\n');
 
-  // Slack
+  // ── Slack ──
   await fetch(SLACK_WEBHOOK, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ text: slackText }),
   }).catch(() => {});
 
-  // Email (Resend)
+  // ── Email (Resend) ──
   const RESEND_API_KEY = process.env.RESEND_API_KEY;
-  if (RESEND_API_KEY) {
-    await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: 'PIILK Monitor <monitor@piilk.com>',
-        to: NOTIFY_EMAILS,
-        subject: `🎯 New Signup: ${email}`,
-        html: `
-          <div style="font-family:monospace;padding:20px;background:#000;color:#fff;border-radius:8px">
-            <h2 style="color:#4ade80">🎯 New PIILK Signup!</h2>
-            <p>📧 <strong>${email}</strong></p>
-            <p>${variantLabel}</p>
-            <p>🔗 ${source}</p>
-            <p>🗺️ ${location} ${deviceIcon}</p>
-            <hr style="border-color:#333"/>
-            <p>Today: <strong>${todayCount}</strong> | Total: <strong>${totalCount}</strong></p>
-          </div>
-        `,
-      }),
-    }).catch(() => {});
-  }
+  if (!RESEND_API_KEY) return;
+
+  await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: 'PIILK Monitor <monitor@piilk.com>',
+      to: [
+        'rudy@armoredfresh.com',
+        'luna.oh@armoredfresh.com',
+        'sara.jo@armoredfresh.com',
+        'ben.park@armoredfresh.com',
+      ],
+      subject: `🎯 New Signup: ${email}`,
+      html: `
+        <div style="font-family:monospace;padding:24px;background:#0a0a0a;color:#fff;border-radius:12px;max-width:480px">
+          <h2 style="color:#4ade80;margin:0 0 16px">🎯 New PIILK Signup!</h2>
+          <p style="margin:4px 0">📧 <strong>${email}</strong></p>
+          <p style="margin:4px 0">${variantLabel}</p>
+          <p style="margin:4px 0">🔗 ${source}</p>
+          <p style="margin:4px 0">🗺️ ${location} ${deviceIcon}</p>
+          <hr style="border:none;border-top:1px solid #333;margin:16px 0"/>
+          <p style="margin:0;color:#888">Today: <strong style="color:#fff">${todayCount}</strong> &nbsp;|&nbsp; Total: <strong style="color:#4ade80">${totalCount}</strong></p>
+        </div>
+      `,
+    }),
+  }).catch(() => {});
 }
