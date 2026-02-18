@@ -33,9 +33,9 @@ export async function POST(req: NextRequest) {
       session_id: session_id || null,
       device_type,
       ip_address: ip,
-      utm_source: tracking.utm_source || null,   
-      utm_medium: tracking.utm_medium || null,   
-      utm_campaign: tracking.utm_campaign || null,    
+utm_source: tracking?.utm_source || null,
+utm_medium: tracking?.utm_medium || null,
+utm_campaign: tracking?.utm_campaign || null,
       created_at: new Date().toISOString(),
     });
 
