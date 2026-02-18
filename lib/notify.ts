@@ -62,7 +62,7 @@ export async function sendNotifications(params: NotifyParams) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'PIILK Monitor <monitor@piilk.com>',
+      from: 'PIILK Monitor <onboarding@resend.dev>',
       to: [
         'rudy@armoredfresh.com',
         'luna.oh@armoredfresh.com',
