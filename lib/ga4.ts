@@ -125,10 +125,20 @@ function send(event: string, params: Params = {}) {
 
 export const track = {
   quizStart: () => send("quiz_start"),
+
+  // ✅ NEW: 퀴즈 단계별 추적 — 어느 문항에서 어떤 답을 골랐는지
+  // GA4에서 quiz_step_1, quiz_step_2, quiz_step_3 으로 확인 가능
+  quizStep: (step: number, answer: string) =>
+    send(`quiz_step_${step}`, { step, answer }),
+
   quizComplete: (type: string) => send("quiz_complete", { afterfeel_type: type }),
   typeResult: (type: string) => send("type_result", { afterfeel_type: type }),
   shareClick: (channel: string, type: string) =>
     send("share_click", { share_channel: channel, afterfeel_type: type }),
+
+  // ✅ NEW: 이메일 입력창 최초 클릭 추적 — emailFocus → emailSubmit 이탈 포착
+  emailFocus: (type: string) =>
+    send("email_focus", { afterfeel_type: type }),
 
   emailSubmit: (type: string) => {
     send("email_submit", { afterfeel_type: type });
