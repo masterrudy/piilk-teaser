@@ -1,11 +1,7 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
-declare global {
-  interface Window {
-    gtag?: (...args: any[]) => void;
-  }
-}
+
 function getDeviceType(): string {
   if (typeof window === 'undefined') return 'unknown';
   const ua = navigator.userAgent;
