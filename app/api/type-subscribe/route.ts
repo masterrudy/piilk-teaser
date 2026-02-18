@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { sendNotifications } from '@/lib/notify';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -211,6 +212,25 @@ export async function POST(request: NextRequest) {
       }
     }
 
+        const today = new Date().toISOString().slice(0, 10);
+    const [{ count: todayCount }, { count: totalCount }] = await Promise.all([
+      supabase.from('piilk_subscribers').select('*', { count: 'exact', head: true }).gte('created_at', today),
+      supabase.from('piilk_subscribers').select('*', { count: 'exact', head: true }),
+    ]);
+    sendNotifications({
+      email: emailClean,
+      variant: 'type',
+      utmSource,
+      utmMedium,
+      utmCampaign,
+      city: geo.city,
+      country: geo.country,
+      device: deviceType,
+      afterfeelType: afterfeel_type,
+      todayCount: todayCount || 0,
+      totalCount: totalCount || 0,
+    }).catch(() => {});
+    
     return NextResponse.json({
       success: true,
       referral_code: data.referral_code,
