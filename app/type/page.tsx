@@ -455,17 +455,10 @@ function Result({ type }: { type: AfterfeelType }) {
         <div className="email-section">
           {!emailSent ? (
             <div>
-              {/* 오퍼 */}
-              <div className="offer-box" aria-label="Offer">
-                <p className="offer-main">
-                  <strong className="offer-price">$2.99</strong>
-                  <span className="offer-main-text"> for 3 bottles, shipping included.</span>
-                </p>
-                <p className="offer-sub">
-                  <span className="offer-value">Usually $13.47 in value.</span>
-                  <span className="offer-credit">We&apos;ll credit your $2.99 on your first 6+ order.</span>
-                </p>
-                <p className="offer-hook">Ready to try zero after-feel?</p>
+              {/* 오퍼 없음 — 이메일은 무료 얼리액세스로만 제시 */}
+              <div className="email-hook">
+                <div className="email-hook-head">Be first to try it.</div>
+                <div className="email-hook-sub">Early access · First 1,000 members only</div>
               </div>
 
               <div className="email-row">
@@ -481,33 +474,32 @@ function Result({ type }: { type: AfterfeelType }) {
                     if (!emailFocusTracked.current) {
                       emailFocusTracked.current = true;
                       track.emailFocus(type);
-                      // ✅ Meta Pixel: 이메일 입력 시작
                       fbq("trackCustom", "EmailFocus", { afterfeel_type: type });
                     }
                   }}
                 />
                 <button className="email-btn" onClick={submitEmail} disabled={emailLoading}>
-                  {emailLoading ? "..." : "Get early access"}
+                  {emailLoading ? "..." : "Get early access →"}
                 </button>
               </div>
 
               {emailError && <div className="email-error">{emailError}</div>}
 
-              <div className="email-note">Launching Mid-March · First 1,000 members only</div>
+              <div className="email-note">Launching Mid-March · No spam, ever.</div>
             </div>
           ) : (
             <div className="email-ok anim-up">
               <div className="email-ok-icon">✓</div>
               <div className="email-ok-head">You&apos;re on the list.</div>
 
-              <div className="offer-confirm">
-                <strong>$2.99.</strong> Three bottles. Free shipping.
-                <br />
-                <span>Usually $13.47 in value. Targeting mid-March.</span>
-                <br />
-                <span style={{ fontSize: 11, color: "#666", marginTop: 4, display: "block" }}>
+              {/* 오퍼는 이메일 제출 후 보상으로 공개 */}
+              <div className="offer-reveal anim-up">
+                <div className="offer-reveal-label">🎁 Member offer — unlocked for you</div>
+                <div className="offer-reveal-price">$2.99</div>
+                <div className="offer-reveal-desc">3 bottles · Free shipping · Usually $13.47</div>
+                <div className="offer-reveal-fine">
                   Love it? We&apos;ll credit your $2.99 on your first order of 6+.
-                </span>
+                </div>
               </div>
             </div>
           )}
