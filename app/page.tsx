@@ -300,7 +300,7 @@ export default function TeaserPage() {
         {/* ═══ Phase 2 ═══ */}
         <div className={`slide slide--${getPhaseClass(2)}`} onClick={handleSlideClick} style={{ cursor: phase < 3 ? 'pointer' : 'default' }}>
           <div className="slide-inner">
-            <p className="launch-badge">Launching Mid-March in NYC</p>
+            <p className="launch-badge">Launching Mid-March</p>
             <h1 className="hero-h1">
               30g protein.<br />7 ingredients.<br />Nothing after.
             </h1>
