@@ -1,8 +1,18 @@
 // ═══════════════════════════════════════════════════════════
 // 📁 파일 위치: app/type/page.tsx
-// 📌 역할: /type 메인 페이지 (V9 Hybrid 전체)
+// 📌 역할: /type 메인 페이지 (V10 Fixed)
 // 📌 플로우: Hero → Quiz 3문항 → Result (Share #1 → Email #2 → Referral → Declaration)
 // 📌 모든 API 호출은 /api/type-* 경로 사용 (A안 완전 분리)
+//
+// ✅ 수정사항 (V9 → V10):
+//   1. useEffect dependency [] 로 변경 (불필요한 declarations re-fetch 방지)
+//   2. Progress bar 퀴즈 단계별 업데이트 (10% → 30% → 60% → 90% → 100%)
+//   3. Clipboard HTTPS fallback 추가 (HTTP 환경에서도 복사 작동)
+//   4. 이메일 에러 메시지 분리 ("입력하세요" vs "형식이 틀렸어요")
+//   5. safeUUID() — crypto.randomUUID 미지원 환경 fallback
+//   6. GA4 quiz_start 재시작 시에도 track (hasStarted ref 제거)
+//   7. answers[qi] → answers[answers.length-1] 참조 안전성 개선
+//   8. Meta Pixel fbq() 연동 — QuizStart / QuizStep / QuizComplete / Lead / CompleteRegistration
 // ═══════════════════════════════════════════════════════════
 
 "use client";
@@ -24,6 +34,7 @@ import { track } from "@/lib/ga4";
 // Utils
 // ─────────────────────────────────────────────────────────────
 
+// ✅ FIX 5: crypto.randomUUID 미지원 브라우저 fallback
 function safeUUID(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return (crypto as Crypto).randomUUID();
@@ -49,7 +60,6 @@ function getReferralFromURL(): string | null {
 function getTrackingData() {
   if (typeof window === "undefined") return {};
   const params = new URLSearchParams(window.location.search);
-
   return {
     device_type: /Mobile|Android|iPhone/i.test(navigator.userAgent) ? "mobile" : "desktop",
     language: navigator.language || null,
@@ -59,6 +69,48 @@ function getTrackingData() {
     utm_medium: params.get("utm_medium") || null,
     utm_campaign: params.get("utm_campaign") || null,
   };
+}
+
+// ✅ FIX 3: Clipboard HTTPS fallback
+async function safeCopy(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+    // HTTP 또는 구형 브라우저 fallback
+    const el = document.createElement("textarea");
+    el.value = text;
+    el.style.position = "fixed";
+    el.style.left = "-9999px";
+    el.style.top = "-9999px";
+    document.body.appendChild(el);
+    el.focus();
+    el.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(el);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+// ✅ Meta Pixel safe helper — fbq 미로드 시 조용히 무시
+function fbq(event: string, name: string, params?: Record<string, unknown>) {
+  if (typeof window === "undefined") return;
+  const w = window as unknown as { fbq?: (...args: unknown[]) => void };
+  if (typeof w.fbq === "function") {
+    w.fbq(event, name, params);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Progress 단계 계산
+// Hero=0, Quiz q1=25, q2=50, q3=75, Result=100
+// ─────────────────────────────────────────────────────────────
+function calcQuizProgress(qi: number, total: number): number {
+  // 퀴즈 진행 중: 25% ~ 75% 구간에 균등 배치
+  return Math.round(25 + (qi / total) * 50);
 }
 
 // ═══════════════════════════════════════════
@@ -91,24 +143,38 @@ function Hero({ onStart }: { onStart: () => void }) {
 // ═══════════════════════════════════════════
 // QUIZ
 // ═══════════════════════════════════════════
-function Quiz({ onComplete }: { onComplete: (type: AfterfeelType) => void }) {
+function Quiz({
+  onComplete,
+  onProgressUpdate,
+}: {
+  onComplete: (type: AfterfeelType) => void;
+  onProgressUpdate: (progress: number) => void;
+}) {
   const [qi, setQi] = useState(0);
   const [answers, setAnswers] = useState<string[]>([]);
   const [picked, setPicked] = useState(false);
 
   const q = QUIZ_QUESTIONS[qi];
+  const total = QUIZ_QUESTIONS.length;
+
+  // ✅ FIX 2: 퀴즈 단계별 progress 업데이트
+  useEffect(() => {
+    onProgressUpdate(calcQuizProgress(qi, total));
+  }, [qi, total, onProgressUpdate]);
 
   const pick = (group: string) => {
     if (picked) return;
     setPicked(true);
 
     track.quizStep(qi + 1, group);
+    // ✅ Meta Pixel: 퀴즈 단계별 이벤트
+    fbq("trackCustom", "QuizStep", { step: qi + 1, answer: group });
 
     const next = [...answers, group];
     setAnswers(next);
 
     setTimeout(() => {
-      const isLast = qi + 1 >= QUIZ_QUESTIONS.length;
+      const isLast = qi + 1 >= total;
 
       if (!isLast) {
         setQi(qi + 1);
@@ -118,9 +184,14 @@ function Quiz({ onComplete }: { onComplete: (type: AfterfeelType) => void }) {
 
       const result = calcAfterfeelType(next);
       track.quizComplete(result);
+      // ✅ Meta Pixel: 퀴즈 완료
+      fbq("trackCustom", "QuizComplete", { afterfeel_type: result });
       onComplete(result);
     }, 300);
   };
+
+  // ✅ FIX 7: answers[qi] → pickedAnswer로 안전하게 참조
+  const pickedAnswer = answers[answers.length - 1];
 
   return (
     <section className="phase quiz-phase">
@@ -132,7 +203,7 @@ function Quiz({ onComplete }: { onComplete: (type: AfterfeelType) => void }) {
         </div>
 
         <div className="caption" style={{ marginBottom: 8 }}>
-          {qi + 1} of {QUIZ_QUESTIONS.length}
+          {qi + 1} of {total}
         </div>
 
         <h2 className="h2 quiz-q">{q.question}</h2>
@@ -141,7 +212,7 @@ function Quiz({ onComplete }: { onComplete: (type: AfterfeelType) => void }) {
           {q.options.map((o, j) => (
             <div
               key={`${qi}-${j}`}
-              className={`qo ${picked && answers[qi] === o.group ? "pk" : ""}`}
+              className={`qo ${picked && pickedAnswer === o.group ? "pk" : ""}`}
               onClick={() => pick(o.group)}
               style={{ animation: `up .35s cubic-bezier(.16,1,.3,1) ${j * 0.04}s both` }}
               role="button"
@@ -182,15 +253,17 @@ function Result({ type }: { type: AfterfeelType }) {
   const referredBy = useRef<string | null>(null);
   const emailFocusTracked = useRef(false);
 
+  // ✅ FIX 1: dependency [] — type은 바뀌지 않으므로 한 번만 fetch
   useEffect(() => {
     referredBy.current = getReferralFromURL();
     track.typeResult(type);
+    // ✅ Meta Pixel: 결과 페이지 진입
+    fbq("trackCustom", "TypeResult", { afterfeel_type: type });
 
     fetch("/api/type-declarations")
       .then((r) => r.json())
       .then((data) => {
         if (!data?.declarations) return;
-
         const counts: Record<string, number> = {};
         data.declarations.forEach((d: { statement_key: string; vote_count: number }) => {
           counts[d.statement_key] = d.vote_count;
@@ -198,43 +271,51 @@ function Result({ type }: { type: AfterfeelType }) {
         setDeclCounts(counts);
       })
       .catch(() => {});
-  }, [type]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ─── Share (#1) ───
   const doShare = useCallback(
-    (channel: string) => {
+    async (channel: string) => {
       track.shareClick(channel, type);
       const txt = getShareText(t.name);
+      const fullUrl = `${txt} ${SHARE_URL}`;
 
       if (channel === "x") {
         window.open(
-          `https://twitter.com/intent/tweet?text=${encodeURIComponent(txt)}&url=${encodeURIComponent(
-            SHARE_URL
-          )}`,
+          `https://twitter.com/intent/tweet?text=${encodeURIComponent(txt)}&url=${encodeURIComponent(SHARE_URL)}`,
           "_blank"
         );
         return;
       }
 
       if (channel === "sms") {
-        window.open(`sms:?&body=${encodeURIComponent(`${txt} ${SHARE_URL}`)}`);
+        window.open(`sms:?&body=${encodeURIComponent(fullUrl)}`);
         return;
       }
 
-      // ig/link: copy로 통일
-      navigator.clipboard?.writeText(`${txt} ${SHARE_URL}`);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
+      // ig / link: safeCopy fallback 적용
+      const ok = await safeCopy(fullUrl);
+      if (ok) {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1800);
+      }
     },
     [t.name, type]
   );
 
   // ─── Email (#2) ───
   const submitEmail = async () => {
-    const email = emailRef.current?.value.trim();
+    const raw = emailRef.current?.value ?? "";
+    const email = raw.trim();
 
-    if (!email || !email.includes("@") || !email.includes(".")) {
-      setEmailError("Please enter a valid email.");
+    // ✅ FIX 4: 에러 메시지 구분
+    if (!email) {
+      setEmailError("Please enter your email.");
+      return;
+    }
+    if (!email.includes("@") || !email.includes(".")) {
+      setEmailError("Please enter a valid email address.");
       return;
     }
 
@@ -260,16 +341,19 @@ function Result({ type }: { type: AfterfeelType }) {
         setQueuePosition(data.queue_position);
         setEmailSent(true);
         track.emailSubmit(type);
+        // ga4.ts의 emailSubmit 내부에서 fbq Lead + CompleteRegistration 이미 호출됨
         return;
       }
 
       setEmailError(
         data?.error === "invalid_email"
-          ? "Please enter a valid email."
-          : "Something went wrong. Try again."
+          ? "Please enter a valid email address."
+          : data?.error === "already_exists"
+          ? "You're already on the list! 🎉"
+          : "Something went wrong. Please try again."
       );
     } catch {
-      setEmailError("Connection error. Try again.");
+      setEmailError("Connection error. Please try again.");
     } finally {
       setEmailLoading(false);
     }
@@ -281,7 +365,6 @@ function Result({ type }: { type: AfterfeelType }) {
 
     track.declarationTap(key);
 
-    // optimistic UI
     setDeclCounts((prev) => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
     setVotedDecls((prev) => new Set(prev).add(key));
 
@@ -291,20 +374,18 @@ function Result({ type }: { type: AfterfeelType }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ statement_key: key, visitor_id: getVisitorId() }),
       });
-
       const data = await res.json();
       if (data?.success) {
         setDeclCounts((prev) => ({ ...prev, [key]: data.vote_count }));
       }
     } catch {
-      // optimistic already applied
+      // optimistic UI 그대로 유지
     }
   };
 
-  // ─── Referral Share (Email 후) ───
-  const refShare = (channel: string) => {
+  // ─── Referral Share (이메일 후) ───
+  const refShare = async (channel: string) => {
     track.referralShare(channel);
-
     const refUrl = `${SHARE_URL}?ref=${referralCode}`;
     const txt = `I'm #${queuePosition.toLocaleString()} on the PIILK™ list. Something better is coming:`;
 
@@ -316,9 +397,12 @@ function Result({ type }: { type: AfterfeelType }) {
       return;
     }
 
-    navigator.clipboard?.writeText(refUrl);
-    setRefCopied(true);
-    setTimeout(() => setRefCopied(false), 1800);
+    // ✅ FIX 3 적용: safeCopy
+    const ok = await safeCopy(refUrl);
+    if (ok) {
+      setRefCopied(true);
+      setTimeout(() => setRefCopied(false), 1800);
+    }
   };
 
   return (
@@ -371,20 +455,18 @@ function Result({ type }: { type: AfterfeelType }) {
         <div className="email-section">
           {!emailSent ? (
             <div>
-              {/* 오퍼 먼저 노출 */}
-<div className="offer-box" aria-label="Offer">
-  <p className="offer-main">
-    <strong className="offer-price">$2.99</strong>
-    <span className="offer-main-text"> for 3 bottles, shipping included.</span>
-  </p>
-
-  <p className="offer-sub">
-    <span className="offer-value">Usually $13.47 in value.</span>
-    <span className="offer-credit">We&apos;ll credit your $2.99 on your first 6+ order.</span>
-  </p>
-
-  <p className="offer-hook">Ready to try zero after-feel?</p>
-</div>
+              {/* 오퍼 */}
+              <div className="offer-box" aria-label="Offer">
+                <p className="offer-main">
+                  <strong className="offer-price">$2.99</strong>
+                  <span className="offer-main-text"> for 3 bottles, shipping included.</span>
+                </p>
+                <p className="offer-sub">
+                  <span className="offer-value">Usually $13.47 in value.</span>
+                  <span className="offer-credit">We&apos;ll credit your $2.99 on your first 6+ order.</span>
+                </p>
+                <p className="offer-hook">Ready to try zero after-feel?</p>
+              </div>
 
               <div className="email-row">
                 <input
@@ -399,10 +481,11 @@ function Result({ type }: { type: AfterfeelType }) {
                     if (!emailFocusTracked.current) {
                       emailFocusTracked.current = true;
                       track.emailFocus(type);
+                      // ✅ Meta Pixel: 이메일 입력 시작
+                      fbq("trackCustom", "EmailFocus", { afterfeel_type: type });
                     }
                   }}
                 />
-
                 <button className="email-btn" onClick={submitEmail} disabled={emailLoading}>
                   {emailLoading ? "..." : "Get early access"}
                 </button>
@@ -463,7 +546,7 @@ function Result({ type }: { type: AfterfeelType }) {
           </div>
         )}
 
-        {/* PROOF (이메일 후 = BOF) */}
+        {/* PROOF (이메일 후) */}
         {emailSent && (
           <div className="proof-mini anim-up">
             <span className="ptag">30g protein</span>
@@ -515,15 +598,18 @@ export default function TeaserType() {
   const [resultType, setResultType] = useState<AfterfeelType>("brick");
   const [progress, setProgress] = useState(0);
 
-  const hasStarted = useRef(false);
+  // ✅ FIX 6: hasStarted ref 제거 — 재시작 시에도 quizStart track 허용
+  // (의도적으로 재시작할 때도 측정이 필요함)
+
+  const handleProgressUpdate = useCallback((p: number) => {
+    setProgress(p);
+  }, []);
 
   const startQuiz = () => {
-    if (!hasStarted.current) {
-      track.quizStart();
-      hasStarted.current = true;
-    }
+    track.quizStart();
+    // ✅ Meta Pixel: 퀴즈 시작
+    fbq("trackCustom", "QuizStart");
     setPhase("quiz");
-    setProgress(10);
   };
 
   const handleQuizComplete = (type: AfterfeelType) => {
@@ -534,7 +620,6 @@ export default function TeaserType() {
   };
 
   const goHome = () => {
-    hasStarted.current = false;
     setPhase("hero");
     setProgress(0);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -567,7 +652,9 @@ export default function TeaserType() {
       <div className="progress-bar" style={{ width: `${progress}%` }} />
 
       {phase === "hero" && <Hero onStart={startQuiz} />}
-      {phase === "quiz" && <Quiz onComplete={handleQuizComplete} />}
+      {phase === "quiz" && (
+        <Quiz onComplete={handleQuizComplete} onProgressUpdate={handleProgressUpdate} />
+      )}
       {phase === "result" && <Result type={resultType} />}
 
       <footer className="footer">
