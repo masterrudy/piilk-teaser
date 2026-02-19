@@ -161,6 +161,71 @@ body { font-family: var(--sans); background: var(--bg); color: var(--t1); overfl
 /* Separator */
 .sep { width: 32px; height: 1px; background: var(--bd); margin: 0 auto; }
 
+/* ─────────────────────────────────────────────
+   Offer (Email CTA - top copy)
+   ───────────────────────────────────────────── */
+
+.offer-box {
+  margin: 18px auto 14px;
+  max-width: 560px;
+  text-align: center;
+}
+
+.offer-box p { margin: 0; } /* ✅ 기본 p 마진 제거(밀림/간격 문제 해결) */
+
+.offer-main {
+  font-family: var(--sans);
+  font-size: 22px;
+  line-height: 1.25;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.offer-price {
+  font-size: 30px;
+  font-weight: 800;
+}
+
+.offer-main-text {
+  opacity: 0.92;
+}
+
+.offer-sub {
+  margin-top: 8px;
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.55;
+  opacity: 0.75;
+}
+
+.offer-value,
+.offer-credit {
+  display: block;          /* ✅ value / credit 줄바꿈 강제 */
+}
+
+.offer-credit {
+  margin-top: 2px;
+}
+
+.offer-hook {
+  margin-top: 14px;
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.25;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  opacity: 0.95;
+}
+
+/* Mobile */
+@media (max-width: 540px) {
+  .offer-main { font-size: 20px; }
+  .offer-price { font-size: 28px; }
+  .offer-sub { font-size: 13px; }
+  .offer-hook { font-size: 15px; }
+}
+
+
 /* Email Section */
 .email-section { text-align: center; padding: 28px 0; }
 .email-bridge { font-size: 14px; color: var(--t2); margin-bottom: 16px; line-height: 1.5; }
