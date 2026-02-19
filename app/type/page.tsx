@@ -515,7 +515,7 @@ function Result({ type }: { type: AfterfeelType }) {
               <div className="ref-card-title">Skip the line ⚡</div>
               <div className="ref-tier">
                 <span>3 friends join</span>
-                <span className="ref-tier-reward">$2.99 크레딧 추가</span>
+                <span className="ref-tier-reward">+$2.99 credit</span>
               </div>
               <div className="ref-tier">
                 <span>10 friends join</span>
