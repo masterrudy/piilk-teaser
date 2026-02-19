@@ -331,14 +331,18 @@ function Result({ type }: { type: AfterfeelType }) {
           {!emailSent ? (
             <div>
               {/* ✅ FIX: 오퍼 먼저 노출 → 이메일 등록 동기 강화 */}
-              <div className="email-bridge">
-                <div className="offer-pill">$2.99 · 3 bottles · Free shipping</div>
-                <strong>Want to try zero after-feel?</strong>
-                <br />
-                <span style={{ fontSize: 13, color: "#888", marginTop: 4, display: "block" }}>
-                  Love it? Your $2.99 comes back on your first order of 6+.
-                </span>
-              </div>
+<div className="offer-box">
+  <p className="offer-main">
+    <strong>$2.99</strong> for 3 bottles. Free shipping included.
+  </p>
+  <p className="offer-sub">
+    Usually $13.47 in value.<br />
+    Love it? We’ll credit your $2.99 on your first order of 6+.
+  </p>
+  <p className="offer-hook">
+    Want to try zero after-feel?
+  </p>
+</div>
               <div className="email-row">
                 <input
                   ref={emailRef}
