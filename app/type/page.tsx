@@ -64,15 +64,16 @@ function Hero({ onStart }: { onStart: () => void }) {
           <br />
           It&apos;s the <em>after.</em>
         </h1>
+        {/* ✅ FIX: 유저 중심 카피로 변경 */}
         <p className="body anim-up d1">
           That heavy feeling after. The film that lingers.
           <br />
-          We call it <strong>after-feel</strong> — everyone has a type.
+          You&apos;ve felt it. You just never had a name for it.
         </p>
+        {/* ✅ FIX: 30 seconds를 버튼 안으로 통합 → 참여 장벽 낮춤 */}
         <button className="btn-primary anim-up d2" onClick={onStart}>
-          Find your type
+          Find my type — 30 sec
         </button>
-        <div className="caption anim-up d3">30 seconds</div>
       </div>
     </section>
   );
@@ -92,7 +93,6 @@ function Quiz({ onComplete }: { onComplete: (type: AfterfeelType) => void }) {
     if (picked) return;
     setPicked(true);
 
-    // ✅ FIX: 퀴즈 단계별 이탈 추적 (어느 문항에서 떠나는지 파악)
     track.quizStep(qi + 1, group);
 
     const next = [...answers, group];
@@ -158,15 +158,12 @@ function Result({ type }: { type: AfterfeelType }) {
 
   const emailRef = useRef<HTMLInputElement>(null);
   const referredBy = useRef<string | null>(null);
-
-  // ✅ FIX: 이메일 focus 중복 방지용 ref
   const emailFocusTracked = useRef(false);
 
   useEffect(() => {
     referredBy.current = getReferralFromURL();
     track.typeResult(type);
 
-    // Declaration 카운트 로드
     fetch("/api/type-declarations")
       .then((r) => r.json())
       .then((data) => {
@@ -197,8 +194,10 @@ function Result({ type }: { type: AfterfeelType }) {
           );
           break;
         case "ig":
-          // TODO: html2canvas → PNG for IG Stories
-          alert("Production: html2canvas → saves card as PNG for IG Stories.");
+          // ✅ FIX: IG Story — alert 제거, 링크 복사로 대체 (html2canvas 구현 전까지)
+          navigator.clipboard?.writeText(txt + " " + SHARE_URL);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1800);
           break;
         case "sms":
           window.open(`sms:?&body=${encodeURIComponent(txt + " " + SHARE_URL)}`);
@@ -260,7 +259,6 @@ function Result({ type }: { type: AfterfeelType }) {
     if (votedDecls.has(key)) return;
     track.declarationTap(key);
 
-    // Optimistic update
     setDeclCounts((prev) => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
     setVotedDecls((prev) => new Set(prev).add(key));
 
@@ -315,7 +313,8 @@ function Result({ type }: { type: AfterfeelType }) {
         <div className="share-zone">
           <div className="share-label">Tell them what you are</div>
           <div className="share-grid">
-            <button className="share-btn" onClick={() => doShare("ig")}>📸 Story</button>
+            {/* ✅ FIX: IG Story 버튼 → "Save Card"로 변경, alert 제거 */}
+            <button className="share-btn" onClick={() => doShare("ig")}>📋 Save link</button>
             <button className="share-btn" onClick={() => doShare("sms")}>💬 Text</button>
             <button className="share-btn" onClick={() => doShare("x")}>𝕏 Post</button>
           </div>
@@ -331,10 +330,14 @@ function Result({ type }: { type: AfterfeelType }) {
         <div className="email-section">
           {!emailSent ? (
             <div>
+              {/* ✅ FIX: 오퍼 먼저 노출 → 이메일 등록 동기 강화 */}
               <div className="email-bridge">
-                PIILK™ — a protein shake designed to leave nothing behind.
-                <br />
+                <div className="offer-pill">$2.99 · 3 bottles · Free shipping</div>
                 <strong>Want to try zero after-feel?</strong>
+                <br />
+                <span style={{ fontSize: 13, color: "#888", marginTop: 4, display: "block" }}>
+                  Love it? Your $2.99 comes back on your first order of 6+.
+                </span>
               </div>
               <div className="email-row">
                 <input
@@ -343,7 +346,6 @@ function Result({ type }: { type: AfterfeelType }) {
                   className="email-input"
                   placeholder="your@email.com"
                   onKeyDown={(e) => e.key === "Enter" && submitEmail()}
-                  // ✅ FIX: 이메일 입력창 최초 클릭 시 1회만 추적
                   onFocus={() => {
                     if (!emailFocusTracked.current) {
                       emailFocusTracked.current = true;
@@ -356,13 +358,22 @@ function Result({ type }: { type: AfterfeelType }) {
                 </button>
               </div>
               {emailError && <div className="email-error">{emailError}</div>}
-              <div className="email-note">Shipping nationwide. We&apos;ll let you know first.</div>
+              <div className="email-note">Launching Mid-March · First 1,000 members only</div>
             </div>
           ) : (
+            // ✅ FIX: 이메일 완료 후 $2.99 오퍼 명시
             <div className="email-ok anim-up">
               <div className="email-ok-icon">✓</div>
               <div className="email-ok-head">You&apos;re on the list.</div>
-              <div className="email-ok-sub">We&apos;ll email you when it&apos;s your turn.</div>
+              <div className="offer-confirm">
+                <strong>$2.99.</strong> Three bottles. Free shipping.
+                <br />
+                <span>Worth $13.47 — launching Mid-March.</span>
+                <br />
+                <span style={{ fontSize: 11, color: "#666", marginTop: 4, display: "block" }}>
+                  Love it? Your $2.99 comes back on your first order of 6+.
+                </span>
+              </div>
             </div>
           )}
         </div>
@@ -374,9 +385,10 @@ function Result({ type }: { type: AfterfeelType }) {
             <div className="ref-rank-label">Your spot in line</div>
             <div className="ref-card">
               <div className="ref-card-title">Skip the line ⚡</div>
-              <div className="ref-tier"><span>5 friends join</span><span className="ref-tier-reward">Free 7-day trial upgrade</span></div>
-              <div className="ref-tier"><span>15 friends join</span><span className="ref-tier-reward">25% off your first case</span></div>
-              <div className="ref-tier"><span>30 friends join</span><span className="ref-tier-reward">Free 18-pack case</span></div>
+              {/* ✅ FIX: 티어 현실적으로 조정 */}
+              <div className="ref-tier"><span>3 friends join</span><span className="ref-tier-reward">$2.99 크레딧 추가</span></div>
+              <div className="ref-tier"><span>10 friends join</span><span className="ref-tier-reward">25% off first order</span></div>
+              <div className="ref-tier"><span>20 friends join</span><span className="ref-tier-reward">Free 18-pack case</span></div>
             </div>
             <div className="ref-btns">
               <button className="ref-btn primary" onClick={() => refShare("x")}>Share on 𝕏</button>
@@ -397,7 +409,7 @@ function Result({ type }: { type: AfterfeelType }) {
 
         <div className="sep" />
 
-        {/* DECLARATIONS */}
+        {/* ✅ FIX: Declarations — 이메일 등록 전후 모두 노출 유지 (참여 유도) */}
         <div className="declarations">
           <div className="decl-header">
             <div className="label" style={{ marginBottom: 8 }}>Do you agree?</div>
@@ -429,7 +441,6 @@ export default function TeaserType() {
   const [resultType, setResultType] = useState<AfterfeelType>("brick");
   const [progress, setProgress] = useState(0);
 
-  // ✅ FIX: quizStart 중복 발화 방지 (goHome → 재시작 시 114% 이슈 해결)
   const hasStarted = useRef(false);
 
   function startQuiz() {
@@ -449,7 +460,6 @@ export default function TeaserType() {
   }
 
   function goHome() {
-    // ✅ FIX: 홈으로 돌아갈 때 hasStarted 리셋 (재시작 시 정상 추적)
     hasStarted.current = false;
     setPhase("hero");
     setProgress(0);
