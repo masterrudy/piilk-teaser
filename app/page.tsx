@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 
-/* ─── EmailForm: 컴포넌트 외부 선언 (렌더마다 재생성 방지 / focus 끊김 방지) ─── */
+/* ─── EmailForm ─── */
 interface EmailFormProps {
   email: string;
   isSubmitted: boolean;
@@ -17,7 +17,16 @@ function EmailForm({
   onEmailChange, onFocus, onSubmit,
 }: EmailFormProps) {
   if (isSubmitted) {
-    return <p className="email-success">You&apos;re in. Watch for the first note.</p>;
+    return (
+      <div>
+        <p className="email-success">You&apos;re in. Watch for the first note.</p>
+        {/* ✅ $2.99 오퍼 — 이메일 제출 후 보상으로 공개 */}
+        <div className="offer-box offer-reveal">
+          <p className="offer-main"><strong>$2.99.</strong> Three bottles. Free shipping.</p>
+          <p className="offer-sub">Worth $13.47 — no excuse not to try.<br />Love it? Your $2.99 comes back on your first order of 6+.</p>
+        </div>
+      </div>
+    );
   }
   return (
     <div className="email-module">
@@ -153,7 +162,7 @@ export default function TeaserPage() {
     if (phase === 3) trackEvent('phase_3_view');
   }, [phase]);
 
-  const trackEvent = useCallback((eventName: string, eventData?: Record<string, any>) => {
+  const trackEvent = useCallback((eventName: string, eventData?: Record<string, unknown>) => {
     const td = trackingData.current;
     fetch('/api/track', {
       method: 'POST',
@@ -170,8 +179,8 @@ export default function TeaserPage() {
         utm_campaign: td.utm_campaign || null,
       }),
     }).catch(() => {});
-    if (typeof window !== 'undefined' && window.gtag) {
-      window.gtag('event', eventName, { variant: 'main', ...eventData });
+    if (typeof window !== 'undefined' && (window as unknown as { gtag?: (...a: unknown[]) => void }).gtag) {
+      (window as unknown as { gtag: (...a: unknown[]) => void }).gtag('event', eventName, { variant: 'main', ...eventData });
     }
   }, []);
 
@@ -204,29 +213,17 @@ export default function TeaserPage() {
           email_domain: email.split('@')[1] || '',
           source,
         });
-        if (typeof window !== 'undefined' && window.gtag) {
-          window.gtag('event', 'generate_lead', { method: 'email_signup', signup_source: source });
+        const w = window as unknown as { gtag?: (...a: unknown[]) => void; fbq?: (...a: unknown[]) => void; ttq?: { track: (...a: unknown[]) => void } };
+        if (w.gtag) {
+          w.gtag('event', 'generate_lead', { method: 'email_signup', signup_source: source });
         }
-        // ✅ Meta Pixel — Lead 전환
-        if (typeof window !== 'undefined' && (window as any).fbq) {
-          (window as any).fbq('track', 'Lead', {
-            content_name: 'piilk_main_teaser',
-            content_category: 'teaser_signup',
-          });
-          (window as any).fbq('track', 'CompleteRegistration', {
-            content_name: 'piilk_main_teaser',
-            value: 1,
-            currency: 'USD',
-          });
+        if (w.fbq) {
+          w.fbq('track', 'Lead', { content_name: 'piilk_main_teaser', content_category: 'teaser_signup' });
+          w.fbq('track', 'CompleteRegistration', { content_name: 'piilk_main_teaser', value: 1, currency: 'USD' });
         }
-        // ✅ TikTok Pixel — Lead 전환
-        if (typeof window !== 'undefined' && (window as any).ttq) {
-          (window as any).ttq.track('SubmitForm', { content_name: 'piilk_main_teaser' });
-          (window as any).ttq.track('CompleteRegistration', {
-            content_name: 'piilk_main_teaser',
-            value: 1,
-            currency: 'USD',
-          });
+        if (w.ttq) {
+          w.ttq.track('SubmitForm', { content_name: 'piilk_main_teaser' });
+          w.ttq.track('CompleteRegistration', { content_name: 'piilk_main_teaser', value: 1, currency: 'USD' });
         }
         setIsSubmitted(true);
       } else {
@@ -309,10 +306,11 @@ export default function TeaserPage() {
               PIILK is built to end it.
             </p>
             <p className="hero-proof">Dairy-free · No artificial sweeteners · Clean label</p>
-            <div className="offer-box">
-              <p className="offer-main"><strong>$2.99.</strong> Three bottles. Free shipping.</p>
-              <p className="offer-sub">Worth $13.47 — no excuse not to try.<br />Love it? Your $2.99 comes back on your first order of 6+.</p>
-            </div>
+
+            {/* ✅ $2.99 박스 제거 — 이메일 입력 전에는 안 보임 */}
+            {/* ✅ 대신 공감 브리지 문구 추가 */}
+            <p className="felt-it">You felt it. We fixed it.</p>
+
             <div className="email-wrap">
               <EmailForm
                 email={email}
@@ -419,7 +417,16 @@ export default function TeaserPage() {
           margin-bottom: 16px;
         }
 
-        /* ── Offer Box ── */
+        /* ✅ "You felt it. We fixed it." 브리지 문구 */
+        .felt-it {
+          margin: 16px auto 0;
+          font-size: 18px;
+          font-weight: 700;
+          color: var(--accent);
+          letter-spacing: -0.01em;
+        }
+
+        /* ── Offer Box (이메일 제출 후 공개) ── */
         .offer-box {
           margin: 16px auto 0;
           max-width: 420px;
@@ -427,6 +434,9 @@ export default function TeaserPage() {
           border: 1px solid rgba(191,255,0,0.2);
           border-radius: 12px;
           padding: 14px 18px;
+        }
+        .offer-reveal {
+          animation: fadeIn 400ms ease forwards;
         }
         .offer-main { font-size:15px; color:#fff; margin:0 0 6px; }
         .offer-main strong { color: var(--accent); font-size: 18px; }
@@ -539,12 +549,13 @@ export default function TeaserPage() {
           .email-form-row .email-btn { width:auto; min-width:160px; flex-shrink:0; }
         }
 
-        /* ── Mobile optimization ── */
+        /* ── Mobile ── */
         @media (max-width:767px) {
           .slide { padding: 60px 20px 30px; }
           .hero-h1 { font-size: clamp(24px, 8vw, 36px); }
           .hero-desc { font-size: 13px; margin-top: 10px; }
           .hero-proof { font-size: 11px; margin-top: 6px; }
+          .felt-it { font-size: 15px; }
           .why-title { font-size: clamp(22px, 7vw, 32px); }
           .why-body { font-size: 14px; }
           .offer-box { margin-top: 12px; padding: 11px 14px; }
