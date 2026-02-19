@@ -155,7 +155,6 @@ export default function TeaserPage() {
 
   const trackEvent = useCallback((eventName: string, eventData?: Record<string, any>) => {
     const td = trackingData.current;
-    // Supabase
     fetch('/api/track', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -171,7 +170,6 @@ export default function TeaserPage() {
         utm_campaign: td.utm_campaign || null,
       }),
     }).catch(() => {});
-    // GA4 — variant: "main" 포함
     if (typeof window !== 'undefined' && window.gtag) {
       window.gtag('event', eventName, { variant: 'main', ...eventData });
     }
@@ -302,7 +300,7 @@ export default function TeaserPage() {
         {/* ═══ Phase 2 ═══ */}
         <div className={`slide slide--${getPhaseClass(2)}`} onClick={handleSlideClick} style={{ cursor: phase < 3 ? 'pointer' : 'default' }}>
           <div className="slide-inner">
-            <p className="launch-badge">Launching Mid-March</p>
+            <p className="launch-badge">Launching Mid-March in NYC</p>
             <h1 className="hero-h1">
               30g protein.<br />7 ingredients.<br />Nothing after.
             </h1>
@@ -312,8 +310,8 @@ export default function TeaserPage() {
             </p>
             <p className="hero-proof">Dairy-free · No artificial sweeteners · Clean label</p>
             <div className="offer-box">
-              <p className="offer-main">Try 3 bottles — <strong>$2.99 + free shipping</strong></p>
-              <p className="offer-sub">Love it? Your $2.99 comes back on your first order of 6+.</p>
+              <p className="offer-main"><strong>$2.99.</strong> Three bottles. Free shipping.</p>
+              <p className="offer-sub">Worth $13.47 — no excuse not to try.<br />Love it? Your $2.99 comes back on your first order of 6+.</p>
             </div>
             <div className="email-wrap">
               <EmailForm
@@ -430,9 +428,9 @@ export default function TeaserPage() {
           border-radius: 12px;
           padding: 14px 18px;
         }
-        .offer-main { font-size:15px; color:#fff; margin:0 0 4px; }
-        .offer-main strong { color: var(--accent); }
-        .offer-sub { font-size:12px; color:var(--muted); margin:0; line-height:1.5; }
+        .offer-main { font-size:15px; color:#fff; margin:0 0 6px; }
+        .offer-main strong { color: var(--accent); font-size: 18px; }
+        .offer-sub { font-size:12px; color:var(--muted); margin:0; line-height:1.6; }
 
         /* ── Why sub ── */
         .why-sub {
@@ -551,6 +549,7 @@ export default function TeaserPage() {
           .why-body { font-size: 14px; }
           .offer-box { margin-top: 12px; padding: 11px 14px; }
           .offer-main { font-size: 13px; }
+          .offer-main strong { font-size: 15px; }
           .offer-sub { font-size: 11px; }
           .email-wrap, .cta-wrap { margin-top: 14px; max-width: 320px; padding: 0 8px; }
           .email-input { height: 42px; font-size: 14px; border-radius: 8px; }
