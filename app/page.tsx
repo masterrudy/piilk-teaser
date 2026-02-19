@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 
-/* ─── EmailForm: 컴포넌트 외부 선언 (렌더마다 재생성 방지 / focus 끊김 방지) ─── */
+/* ─── EmailForm ─── */
 interface EmailFormProps {
   email: string;
   isSubmitted: boolean;
@@ -153,7 +153,7 @@ export default function TeaserPage() {
     if (phase === 3) trackEvent('phase_3_view');
   }, [phase]);
 
-  const trackEvent = useCallback((eventName: string, eventData?: Record<string, any>) => {
+  const trackEvent = useCallback((eventName: string, eventData?: Record<string, unknown>) => {
     const td = trackingData.current;
     fetch('/api/track', {
       method: 'POST',
@@ -170,8 +170,9 @@ export default function TeaserPage() {
         utm_campaign: td.utm_campaign || null,
       }),
     }).catch(() => {});
-    if (typeof window !== 'undefined' && window.gtag) {
-      window.gtag('event', eventName, { variant: 'main', ...eventData });
+    const w = window as unknown as { gtag?: (...a: unknown[]) => void };
+    if (typeof window !== 'undefined' && w.gtag) {
+      w.gtag('event', eventName, { variant: 'main', ...eventData });
     }
   }, []);
 
@@ -204,29 +205,23 @@ export default function TeaserPage() {
           email_domain: email.split('@')[1] || '',
           source,
         });
-        if (typeof window !== 'undefined' && window.gtag) {
-          window.gtag('event', 'generate_lead', { method: 'email_signup', signup_source: source });
-        }
-        // ✅ Meta Pixel — Lead 전환
-        if (typeof window !== 'undefined' && (window as any).fbq) {
-          (window as any).fbq('track', 'Lead', {
-            content_name: 'piilk_main_teaser',
-            content_category: 'teaser_signup',
-          });
-          (window as any).fbq('track', 'CompleteRegistration', {
-            content_name: 'piilk_main_teaser',
-            value: 1,
-            currency: 'USD',
-          });
-        }
-        // ✅ TikTok Pixel — Lead 전환
-        if (typeof window !== 'undefined' && (window as any).ttq) {
-          (window as any).ttq.track('SubmitForm', { content_name: 'piilk_main_teaser' });
-          (window as any).ttq.track('CompleteRegistration', {
-            content_name: 'piilk_main_teaser',
-            value: 1,
-            currency: 'USD',
-          });
+        const w = window as unknown as {
+          gtag?: (...a: unknown[]) => void;
+          fbq?: (...a: unknown[]) => void;
+          ttq?: { track: (...a: unknown[]) => void };
+        };
+        if (typeof window !== 'undefined') {
+          if (w.gtag) {
+            w.gtag('event', 'generate_lead', { method: 'email_signup', signup_source: source });
+          }
+          if (w.fbq) {
+            w.fbq('track', 'Lead', { content_name: 'piilk_main_teaser', content_category: 'teaser_signup' });
+            w.fbq('track', 'CompleteRegistration', { content_name: 'piilk_main_teaser', value: 1, currency: 'USD' });
+          }
+          if (w.ttq) {
+            w.ttq.track('SubmitForm', { content_name: 'piilk_main_teaser' });
+            w.ttq.track('CompleteRegistration', { content_name: 'piilk_main_teaser', value: 1, currency: 'USD' });
+          }
         }
         setIsSubmitted(true);
       } else {
@@ -309,10 +304,23 @@ export default function TeaserPage() {
               PIILK is built to end it.
             </p>
             <p className="hero-proof">Dairy-free · No artificial sweeteners · Clean label</p>
-            <div className="offer-box">
-              <p className="offer-main"><strong>$2.99.</strong> Three bottles. Free shipping.</p>
-              <p className="offer-sub">Worth $13.47 — no excuse not to try.<br />Love it? Your $2.99 comes back on your first order of 6+.</p>
-            </div>
+
+            {/* ✅ $2.99 박스 — 이메일 제출 전에만 보임 */}
+            {!isSubmitted && (
+              <div className="offer-box">
+                <p className="offer-main"><strong>$2.99.</strong> Three bottles. Free shipping.</p>
+                <p className="offer-sub">Worth $13.47 — no excuse not to try.<br />Love it? Your $2.99 comes back on your first order of 6+.</p>
+              </div>
+            )}
+
+            {/* ✅ 이메일 제출 후 오퍼 확인 메시지 */}
+            {isSubmitted && (
+              <div className="offer-box offer-confirmed">
+                <p className="offer-main"><strong>$2.99.</strong> Three bottles. Free shipping.</p>
+                <p className="offer-sub">Worth $13.47. We&apos;ll reach out before launch.<br />Love it? Your $2.99 comes back on your first order of 6+.</p>
+              </div>
+            )}
+
             <div className="email-wrap">
               <EmailForm
                 email={email}
@@ -428,6 +436,11 @@ export default function TeaserPage() {
           border-radius: 12px;
           padding: 14px 18px;
         }
+        /* 제출 후 오퍼 — 살짝 더 밝게 강조 */
+        .offer-confirmed {
+          background: rgba(191,255,0,0.1);
+          animation: fadeIn 400ms ease forwards;
+        }
         .offer-main { font-size:15px; color:#fff; margin:0 0 6px; }
         .offer-main strong { color: var(--accent); font-size: 18px; }
         .offer-sub { font-size:12px; color:var(--muted); margin:0; line-height:1.6; }
@@ -539,7 +552,7 @@ export default function TeaserPage() {
           .email-form-row .email-btn { width:auto; min-width:160px; flex-shrink:0; }
         }
 
-        /* ── Mobile optimization ── */
+        /* ── Mobile ── */
         @media (max-width:767px) {
           .slide { padding: 60px 20px 30px; }
           .hero-h1 { font-size: clamp(24px, 8vw, 36px); }
