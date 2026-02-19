@@ -372,22 +372,19 @@ function Result({ type }: { type: AfterfeelType }) {
           {!emailSent ? (
             <div>
               {/* 오퍼 먼저 노출 */}
-              <div className="offer-box" aria-label="Offer">
-                <p className="offer-main">
-                  <strong className="offer-price">$2.99</strong>
-                  <span className="offer-main-text"> for 3 bottles, shipping included.</span>
-                </p>
+<div className="offer-box" aria-label="Offer">
+  <p className="offer-main">
+    <strong className="offer-price">$2.99</strong>
+    <span className="offer-main-text"> for 3 bottles, shipping included.</span>
+  </p>
 
-                {/* ⚠️ 공백 유지 필수: value + credit 사이 */}
-                <p className="offer-sub">
-                  <span className="offer-value">Usually $13.47 in value.</span>{" "}
-                  <span className="offer-credit">
-                    We&apos;ll credit your $2.99 on your first 6+ order.
-                  </span>
-                </p>
+  <p className="offer-sub">
+    <span className="offer-value">Usually $13.47 in value.</span>
+    <span className="offer-credit">We&apos;ll credit your $2.99 on your first 6+ order.</span>
+  </p>
 
-                <p className="offer-hook">Ready to try zero after-feel?</p>
-              </div>
+  <p className="offer-hook">Ready to try zero after-feel?</p>
+</div>
 
               <div className="email-row">
                 <input
