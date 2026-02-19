@@ -339,9 +339,9 @@ function Result({ type }: { type: AfterfeelType }) {
     Usually $13.47 in value.<br />
     Love it? We’ll credit your $2.99 on your first order of 6+.
   </p>
-  <p className="offer-hook">
-    Want to try zero after-feel?
-  </p>
+<p className="offer-hook">
+  See how it feels without the after.
+</p>
 </div>
               <div className="email-row">
                 <input
