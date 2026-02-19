@@ -2,6 +2,55 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 
+/* ─── EmailForm: 컴포넌트 외부 선언 (렌더마다 재생성 방지 / focus 끊김 방지) ─── */
+interface EmailFormProps {
+  email: string;
+  isSubmitted: boolean;
+  isSubmitting: boolean;
+  source: string;
+  onEmailChange: (v: string) => void;
+  onFocus: () => void;
+  onSubmit: (source: string) => void;
+}
+function EmailForm({
+  email, isSubmitted, isSubmitting, source,
+  onEmailChange, onFocus, onSubmit,
+}: EmailFormProps) {
+  if (isSubmitted) {
+    return <p className="email-success">You&apos;re in. Watch for the first note.</p>;
+  }
+  return (
+    <div className="email-module">
+      <div className="email-form-row">
+        <input
+          type="email"
+          className="email-input"
+          value={email}
+          onChange={(e) => onEmailChange(e.target.value.replace(/[^a-zA-Z0-9@._+\-]/g, ''))}
+          onCompositionStart={(e) => e.preventDefault()}
+          onFocus={onFocus}
+          onKeyDown={(e) => { if (e.key === 'Enter') onSubmit(source); }}
+          placeholder="you@email.com"
+          autoComplete="email"
+          inputMode="email"
+          disabled={isSubmitting}
+          style={{ imeMode: 'disabled' } as React.CSSProperties}
+        />
+        <button
+          type="button"
+          className="email-btn"
+          onClick={() => onSubmit(source)}
+          disabled={isSubmitting || !email}
+        >
+          {isSubmitting ? 'Submitting...' : 'Get early access'}
+        </button>
+      </div>
+      <p className="email-trust">Join early · First 1,000 members only · No purchase required</p>
+    </div>
+  );
+}
+
+/* ─── Helpers ─── */
 function getDeviceType(): string {
   if (typeof window === 'undefined') return 'unknown';
   const ua = navigator.userAgent;
@@ -29,6 +78,8 @@ function getOrCreateId(key: string, storage: 'session' | 'local'): string {
   }
   return id;
 }
+
+/* ─── Main Page ─── */
 export default function TeaserPage() {
   const [phase, setPhase] = useState(1);
   const [email, setEmail] = useState('');
@@ -40,6 +91,7 @@ export default function TeaserPage() {
   const leadStartFired = useRef(false);
   const scrollLocked = useRef(false);
   const prevPhase = useRef(1);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const utmParams = getUTMParams();
@@ -54,6 +106,7 @@ export default function TeaserPage() {
     visitorId.current = getOrCreateId('piilk_visitor', 'local');
     trackEvent('page_view');
   }, []);
+
   /* ─── Scroll/wheel/touch ─── */
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -94,11 +147,13 @@ export default function TeaserPage() {
       window.removeEventListener('touchend', handleTouchEnd);
     };
   }, [phase]);
+
   useEffect(() => {
     if (phase === 2) trackEvent('phase_2_view');
     if (phase === 3) trackEvent('phase_3_view');
   }, [phase]);
-const trackEvent = useCallback((eventName: string, eventData?: Record<string, any>) => {
+
+  const trackEvent = useCallback((eventName: string, eventData?: Record<string, any>) => {
     const td = trackingData.current;
     // Supabase
     fetch('/api/track', {
@@ -118,19 +173,18 @@ const trackEvent = useCallback((eventName: string, eventData?: Record<string, an
     }).catch(() => {});
     // GA4 — variant: "main" 포함
     if (typeof window !== 'undefined' && window.gtag) {
-      window.gtag('event', eventName, {
-        variant: 'main',
-        ...eventData,
-      });
+      window.gtag('event', eventName, { variant: 'main', ...eventData });
     }
   }, []);
+
   const handleEmailFocus = useCallback(() => {
     if (!leadStartFired.current) {
       leadStartFired.current = true;
       trackEvent('lead_start');
     }
   }, [trackEvent]);
-  const handleSubmit = async (source: string) => {
+
+  const handleSubmit = useCallback(async (source: string) => {
     if (!email || !email.includes('@') || !email.includes('.') || isSubmitting || isSubmitted) return;
     setIsSubmitting(true);
     try {
@@ -152,7 +206,6 @@ const trackEvent = useCallback((eventName: string, eventData?: Record<string, an
           email_domain: email.split('@')[1] || '',
           source,
         });
-     
         if (typeof window !== 'undefined' && window.gtag) {
           window.gtag('event', 'generate_lead', { method: 'email_signup', signup_source: source });
         }
@@ -168,21 +221,16 @@ const trackEvent = useCallback((eventName: string, eventData?: Record<string, an
             currency: 'USD',
           });
         }
-
         // ✅ TikTok Pixel — Lead 전환
         if (typeof window !== 'undefined' && (window as any).ttq) {
-          (window as any).ttq.track('SubmitForm', {
-            content_name: 'piilk_main_teaser',
-          });
+          (window as any).ttq.track('SubmitForm', { content_name: 'piilk_main_teaser' });
           (window as any).ttq.track('CompleteRegistration', {
             content_name: 'piilk_main_teaser',
             value: 1,
             currency: 'USD',
           });
         }
-
         setIsSubmitted(true);
-        
       } else {
         alert(data.error || 'Something went wrong. Please try again.');
       }
@@ -191,7 +239,8 @@ const trackEvent = useCallback((eventName: string, eventData?: Record<string, an
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [email, isSubmitting, isSubmitted, trackEvent]);
+
   const handleSlideClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.closest('.email-module')) return;
@@ -201,11 +250,13 @@ const trackEvent = useCallback((eventName: string, eventData?: Record<string, an
       setPhase(phase + 1);
     }
   };
+
   const getPhaseClass = (n: number) => {
     if (n === phase) return 'center';
     if (n < phase) return 'above';
     return 'below';
   };
+
   return (
     <main className="piilk-page">
       {/* ═══ Fixed Background ═══ */}
@@ -221,6 +272,7 @@ const trackEvent = useCallback((eventName: string, eventData?: Record<string, an
         />
         <div className="hero-bg-overlay" />
       </div>
+
       <div className="screen-wrap">
         {/* Logo */}
         <header className="logo-header">
@@ -233,7 +285,8 @@ const trackEvent = useCallback((eventName: string, eventData?: Record<string, an
             onClick={() => { prevPhase.current = phase; setPhase(1); }}
           />
         </header>
-        {/* Phase 1 */}
+
+        {/* ═══ Phase 1 ═══ */}
         <div className={`slide slide--${getPhaseClass(1)}`} onClick={handleSlideClick} style={{ cursor: phase < 3 ? 'pointer' : 'default' }}>
           <div className="slide-inner">
             <h1 className="hero-h1">
@@ -245,51 +298,33 @@ const trackEvent = useCallback((eventName: string, eventData?: Record<string, an
             <div className="arrow" />
           </div>
         </div>
-        {/* Phase 2 */}
+
+        {/* ═══ Phase 2 ═══ */}
         <div className={`slide slide--${getPhaseClass(2)}`} onClick={handleSlideClick} style={{ cursor: phase < 3 ? 'pointer' : 'default' }}>
           <div className="slide-inner">
+            <p className="launch-badge">Launching Mid-March in NYC</p>
             <h1 className="hero-h1">
-              PIILK is built for<br />what&apos;s left behind.
+              30g protein. 7 ingredients.<br />Nothing after.
             </h1>
-            <p className="hero-desc">Heavy after. Film that lingers. You know the moment.</p>
-            <p className="hero-proof">30g protein · 7 ingredients · Dairy-free</p>
+            <p className="hero-desc">
+              Heavy after. Film that lingers. You know the moment.<br />
+              PIILK is built to end it.
+            </p>
+            <p className="hero-proof">Dairy-free · No artificial sweeteners · Clean label</p>
+            <div className="offer-box">
+              <p className="offer-main">Try 3 bottles — <strong>$2.99 + free shipping</strong></p>
+              <p className="offer-sub">Love it? Your $2.99 comes back on your first order of 6+.</p>
+            </div>
             <div className="email-wrap">
-              <div className="email-module">
-                {!isSubmitted ? (
-                  <>
-                    <div className="email-form-row">
-                      <input
-                        type="email"
-                        className="email-input"
-                        value={email}
-                        onChange={(e) => {
-                          const v = e.target.value.replace(/[^a-zA-Z0-9@._+\-]/g, '');
-                          setEmail(v);
-                        }}
-                        onCompositionStart={(e) => e.preventDefault()}
-                        onFocus={handleEmailFocus}
-                        onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit('hero'); }}
-                        placeholder="you@email.com"
-                        autoComplete="email"
-                        inputMode="email"
-                        disabled={isSubmitting}
-                        style={{ imeMode: 'disabled' } as React.CSSProperties}
-                      />
-                      <button
-                        type="button"
-                        className="email-btn"
-                        onClick={() => handleSubmit('hero')}
-                        disabled={isSubmitting || !email}
-                      >
-                        {isSubmitting ? 'Submitting...' : 'Get early access'}
-                      </button>
-                    </div>
-                    <p className="email-trust">No spam. No purchase. Unsubscribe anytime.</p>
-                  </>
-                ) : (
-                  <p className="email-success">You&apos;re in. Watch for the first note.</p>
-                )}
-              </div>
+              <EmailForm
+                email={email}
+                isSubmitted={isSubmitted}
+                isSubmitting={isSubmitting}
+                source="hero"
+                onEmailChange={setEmail}
+                onFocus={handleEmailFocus}
+                onSubmit={handleSubmit}
+              />
             </div>
           </div>
           <div className="scroll-cue-bottom">
@@ -297,7 +332,8 @@ const trackEvent = useCallback((eventName: string, eventData?: Record<string, an
             <div className="arrow" />
           </div>
         </div>
-        {/* Phase 3 */}
+
+        {/* ═══ Phase 3 ═══ */}
         <div className={`slide slide--${getPhaseClass(3)}`}>
           <div className="slide-inner">
             <h2 className="why-title">Why we built PIILK</h2>
@@ -305,43 +341,17 @@ const trackEvent = useCallback((eventName: string, eventData?: Record<string, an
               <p>Most shakes obsess over macros.</p>
               <p>We obsessed over what happens after you drink it.</p>
             </div>
+            <p className="why-sub">Launching Mid-March. Your sample is on us.</p>
             <div className="cta-wrap">
-              <div className="email-module">
-                {!isSubmitted ? (
-                  <>
-                    <div className="email-form-row">
-                      <input
-                        type="email"
-                        className="email-input"
-                        value={email}
-                        onChange={(e) => {
-                          const v = e.target.value.replace(/[^a-zA-Z0-9@._+\-]/g, '');
-                          setEmail(v);
-                        }}
-                        onCompositionStart={(e) => e.preventDefault()}
-                        onFocus={handleEmailFocus}
-                        onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit('cta'); }}
-                        placeholder="you@email.com"
-                        autoComplete="email"
-                        inputMode="email"
-                        disabled={isSubmitting}
-                        style={{ imeMode: 'disabled' } as React.CSSProperties}
-                      />
-                      <button
-                        type="button"
-                        className="email-btn"
-                        onClick={() => handleSubmit('cta')}
-                        disabled={isSubmitting || !email}
-                      >
-                        {isSubmitting ? 'Submitting...' : 'Get early access'}
-                      </button>
-                    </div>
-                    <p className="email-trust">No spam. No purchase. Unsubscribe anytime.</p>
-                  </>
-                ) : (
-                  <p className="email-success">You&apos;re in. Watch for the first note.</p>
-                )}
-              </div>
+              <EmailForm
+                email={email}
+                isSubmitted={isSubmitted}
+                isSubmitting={isSubmitting}
+                source="cta"
+                onEmailChange={setEmail}
+                onFocus={handleEmailFocus}
+                onSubmit={handleSubmit}
+              />
             </div>
             <div className="footer-area">
               <p className="footer-brand">PIILK™ by ARMORED FRESH</p>
@@ -349,6 +359,7 @@ const trackEvent = useCallback((eventName: string, eventData?: Record<string, an
             </div>
           </div>
         </div>
+
         {/* Dots */}
         <nav className="dots">
           {[1, 2, 3].map((n) => (
@@ -361,6 +372,7 @@ const trackEvent = useCallback((eventName: string, eventData?: Record<string, an
           ))}
         </nav>
       </div>
+
       <style jsx global>{`
         :root {
           --accent:       #BFFF00;
@@ -394,13 +406,47 @@ const trackEvent = useCallback((eventName: string, eventData?: Record<string, an
         }
         .logo-img { opacity:0.9; cursor:pointer; transition:opacity 0.3s; }
         .logo-img:hover { opacity:0.6; }
+
+        /* ── Launch Badge ── */
+        .launch-badge {
+          display: inline-block;
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: var(--accent);
+          border: 1px solid rgba(191,255,0,0.3);
+          border-radius: 20px;
+          padding: 4px 12px;
+          margin-bottom: 16px;
+        }
+
+        /* ── Offer Box ── */
+        .offer-box {
+          margin: 16px auto 0;
+          max-width: 420px;
+          background: rgba(191,255,0,0.06);
+          border: 1px solid rgba(191,255,0,0.2);
+          border-radius: 12px;
+          padding: 14px 18px;
+        }
+        .offer-main { font-size:15px; color:#fff; margin:0 0 4px; }
+        .offer-main strong { color: var(--accent); }
+        .offer-sub { font-size:12px; color:var(--muted); margin:0; line-height:1.5; }
+
+        /* ── Why sub ── */
+        .why-sub {
+          margin-top: 12px;
+          font-size: 13px;
+          color: var(--accent);
+          font-weight: 500;
+          letter-spacing: 0.03em;
+        }
+
         /* ── Slides ── */
         .slide {
-          position: absolute;
-          inset: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          position: absolute; inset: 0;
+          display: flex; align-items: center; justify-content: center;
           text-align: center;
           padding: 80px 24px 40px;
           transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1),
@@ -414,84 +460,59 @@ const trackEvent = useCallback((eventName: string, eventData?: Record<string, an
         .hero-h1 {
           font-family: var(--font);
           font-size: clamp(28px, 7vw, 52px);
-          font-weight: 700;
-          line-height: 1.15;
-          letter-spacing: -0.01em;
+          font-weight: 700; line-height: 1.15; letter-spacing: -0.01em;
         }
-        .hero-desc { margin-top:16px; font-size:15px; line-height:1.5; color:var(--secondary); }
-        .hero-proof { margin-top:10px; font-size:13px; color:var(--muted); letter-spacing:0.02em; }
+        .hero-desc { margin-top:16px; font-size:15px; line-height:1.6; color:var(--secondary); }
+        .hero-proof { margin-top:8px; font-size:12px; color:var(--muted); letter-spacing:0.04em; }
         .why-title {
           font-family: var(--font);
           font-size: clamp(26px, 6vw, 46px);
-          font-weight: 700;
-          line-height: 1.15;
-          letter-spacing: -0.01em;
-          margin-bottom: 16px;
+          font-weight: 700; line-height: 1.15; letter-spacing: -0.01em; margin-bottom: 16px;
         }
         .why-body { font-size:15px; line-height:1.5; color:var(--secondary); }
         .why-body p + p { margin-top:6px; }
         .email-wrap, .cta-wrap {
-          margin-top: 32px;
-          max-width: 460px;
-          margin-left: auto;
-          margin-right: auto;
+          margin-top: 20px; max-width: 460px; margin-left: auto; margin-right: auto;
         }
+
         /* ── Scroll cue ── */
         .scroll-cue-bottom {
-          position: absolute;
-          bottom: 32px;
-          left: 50%;
-          transform: translateX(-50%);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 8px;
-          opacity: 0.4;
+          position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%);
+          display: flex; flex-direction: column; align-items: center; gap: 8px; opacity: 0.4;
         }
-        .scroll-cue-bottom span {
-          font-size:12px; color:var(--muted); letter-spacing:0.06em; text-transform:uppercase;
-        }
+        .scroll-cue-bottom span { font-size:12px; color:var(--muted); letter-spacing:0.06em; text-transform:uppercase; }
         .scroll-cue-bottom .arrow {
           width:16px; height:16px;
-          border-right:1.5px solid var(--muted);
-          border-bottom:1.5px solid var(--muted);
-          transform:rotate(45deg);
-          animation:bounce 2s ease-in-out infinite;
+          border-right:1.5px solid var(--muted); border-bottom:1.5px solid var(--muted);
+          transform:rotate(45deg); animation:bounce 2s ease-in-out infinite;
         }
         @keyframes bounce {
           0%,100% { transform:rotate(45deg) translateY(0); }
           50%     { transform:rotate(45deg) translateY(5px); }
         }
+
         /* ── Footer ── */
         .footer-area { margin-top:40px; }
         .footer-brand { font-size:9px; letter-spacing:0.25em; color:var(--muted); text-transform:uppercase; font-weight:500; }
         .footer-sub { font-size:9px; letter-spacing:0.15em; color:var(--muted); margin-top:4px; font-weight:500; }
+
         /* ── Email ── */
         .email-module { width:100%; }
         .email-form-row { display:flex; flex-direction:column; gap:8px; }
         .email-input {
           width:100%; height:44px; padding:0 14px;
-          background:var(--input-bg);
-          border:1px solid var(--border);
-          border-radius:10px;
-          color:#fff;
-          font-family:var(--font); font-size:15px;
-          outline:none;
-          transition:border-color 0.2s;
-          backdrop-filter:blur(8px);
-          -webkit-backdrop-filter:blur(8px);
+          background:var(--input-bg); border:1px solid var(--border); border-radius:10px;
+          color:#fff; font-family:var(--font); font-size:15px;
+          outline:none; transition:border-color 0.2s;
+          backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
         }
         .email-input::placeholder { color:var(--muted); }
         .email-input:focus { border-color:var(--accent); }
         .email-input:disabled { opacity:0.4; cursor:not-allowed; }
         .email-btn {
-          width:100%; height:44px;
-          background:var(--accent);
-          color:#000; border:none;
-          border-radius:10px;
-          font-family:var(--font); font-size:15px; font-weight:600;
-          cursor:pointer;
-          transition:background 0.2s, transform 0.1s, box-shadow 0.2s;
+          width:100%; height:44px; background:var(--accent); color:#000; border:none;
+          border-radius:10px; font-family:var(--font); font-size:15px; font-weight:600;
+          cursor:pointer; transition:background 0.2s, transform 0.1s, box-shadow 0.2s;
           box-shadow:0 0 16px rgba(191,255,0,0.25);
         }
         .email-btn:hover { background:var(--accent-hover); box-shadow:0 0 24px rgba(191,255,0,0.4); }
@@ -500,6 +521,7 @@ const trackEvent = useCallback((eventName: string, eventData?: Record<string, an
         .email-trust { margin-top:8px; font-size:11px; color:var(--muted); text-align:center; }
         .email-success { font-size:14px; color:var(--success); font-weight:500; text-align:center; animation:fadeIn 300ms ease forwards; }
         @keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
+
         /* ── Dots ── */
         .dots {
           position:absolute; right:20px; top:50%; transform:translateY(-50%);
@@ -508,25 +530,29 @@ const trackEvent = useCallback((eventName: string, eventData?: Record<string, an
         .dot {
           width:8px; height:8px; border-radius:50%;
           border:1px solid rgba(255,255,255,0.3);
-          background:transparent; cursor:pointer; padding:0;
-          transition:all 0.3s;
+          background:transparent; cursor:pointer; padding:0; transition:all 0.3s;
         }
         .dot.active { background:var(--accent); border-color:var(--accent); transform:scale(1.3); }
         .dot:hover { border-color:rgba(255,255,255,0.6); }
+
         @media (min-width:768px) {
           .email-form-row { flex-direction:row; }
           .email-form-row .email-input { flex:1; min-width:0; }
           .email-form-row .email-btn { width:auto; min-width:160px; flex-shrink:0; }
         }
+
         /* ── Mobile optimization ── */
         @media (max-width:767px) {
           .slide { padding: 60px 20px 30px; }
           .hero-h1 { font-size: clamp(24px, 8vw, 36px); }
-          .hero-desc { font-size: 14px; margin-top: 12px; }
-          .hero-proof { font-size: 12px; margin-top: 8px; }
+          .hero-desc { font-size: 13px; margin-top: 10px; }
+          .hero-proof { font-size: 11px; margin-top: 6px; }
           .why-title { font-size: clamp(22px, 7vw, 32px); }
           .why-body { font-size: 14px; }
-          .email-wrap, .cta-wrap { margin-top: 24px; max-width: 320px; padding: 0 16px; }
+          .offer-box { margin-top: 12px; padding: 11px 14px; }
+          .offer-main { font-size: 13px; }
+          .offer-sub { font-size: 11px; }
+          .email-wrap, .cta-wrap { margin-top: 14px; max-width: 320px; padding: 0 8px; }
           .email-input { height: 42px; font-size: 14px; border-radius: 8px; }
           .email-btn { height: 42px; font-size: 14px; border-radius: 8px; }
           .scroll-cue-bottom { bottom: 20px; }
@@ -534,6 +560,7 @@ const trackEvent = useCallback((eventName: string, eventData?: Record<string, an
           .logo-img { width: 60px !important; height: auto !important; }
           .dots { right: 12px; }
           .dot { width: 6px; height: 6px; }
+          .launch-badge { font-size: 10px; padding: 3px 10px; }
         }
       `}</style>
     </main>
