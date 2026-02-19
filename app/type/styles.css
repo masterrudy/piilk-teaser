@@ -117,7 +117,7 @@ body { font-family: var(--sans); background: var(--bg); color: var(--t1); overfl
 .result-phase { padding: 40px 0 0; align-items: center; }
 .result-wrap { max-width: 440px; width: 100%; padding: 0 24px; }
 
-/* Card */
+/* ─── Card ─── */
 .card {
   background: var(--bg); border: 1px solid var(--acb); border-radius: 20px;
   padding: 36px 28px 28px; text-align: center;
@@ -137,7 +137,7 @@ body { font-family: var(--sans); background: var(--bg); color: var(--t1); overfl
 .type-tagline { font-size: 14px; color: var(--t2); font-style: italic; margin-bottom: 16px; }
 .card-foot { font-family: var(--mono); font-size: 9px; color: var(--t3); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 20px; opacity: 0.35; }
 
-/* Share Zone */
+/* ─── Share Zone ─── */
 .share-zone { text-align: center; padding: 20px 0 0; margin-bottom: 28px; }
 .share-label { font-size: 14px; font-weight: 600; color: var(--w); margin-bottom: 14px; }
 .share-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px; }
@@ -158,38 +158,28 @@ body { font-family: var(--sans); background: var(--bg); color: var(--t1); overfl
 .copy-row:hover { border-color: var(--acb); color: var(--ac); }
 .copy-label { color: var(--ac); font-weight: 500; flex-shrink: 0; margin-left: 8px; }
 
-/* Separator */
+/* ─── Separator ─── */
 .sep { width: 32px; height: 1px; background: var(--bd); margin: 0 auto; }
 
-/* ─────────────────────────────────────────────
-   Offer (Email CTA - top copy)
-   ───────────────────────────────────────────── */
-
+/* ═══ OFFER BOX (이메일 CTA 상단) ═══ */
 .offer-box {
   margin: 18px auto 14px;
   max-width: 560px;
   text-align: center;
 }
-
-.offer-box p { margin: 0; } /* ✅ 기본 p 마진 제거(밀림/간격 문제 해결) */
-
+.offer-box p { margin: 0; }
 .offer-main {
   font-family: var(--sans);
   font-size: 22px;
   line-height: 1.25;
-  font-weight: 650;
+  font-weight: 700;
   letter-spacing: -0.01em;
 }
-
 .offer-price {
   font-size: 30px;
   font-weight: 800;
 }
-
-.offer-main-text {
-  opacity: 0.92;
-}
-
+.offer-main-text { opacity: 0.92; }
 .offer-sub {
   margin-top: 8px;
   font-family: var(--sans);
@@ -197,16 +187,9 @@ body { font-family: var(--sans); background: var(--bg); color: var(--t1); overfl
   line-height: 1.55;
   opacity: 0.75;
 }
-
 .offer-value,
-.offer-credit {
-  display: block;          /* ✅ value / credit 줄바꿈 강제 */
-}
-
-.offer-credit {
-  margin-top: 2px;
-}
-
+.offer-credit { display: block; }
+.offer-credit { margin-top: 2px; }
 .offer-hook {
   margin-top: 14px;
   font-family: var(--sans);
@@ -217,19 +200,18 @@ body { font-family: var(--sans); background: var(--bg); color: var(--t1); overfl
   opacity: 0.95;
 }
 
-/* Mobile */
-@media (max-width: 540px) {
-  .offer-main { font-size: 20px; }
-  .offer-price { font-size: 28px; }
-  .offer-sub { font-size: 13px; }
-  .offer-hook { font-size: 15px; }
-}
-
-
-/* Email Section */
+/* ═══ EMAIL SECTION ═══ */
 .email-section { text-align: center; padding: 28px 0; }
-.email-bridge { font-size: 14px; color: var(--t2); margin-bottom: 16px; line-height: 1.5; }
+
+.email-bridge {
+  font-size: 14px;
+  color: var(--t2);
+  margin-bottom: 16px;
+  line-height: 1.5;
+  text-align: center;
+}
 .email-bridge strong { color: var(--w); }
+
 .email-row { display: flex; gap: 8px; max-width: 400px; margin: 0 auto; }
 .email-input {
   flex: 1; background: var(--sf); border: 1px solid var(--bd);
@@ -249,12 +231,26 @@ body { font-family: var(--sans); background: var(--bg); color: var(--t1); overfl
 .email-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .email-note { font-size: 11px; color: var(--t3); margin-top: 10px; }
 .email-error { font-size: 12px; color: var(--red); margin-top: 8px; }
+
+/* ─── Email 제출 완료 상태 ─── */
 .email-ok { animation: up 0.4s var(--ease); text-align: center; padding: 8px 0; }
 .email-ok-icon { font-size: 24px; margin-bottom: 4px; }
-.email-ok-head { font-size: 14px; font-weight: 600; color: var(--ac); margin-bottom: 2px; }
+.email-ok-head { font-size: 14px; font-weight: 600; color: var(--ac); margin-bottom: 8px; }
 .email-ok-sub { font-size: 12px; color: var(--t3); }
+.offer-confirm {
+  margin-top: 14px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--t1);
+  text-align: center;
+}
+.offer-confirm strong {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--ac);
+}
 
-/* Referral */
+/* ═══ REFERRAL ═══ */
 .referral {
   background: var(--sf); border: 1px solid var(--bd); border-radius: 16px;
   padding: 24px; text-align: center; margin-bottom: 28px;
@@ -276,11 +272,11 @@ body { font-family: var(--sans); background: var(--bg); color: var(--t1); overfl
 .ref-btn.ghost { background: transparent; border: 1px solid var(--bd2); color: var(--t1); }
 .ref-btn:hover { transform: translateY(-1px); }
 
-/* Proof (BOF only) */
+/* ═══ PROOF (BOF) ═══ */
 .proof-mini { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; padding: 20px 0; margin-bottom: 8px; }
 .ptag { font-family: var(--mono); font-size: 10px; color: var(--t3); background: var(--sf); padding: 5px 10px; border-radius: 100px; border: 1px solid var(--bd); }
 
-/* Declarations */
+/* ═══ DECLARATIONS ═══ */
 .declarations { text-align: left; padding: 0 0 8px; }
 .decl-header { margin-bottom: 18px; }
 .decl-list { display: flex; flex-direction: column; }
@@ -296,7 +292,7 @@ body { font-family: var(--sans); background: var(--bg); color: var(--t1); overfl
 .decl-item:hover .decl-count,
 .decl-item.voted .decl-count { color: var(--ac); }
 
-/* Footer */
+/* ═══ FOOTER ═══ */
 .footer {
   text-align: center; padding: 28px 24px 40px;
   font-family: var(--mono); font-size: 10px;
@@ -304,8 +300,12 @@ body { font-family: var(--sans); background: var(--bg); color: var(--t1); overfl
   letter-spacing: 0.1em; text-transform: uppercase;
 }
 
-/* ─── RESPONSIVE ─── */
+/* ═══ RESPONSIVE ═══ */
 @media (max-width: 540px) {
+  .offer-main { font-size: 20px; }
+  .offer-price { font-size: 28px; }
+  .offer-sub { font-size: 13px; }
+  .offer-hook { font-size: 15px; }
   .email-row { flex-direction: column; }
   .email-btn { width: 100%; }
   .ref-btns { flex-direction: column; }
