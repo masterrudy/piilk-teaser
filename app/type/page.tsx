@@ -31,7 +31,6 @@ function safeUUID(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-// ─── Visitor ID ───
 function getVisitorId(): string {
   if (typeof window === "undefined") return "";
   let id = localStorage.getItem("piilk_vid");
@@ -42,13 +41,11 @@ function getVisitorId(): string {
   return id;
 }
 
-// ─── URL에서 referral code 추출 ───
 function getReferralFromURL(): string | null {
   if (typeof window === "undefined") return null;
   return new URLSearchParams(window.location.search).get("ref") || null;
 }
 
-// ─── 브라우저 트래킹 데이터 수집 ───
 function getTrackingData() {
   if (typeof window === "undefined") return {};
   const params = new URLSearchParams(window.location.search);
@@ -224,7 +221,7 @@ function Result({ type }: { type: AfterfeelType }) {
         return;
       }
 
-      // ig/link: 링크 복사로 통일
+      // ig/link: copy로 통일
       navigator.clipboard?.writeText(`${txt} ${SHARE_URL}`);
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
@@ -354,7 +351,15 @@ function Result({ type }: { type: AfterfeelType }) {
             </button>
           </div>
 
-          <div className="copy-row" onClick={() => doShare("link")} role="button" tabIndex={0}>
+          <div
+            className="copy-row"
+            onClick={() => doShare("link")}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") doShare("link");
+            }}
+          >
             <span>teaser.piilk.com/type</span>
             <span className="copy-label">{copied ? "Copied!" : "Copy link"}</span>
           </div>
@@ -368,18 +373,20 @@ function Result({ type }: { type: AfterfeelType }) {
             <div>
               {/* 오퍼 먼저 노출 */}
               <div className="offer-box" aria-label="Offer">
-           <p className="offer-main">
-  <strong className="offer-price">$2.99</strong>
-  <span className="offer-main-text"> for 3 bottles, shipping included.</span>
-</p>
-<p className="offer-sub">
-  <span className="offer-value">Usually $13.47 in value.</span>
-  <span className="offer-credit">
-    We&apos;ll credit your $2.99 on your first 6+ order.
-  </span>
-</p>
-<p className="offer-hook">Ready to try zero after-feel?</p>
+                <p className="offer-main">
+                  <strong className="offer-price">$2.99</strong>
+                  <span className="offer-main-text"> for 3 bottles, shipping included.</span>
+                </p>
 
+                {/* ⚠️ 공백 유지 필수: value + credit 사이 */}
+                <p className="offer-sub">
+                  <span className="offer-value">Usually $13.47 in value.</span>{" "}
+                  <span className="offer-credit">
+                    We&apos;ll credit your $2.99 on your first 6+ order.
+                  </span>
+                </p>
+
+                <p className="offer-hook">Ready to try zero after-feel?</p>
               </div>
 
               <div className="email-row">
