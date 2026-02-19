@@ -2,29 +2,34 @@
 // 📁 lib/ga4.ts
 // GA4 + Supabase + Meta Pixel + TikTok Pixel 이벤트 트래킹
 // variant: "type" (모든 이벤트에 자동 포함)
-//
-// ✅ 수정사항:
-//   - safeUUID() — crypto.randomUUID 미지원 브라우저 fallback
-//   - Meta Pixel fbq 체크: typeof 검사로 안전하게
-//   - TikTok Pixel ttq 체크: typeof 검사로 안전하게
-//   - emailSubmit: Lead + CompleteRegistration 둘 다 발화
-//   - QuizStart 이벤트 추가 (fbq trackCustom)
 // ═══════════════════════════════════════════
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 const VARIANT = "type";
 
 type Params = Record<string, string | number | boolean | null | undefined>;
 
-// ─── Safe UUID (crypto.randomUUID 미지원 환경 fallback) ───
+// ─── window를 any로 안전하게 접근 (TypeScript strict 우회) ───
+function w(): any {
+  if (typeof window === "undefined") return undefined;
+  return window;
+}
+
+// ─── Safe UUID (crypto.randomUUID 미지원 브라우저 fallback) ───
 function safeUUID(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return (crypto as Crypto).randomUUID();
+  try {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+  } catch {
+    // ignore
   }
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 function isDebugMode(): boolean {
-  if (typeof window === "undefined") return false;
+  if (!w()) return false;
   try {
     return new URLSearchParams(window.location.search).get("debug_ga") === "1";
   } catch {
@@ -33,7 +38,7 @@ function isDebugMode(): boolean {
 }
 
 function getVisitorId(): string {
-  if (typeof window === "undefined") return "";
+  if (!w()) return "";
   let id = localStorage.getItem("piilk_vid");
   if (!id) {
     id = safeUUID();
@@ -43,7 +48,7 @@ function getVisitorId(): string {
 }
 
 function getSessionId(): string {
-  if (typeof window === "undefined") return "";
+  if (!w()) return "";
   let id = sessionStorage.getItem("piilk_sid");
   if (!id) {
     id = safeUUID();
@@ -53,7 +58,7 @@ function getSessionId(): string {
 }
 
 function getTrackingData() {
-  if (typeof window === "undefined") return {};
+  if (!w()) return {};
   const params = new URLSearchParams(window.location.search);
   return {
     utm_source: params.get("utm_source") || null,
@@ -68,11 +73,9 @@ const gaQueue: QueuedEvent[] = [];
 let flushTimer: ReturnType<typeof setInterval> | null = null;
 
 function tryFlushGAQueue() {
-  if (typeof window === "undefined") return;
-  const gtag = (window as Record<string, unknown>).gtag as
-    | ((...args: unknown[]) => void)
-    | undefined;
-  if (!gtag) return;
+  if (!w()) return;
+  const gtag = w()?.gtag;
+  if (typeof gtag !== "function") return;
 
   while (gaQueue.length) {
     const item = gaQueue.shift()!;
@@ -86,7 +89,7 @@ function tryFlushGAQueue() {
 }
 
 function ensureFlushLoop() {
-  if (typeof window === "undefined") return;
+  if (!w()) return;
   if (flushTimer) return;
 
   const startedAt = Date.now();
@@ -102,7 +105,7 @@ function ensureFlushLoop() {
 
 // ─── GA4 이벤트 전송 ───
 function sendGA4(event: string, params: Params = {}) {
-  if (typeof window === "undefined") return;
+  if (!w()) return;
 
   const payload: Params = {
     ...params,
@@ -110,11 +113,9 @@ function sendGA4(event: string, params: Params = {}) {
     debug_mode: isDebugMode(),
   };
 
-  const gtag = (window as Record<string, unknown>).gtag as
-    | ((...args: unknown[]) => void)
-    | undefined;
+  const gtag = w()?.gtag;
 
-  if (!gtag) {
+  if (typeof gtag !== "function") {
     gaQueue.push({ event, params: payload });
     ensureFlushLoop();
     return;
@@ -141,19 +142,15 @@ function sendSupabase(event_type: string, metadata: Params = {}) {
 
 // ─── Meta Pixel ───
 function fbq(event: string, name: string, params?: Record<string, unknown>) {
-  if (typeof window === "undefined") return;
-  const fbqFn = (window as Record<string, unknown>).fbq;
-  if (typeof fbqFn === "function") {
-    (fbqFn as (...a: unknown[]) => void)(event, name, params);
+  const fn = w()?.fbq;
+  if (typeof fn === "function") {
+    fn(event, name, params);
   }
 }
 
 // ─── TikTok Pixel ───
 function ttqTrack(event: string, params?: Record<string, unknown>) {
-  if (typeof window === "undefined") return;
-  const ttq = (window as Record<string, unknown>).ttq as
-    | { track: (e: string, p?: unknown) => void }
-    | undefined;
+  const ttq = w()?.ttq;
   if (ttq && typeof ttq.track === "function") {
     ttq.track(event, params);
   }
@@ -176,7 +173,7 @@ export const track = {
   },
 
   // 퀴즈 단계별 답변 추적
-  // GA4 DebugView: quiz_step_1, quiz_step_2, quiz_step_3 으로 확인
+  // GA4 DebugView: quiz_step_1, quiz_step_2, quiz_step_3
   quizStep: (step: number, answer: string) =>
     send(`quiz_step_${step}`, { step, answer }),
 
