@@ -87,3 +87,67 @@ select {
   opacity: 0;
   pointer-events: none;
 }
+
+/* Typography baseline */
+.piilk-page, .result-wrap {
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Offer box: hierarchy */
+.offer-box{
+  max-width: 520px;
+  margin: 18px auto 0;
+  text-align: center;
+}
+
+.offer-main{
+  margin: 0 0 10px;
+  font-size: 16px;
+  line-height: 1.35;
+  color: rgba(255,255,255,0.92);
+  letter-spacing: -0.01em;
+}
+
+.offer-price{
+  font-size: 20px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.offer-main-text{
+  font-weight: 500;
+}
+
+.offer-sub{
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: rgba(255,255,255,0.70);
+}
+
+.offer-value{
+  color: rgba(255,255,255,0.78);
+  font-variant-numeric: tabular-nums;
+}
+
+.offer-credit{
+  color: rgba(255,255,255,0.62);
+}
+
+.offer-hook{
+  margin: 14px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: rgba(255,255,255,0.90);
+}
+
+/* Email note: subtle */
+.email-note{
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: rgba(255,255,255,0.45);
+}
