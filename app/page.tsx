@@ -304,7 +304,7 @@ export default function TeaserPage() {
           <div className="slide-inner">
             <p className="launch-badge">Launching Mid-March in NYC</p>
             <h1 className="hero-h1">
-              30g protein. 7 ingredients.<br />Nothing after.
+              30g protein.<br />7 ingredients.<br />Nothing after.
             </h1>
             <p className="hero-desc">
               Heavy after. Film that lingers. You know the moment.<br />
