@@ -20,12 +20,23 @@ import {
 } from "@/lib/quiz-data";
 import { track } from "@/lib/ga4";
 
+// ─────────────────────────────────────────────────────────────
+// Utils
+// ─────────────────────────────────────────────────────────────
+
+function safeUUID(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return (crypto as Crypto).randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 // ─── Visitor ID ───
 function getVisitorId(): string {
   if (typeof window === "undefined") return "";
   let id = localStorage.getItem("piilk_vid");
   if (!id) {
-    id = crypto.randomUUID();
+    id = safeUUID();
     localStorage.setItem("piilk_vid", id);
   }
   return id;
@@ -41,6 +52,7 @@ function getReferralFromURL(): string | null {
 function getTrackingData() {
   if (typeof window === "undefined") return {};
   const params = new URLSearchParams(window.location.search);
+
   return {
     device_type: /Mobile|Android|iPhone/i.test(navigator.userAgent) ? "mobile" : "desktop",
     language: navigator.language || null,
@@ -64,13 +76,13 @@ function Hero({ onStart }: { onStart: () => void }) {
           <br />
           It&apos;s the <em>after.</em>
         </h1>
-        {/* ✅ FIX: 유저 중심 카피로 변경 */}
+
         <p className="body anim-up d1">
           That heavy feeling after. The film that lingers.
           <br />
           You&apos;ve felt it. You just never had a name for it.
         </p>
-        {/* ✅ FIX: 30 seconds를 버튼 안으로 통합 → 참여 장벽 낮춤 */}
+
         <button className="btn-primary anim-up d2" onClick={onStart}>
           Find my type — 30 sec
         </button>
@@ -89,7 +101,7 @@ function Quiz({ onComplete }: { onComplete: (type: AfterfeelType) => void }) {
 
   const q = QUIZ_QUESTIONS[qi];
 
-  function pick(group: string) {
+  const pick = (group: string) => {
     if (picked) return;
     setPicked(true);
 
@@ -99,16 +111,19 @@ function Quiz({ onComplete }: { onComplete: (type: AfterfeelType) => void }) {
     setAnswers(next);
 
     setTimeout(() => {
-      if (qi + 1 < QUIZ_QUESTIONS.length) {
+      const isLast = qi + 1 >= QUIZ_QUESTIONS.length;
+
+      if (!isLast) {
         setQi(qi + 1);
         setPicked(false);
-      } else {
-        const result = calcAfterfeelType(next);
-        track.quizComplete(result);
-        onComplete(result);
+        return;
       }
+
+      const result = calcAfterfeelType(next);
+      track.quizComplete(result);
+      onComplete(result);
     }, 300);
-  }
+  };
 
   return (
     <section className="phase quiz-phase">
@@ -118,10 +133,13 @@ function Quiz({ onComplete }: { onComplete: (type: AfterfeelType) => void }) {
             <div key={i} className={`qdot ${i < qi ? "done" : i === qi ? "now" : ""}`} />
           ))}
         </div>
+
         <div className="caption" style={{ marginBottom: 8 }}>
           {qi + 1} of {QUIZ_QUESTIONS.length}
         </div>
+
         <h2 className="h2 quiz-q">{q.question}</h2>
+
         <div className="quiz-opts">
           {q.options.map((o, j) => (
             <div
@@ -129,6 +147,11 @@ function Quiz({ onComplete }: { onComplete: (type: AfterfeelType) => void }) {
               className={`qo ${picked && answers[qi] === o.group ? "pk" : ""}`}
               onClick={() => pick(o.group)}
               style={{ animation: `up .35s cubic-bezier(.16,1,.3,1) ${j * 0.04}s both` }}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") pick(o.group);
+              }}
             >
               <span className="qo-icon">{o.icon}</span>
               <span>{o.text}</span>
@@ -151,8 +174,10 @@ function Result({ type }: { type: AfterfeelType }) {
   const [emailError, setEmailError] = useState("");
   const [referralCode, setReferralCode] = useState("");
   const [queuePosition, setQueuePosition] = useState(0);
+
   const [declCounts, setDeclCounts] = useState<Record<string, number>>({});
   const [votedDecls, setVotedDecls] = useState<Set<string>>(new Set());
+
   const [copied, setCopied] = useState(false);
   const [refCopied, setRefCopied] = useState(false);
 
@@ -167,58 +192,55 @@ function Result({ type }: { type: AfterfeelType }) {
     fetch("/api/type-declarations")
       .then((r) => r.json())
       .then((data) => {
-        if (data.declarations) {
-          const counts: Record<string, number> = {};
-          data.declarations.forEach(
-            (d: { statement_key: string; vote_count: number }) => {
-              counts[d.statement_key] = d.vote_count;
-            }
-          );
-          setDeclCounts(counts);
-        }
+        if (!data?.declarations) return;
+
+        const counts: Record<string, number> = {};
+        data.declarations.forEach((d: { statement_key: string; vote_count: number }) => {
+          counts[d.statement_key] = d.vote_count;
+        });
+        setDeclCounts(counts);
       })
       .catch(() => {});
   }, [type]);
 
-  // ─── Share ───
+  // ─── Share (#1) ───
   const doShare = useCallback(
     (channel: string) => {
       track.shareClick(channel, type);
       const txt = getShareText(t.name);
 
-      switch (channel) {
-        case "x":
-          window.open(
-            `https://twitter.com/intent/tweet?text=${encodeURIComponent(txt)}&url=${encodeURIComponent(SHARE_URL)}`,
-            "_blank"
-          );
-          break;
-        case "ig":
-          // ✅ FIX: IG Story — alert 제거, 링크 복사로 대체 (html2canvas 구현 전까지)
-          navigator.clipboard?.writeText(txt + " " + SHARE_URL);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1800);
-          break;
-        case "sms":
-          window.open(`sms:?&body=${encodeURIComponent(txt + " " + SHARE_URL)}`);
-          break;
-        case "link":
-          navigator.clipboard?.writeText(txt + " " + SHARE_URL);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1800);
-          break;
+      if (channel === "x") {
+        window.open(
+          `https://twitter.com/intent/tweet?text=${encodeURIComponent(txt)}&url=${encodeURIComponent(
+            SHARE_URL
+          )}`,
+          "_blank"
+        );
+        return;
       }
+
+      if (channel === "sms") {
+        window.open(`sms:?&body=${encodeURIComponent(`${txt} ${SHARE_URL}`)}`);
+        return;
+      }
+
+      // ig/link: 링크 복사로 통일
+      navigator.clipboard?.writeText(`${txt} ${SHARE_URL}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
     },
     [t.name, type]
   );
 
-  // ─── Email ───
-  async function submitEmail() {
+  // ─── Email (#2) ───
+  const submitEmail = async () => {
     const email = emailRef.current?.value.trim();
+
     if (!email || !email.includes("@") || !email.includes(".")) {
       setEmailError("Please enter a valid email.");
       return;
     }
+
     setEmailLoading(true);
     setEmailError("");
 
@@ -233,32 +255,36 @@ function Result({ type }: { type: AfterfeelType }) {
           tracking: getTrackingData(),
         }),
       });
+
       const data = await res.json();
 
-      if (data.success) {
+      if (data?.success) {
         setReferralCode(data.referral_code);
         setQueuePosition(data.queue_position);
         setEmailSent(true);
         track.emailSubmit(type);
-      } else {
-        setEmailError(
-          data.error === "invalid_email"
-            ? "Please enter a valid email."
-            : "Something went wrong. Try again."
-        );
+        return;
       }
+
+      setEmailError(
+        data?.error === "invalid_email"
+          ? "Please enter a valid email."
+          : "Something went wrong. Try again."
+      );
     } catch {
       setEmailError("Connection error. Try again.");
     } finally {
       setEmailLoading(false);
     }
-  }
+  };
 
   // ─── Declaration Vote ───
-  async function voteDeclaration(key: string) {
+  const voteDeclaration = async (key: string) => {
     if (votedDecls.has(key)) return;
+
     track.declarationTap(key);
 
+    // optimistic UI
     setDeclCounts((prev) => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
     setVotedDecls((prev) => new Set(prev).add(key));
 
@@ -268,18 +294,20 @@ function Result({ type }: { type: AfterfeelType }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ statement_key: key, visitor_id: getVisitorId() }),
       });
+
       const data = await res.json();
-      if (data.success) {
+      if (data?.success) {
         setDeclCounts((prev) => ({ ...prev, [key]: data.vote_count }));
       }
     } catch {
-      // Optimistic already applied
+      // optimistic already applied
     }
-  }
+  };
 
-  // ─── Referral Share ───
-  function refShare(channel: string) {
+  // ─── Referral Share (Email 후) ───
+  const refShare = (channel: string) => {
     track.referralShare(channel);
+
     const refUrl = `${SHARE_URL}?ref=${referralCode}`;
     const txt = `I'm #${queuePosition.toLocaleString()} on the PIILK™ list. Something better is coming:`;
 
@@ -288,12 +316,13 @@ function Result({ type }: { type: AfterfeelType }) {
         `https://twitter.com/intent/tweet?text=${encodeURIComponent(txt)}&url=${encodeURIComponent(refUrl)}`,
         "_blank"
       );
-    } else {
-      navigator.clipboard?.writeText(refUrl);
-      setRefCopied(true);
-      setTimeout(() => setRefCopied(false), 1800);
+      return;
     }
-  }
+
+    navigator.clipboard?.writeText(refUrl);
+    setRefCopied(true);
+    setTimeout(() => setRefCopied(false), 1800);
+  };
 
   return (
     <section className="phase result-phase">
@@ -312,13 +341,20 @@ function Result({ type }: { type: AfterfeelType }) {
         {/* SHARE = #1 CTA */}
         <div className="share-zone">
           <div className="share-label">Tell them what you are</div>
+
           <div className="share-grid">
-            {/* ✅ FIX: IG Story 버튼 → "Save Card"로 변경, alert 제거 */}
-            <button className="share-btn" onClick={() => doShare("ig")}>📋 Save link</button>
-            <button className="share-btn" onClick={() => doShare("sms")}>💬 Text</button>
-            <button className="share-btn" onClick={() => doShare("x")}>𝕏 Post</button>
+            <button className="share-btn" onClick={() => doShare("ig")}>
+              📋 Save link
+            </button>
+            <button className="share-btn" onClick={() => doShare("sms")}>
+              💬 Text
+            </button>
+            <button className="share-btn" onClick={() => doShare("x")}>
+              𝕏 Post
+            </button>
           </div>
-          <div className="copy-row" onClick={() => doShare("link")}>
+
+          <div className="copy-row" onClick={() => doShare("link")} role="button" tabIndex={0}>
             <span>teaser.piilk.com/type</span>
             <span className="copy-label">{copied ? "Copied!" : "Copy link"}</span>
           </div>
@@ -330,26 +366,33 @@ function Result({ type }: { type: AfterfeelType }) {
         <div className="email-section">
           {!emailSent ? (
             <div>
-              {/* ✅ FIX: 오퍼 먼저 노출 → 이메일 등록 동기 강화 */}
-<div className="offer-box">
-  <p className="offer-main">
-    <strong>$2.99</strong> for 3 bottles. Free shipping included.
-  </p>
-  <p className="offer-sub">
-    Usually $13.47 in value.<br />
-    Love it? We’ll credit your $2.99 on your first order of 6+.
-  </p>
-<p className="offer-hook">
-  See how it feels without the after.
-</p>
-</div>
+              {/* 오퍼 먼저 노출 */}
+              <div className="offer-box" aria-label="Offer">
+                <p className="offer-main">
+                  <strong className="offer-price">$2.99</strong>
+                  <span className="offer-main-text"> for 3 bottles. Free shipping included.</span>
+                </p>
+
+                <p className="offer-sub">
+                  <span className="offer-value">Usually $13.47 in value.</span>
+                  <br />
+                  <span className="offer-credit">
+                    Love it? We&apos;ll credit your $2.99 on your first order of 6+.
+                  </span>
+                </p>
+
+                <p className="offer-hook">Ready to try zero after-feel?</p>
+              </div>
+
               <div className="email-row">
                 <input
                   ref={emailRef}
                   type="email"
                   className="email-input"
                   placeholder="your@email.com"
-                  onKeyDown={(e) => e.key === "Enter" && submitEmail()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") submitEmail();
+                  }}
                   onFocus={() => {
                     if (!emailFocusTracked.current) {
                       emailFocusTracked.current = true;
@@ -357,25 +400,28 @@ function Result({ type }: { type: AfterfeelType }) {
                     }
                   }}
                 />
+
                 <button className="email-btn" onClick={submitEmail} disabled={emailLoading}>
                   {emailLoading ? "..." : "Get early access"}
                 </button>
               </div>
+
               {emailError && <div className="email-error">{emailError}</div>}
+
               <div className="email-note">Launching Mid-March · First 1,000 members only</div>
             </div>
           ) : (
-            // ✅ FIX: 이메일 완료 후 $2.99 오퍼 명시
             <div className="email-ok anim-up">
               <div className="email-ok-icon">✓</div>
               <div className="email-ok-head">You&apos;re on the list.</div>
+
               <div className="offer-confirm">
                 <strong>$2.99.</strong> Three bottles. Free shipping.
                 <br />
-                <span>Worth $13.47 — launching Mid-March.</span>
+                <span>Usually $13.47 in value. Targeting mid-March.</span>
                 <br />
                 <span style={{ fontSize: 11, color: "#666", marginTop: 4, display: "block" }}>
-                  Love it? Your $2.99 comes back on your first order of 6+.
+                  Love it? We&apos;ll credit your $2.99 on your first order of 6+.
                 </span>
               </div>
             </div>
@@ -387,16 +433,30 @@ function Result({ type }: { type: AfterfeelType }) {
           <div className="referral anim-up">
             <div className="ref-rank">#{queuePosition.toLocaleString()}</div>
             <div className="ref-rank-label">Your spot in line</div>
+
             <div className="ref-card">
               <div className="ref-card-title">Skip the line ⚡</div>
-              {/* ✅ FIX: 티어 현실적으로 조정 */}
-              <div className="ref-tier"><span>3 friends join</span><span className="ref-tier-reward">$2.99 크레딧 추가</span></div>
-              <div className="ref-tier"><span>10 friends join</span><span className="ref-tier-reward">25% off first order</span></div>
-              <div className="ref-tier"><span>20 friends join</span><span className="ref-tier-reward">Free 18-pack case</span></div>
+              <div className="ref-tier">
+                <span>3 friends join</span>
+                <span className="ref-tier-reward">$2.99 크레딧 추가</span>
+              </div>
+              <div className="ref-tier">
+                <span>10 friends join</span>
+                <span className="ref-tier-reward">25% off first order</span>
+              </div>
+              <div className="ref-tier">
+                <span>20 friends join</span>
+                <span className="ref-tier-reward">Free 18-pack case</span>
+              </div>
             </div>
+
             <div className="ref-btns">
-              <button className="ref-btn primary" onClick={() => refShare("x")}>Share on 𝕏</button>
-              <button className="ref-btn ghost" onClick={() => refShare("copy")}>{refCopied ? "Copied!" : "Copy your link"}</button>
+              <button className="ref-btn primary" onClick={() => refShare("x")}>
+                Share on 𝕏
+              </button>
+              <button className="ref-btn ghost" onClick={() => refShare("copy")}>
+                {refCopied ? "Copied!" : "Copy your link"}
+              </button>
             </div>
           </div>
         )}
@@ -413,18 +473,26 @@ function Result({ type }: { type: AfterfeelType }) {
 
         <div className="sep" />
 
-        {/* ✅ FIX: Declarations — 이메일 등록 전후 모두 노출 유지 (참여 유도) */}
+        {/* DECLARATIONS */}
         <div className="declarations">
           <div className="decl-header">
-            <div className="label" style={{ marginBottom: 8 }}>Do you agree?</div>
+            <div className="label" style={{ marginBottom: 8 }}>
+              Do you agree?
+            </div>
             <div className="h3">Tap the ones that feel true.</div>
           </div>
+
           <div className="decl-list">
             {DECLARATIONS.map((d) => (
               <div
                 key={d.key}
                 className={`decl-item ${votedDecls.has(d.key) ? "voted" : ""}`}
                 onClick={() => voteDeclaration(d.key)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") voteDeclaration(d.key);
+                }}
               >
                 <span className="decl-text">{d.text}</span>
                 <span className="decl-count">{(declCounts[d.key] || 0).toLocaleString()} ✊</span>
@@ -447,33 +515,41 @@ export default function TeaserType() {
 
   const hasStarted = useRef(false);
 
-  function startQuiz() {
+  const startQuiz = () => {
     if (!hasStarted.current) {
       track.quizStart();
       hasStarted.current = true;
     }
     setPhase("quiz");
     setProgress(10);
-  }
+  };
 
-  function handleQuizComplete(type: AfterfeelType) {
+  const handleQuizComplete = (type: AfterfeelType) => {
     setResultType(type);
     setPhase("result");
     setProgress(100);
     window.scrollTo({ top: 0, behavior: "smooth" });
-  }
+  };
 
-  function goHome() {
+  const goHome = () => {
     hasStarted.current = false;
     setPhase("hero");
     setProgress(0);
     window.scrollTo({ top: 0, behavior: "smooth" });
-  }
+  };
 
   return (
     <>
       <nav className="nav">
-        <a className="nav-logo" onClick={goHome}>
+        <a
+          className="nav-logo"
+          onClick={goHome}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") goHome();
+          }}
+        >
           <Image
             src="/pillk-logo.png"
             alt="PIILK"
