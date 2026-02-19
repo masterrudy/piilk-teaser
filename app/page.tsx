@@ -368,15 +368,15 @@ export default function TeaserPage() {
 
             <p className="hero-proof">Dairy-free · No artificial sweeteners · Clean label</p>
 
-            <div className="offer-box">
-              <p className="offer-main">
-                <strong>$2.99.</strong> Three bottles. Free shipping.
-              </p>
-              <p className="offer-sub">
-                That&apos;s $13.47 in value, so there&apos;s no reason not to try.<br />
-                Love it? Your $2.99 comes back on your first order of 6+.
-              </p>
-            </div>
+<div className="offer-box">
+  <p className="offer-main">
+    <strong>$2.99</strong> today. 3 bottles. Free shipping.
+  </p>
+  <p className="offer-sub">
+    A $13.47 value.<br />
+    Love it? Your $2.99 goes toward your first 6+ order.
+  </p>
+</div>
 
             <div className="email-wrap">
               <EmailForm
