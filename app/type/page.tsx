@@ -368,20 +368,18 @@ function Result({ type }: { type: AfterfeelType }) {
             <div>
               {/* 오퍼 먼저 노출 */}
               <div className="offer-box" aria-label="Offer">
-                <p className="offer-main">
-                  <strong className="offer-price">$2.99</strong>
-                  <span className="offer-main-text"> for 3 bottles. Free shipping included.</span>
-                </p>
+           <p className="offer-main">
+  <strong className="offer-price">$2.99</strong>
+  <span className="offer-main-text"> for 3 bottles, shipping included.</span>
+</p>
+<p className="offer-sub">
+  <span className="offer-value">Usually $13.47 in value.</span>
+  <span className="offer-credit">
+    We&apos;ll credit your $2.99 on your first 6+ order.
+  </span>
+</p>
+<p className="offer-hook">Ready to try zero after-feel?</p>
 
-                <p className="offer-sub">
-                  <span className="offer-value">Usually $13.47 in value.</span>
-                  <br />
-                  <span className="offer-credit">
-                    Love it? We&apos;ll credit your $2.99 on your first order of 6+.
-                  </span>
-                </p>
-
-                <p className="offer-hook">Ready to try zero after-feel?</p>
               </div>
 
               <div className="email-row">
