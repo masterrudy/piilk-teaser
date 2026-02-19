@@ -1,941 +1,497 @@
-'use client';
+// ═══════════════════════════════════════════════════════════
+// 📁 파일 위치: app/type/page.tsx
+// 📌 역할: /type 메인 페이지 (V9 Hybrid 전체)
+// 📌 플로우: Hero → Quiz 3문항 → Result (Share #1 → Email #2 → Referral → Declaration)
+// 📌 모든 API 호출은 /api/type-* 경로 사용 (A안 완전 분리)
+// ═══════════════════════════════════════════════════════════
 
-import type React from 'react';
-import { useState, useEffect, useRef, useCallback } from 'react';
-import Image from 'next/image';
+"use client";
 
-/* ─── EmailForm: 컴포넌트 외부 선언 (렌더마다 재생성 방지 / focus 끊김 방지) ─── */
-interface EmailFormProps {
-  email: string;
-  isSubmitted: boolean;
-  isSubmitting: boolean;
-  source: string;
-  onEmailChange: (v: string) => void;
-  onFocus: () => void;
-  onSubmit: (source: string) => void;
-}
+import { useState, useEffect, useCallback, useRef } from "react";
+import Image from "next/image";
+import {
+  QUIZ_QUESTIONS,
+  AFTERFEEL_TYPES,
+  DECLARATIONS,
+  SHARE_URL,
+  getShareText,
+  calcAfterfeelType,
+  type AfterfeelType,
+} from "@/lib/quiz-data";
+import { track } from "@/lib/ga4";
 
-function EmailForm({
-  email,
-  isSubmitted,
-  isSubmitting,
-  source,
-  onEmailChange,
-  onFocus,
-  onSubmit,
-}: EmailFormProps) {
-  if (isSubmitted) {
-    return <p className="email-success">You&apos;re in. Watch for the first note.</p>;
-  }
-
-  return (
-    <div className="email-module">
-      <div className="email-form-row">
-        <input
-          type="email"
-          className="email-input"
-          value={email}
-          onChange={(e) => onEmailChange(e.target.value.replace(/[^a-zA-Z0-9@._+\-]/g, ''))}
-          onCompositionStart={(e) => e.preventDefault()}
-          onFocus={onFocus}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') onSubmit(source);
-          }}
-          placeholder="you@email.com"
-          autoComplete="email"
-          inputMode="email"
-          disabled={isSubmitting}
-          style={{ imeMode: 'disabled' } as React.CSSProperties}
-        />
-        <button
-          type="button"
-          className="email-btn"
-          onClick={() => onSubmit(source)}
-          disabled={isSubmitting || !email}
-        >
-          {isSubmitting ? 'Submitting...' : 'Get early access'}
-        </button>
-      </div>
-      <p className="email-trust">Join early · First 1,000 members only · No purchase required</p>
-    </div>
-  );
-}
-
-/* ─── Helpers ─── */
-function getDeviceType(): string {
-  if (typeof window === 'undefined') return 'unknown';
-  const ua = navigator.userAgent;
-  if (/tablet|ipad|playbook|silk/i.test(ua)) return 'tablet';
-  if (/mobile|iphone|ipod|android.*mobile|windows phone|blackberry/i.test(ua)) return 'mobile';
-  return 'desktop';
-}
-
-function getUTMParams(): Record<string, string> {
-  if (typeof window === 'undefined') return {};
-  const params = new URLSearchParams(window.location.search);
-  const utm: Record<string, string> = {};
-  ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'].forEach((key) => {
-    const val = params.get(key);
-    if (val) utm[key] = val;
-  });
-  return utm;
-}
-
-function getOrCreateId(key: string, storage: 'session' | 'local'): string {
-  if (typeof window === 'undefined') return '';
-  const store = storage === 'session' ? sessionStorage : localStorage;
-  let id = store.getItem(key);
+// ─── Visitor ID ───
+function getVisitorId(): string {
+  if (typeof window === "undefined") return "";
+  let id = localStorage.getItem("piilk_vid");
   if (!id) {
-    id = crypto.randomUUID
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    store.setItem(key, id);
+    id = crypto.randomUUID();
+    localStorage.setItem("piilk_vid", id);
   }
   return id;
 }
 
-/* ─── Main Page ─── */
-export default function TeaserPage() {
-  const [phase, setPhase] = useState(1);
-  const [email, setEmail] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
+// ─── URL에서 referral code 추출 ───
+function getReferralFromURL(): string | null {
+  if (typeof window === "undefined") return null;
+  return new URLSearchParams(window.location.search).get("ref") || null;
+}
 
-  const trackingData = useRef<Record<string, string>>({});
-  const sessionId = useRef('');
-  const visitorId = useRef('');
-  const leadStartFired = useRef(false);
-  const scrollLocked = useRef(false);
+// ─── 브라우저 트래킹 데이터 수집 ───
+function getTrackingData() {
+  if (typeof window === "undefined") return {};
+  const params = new URLSearchParams(window.location.search);
+  return {
+    device_type: /Mobile|Android|iPhone/i.test(navigator.userAgent) ? "mobile" : "desktop",
+    language: navigator.language || null,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
+    referrer: document.referrer || null,
+    utm_source: params.get("utm_source") || null,
+    utm_medium: params.get("utm_medium") || null,
+    utm_campaign: params.get("utm_campaign") || null,
+  };
+}
 
-  const trackEvent = useCallback((eventName: string, eventData?: Record<string, any>) => {
-    const td = trackingData.current;
-
-    fetch('/api/track', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        event_name: eventName,
-        event_data: eventData || null,
-        session_id: sessionId.current,
-        visitor_id: visitorId.current,
-        device_type: td.device_type || null,
-        referrer: td.referrer || null,
-        utm_source: td.utm_source || null,
-        utm_medium: td.utm_medium || null,
-        utm_campaign: td.utm_campaign || null,
-      }),
-    }).catch(() => {});
-
-    if (typeof window !== 'undefined' && (window as any).gtag) {
-      (window as any).gtag('event', eventName, { variant: 'main', ...eventData });
-    }
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const utmParams = getUTMParams();
-    trackingData.current = {
-      device_type: getDeviceType(),
-      language: navigator.language || '',
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
-      referrer: document.referrer || '',
-      ...utmParams,
-    };
-
-    sessionId.current = getOrCreateId('piilk_session', 'session');
-    visitorId.current = getOrCreateId('piilk_visitor', 'local');
-
-    trackEvent('page_view');
-  }, [trackEvent]);
-
-  /* ─── Scroll/wheel/touch ─── */
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const go = (dir: 1 | -1) => {
-      if (scrollLocked.current) return;
-      const next = phase + dir;
-      if (next < 1 || next > 3) return;
-
-      scrollLocked.current = true;
-      setPhase(next);
-      setTimeout(() => {
-        scrollLocked.current = false;
-      }, 900);
-    };
-
-    const handleWheel = (e: WheelEvent) => {
-      const active = document.activeElement as HTMLElement | null;
-      if (active && active.classList.contains('email-input')) return;
-      if (Math.abs(e.deltaY) < 30) return;
-      go(e.deltaY > 0 ? 1 : -1);
-    };
-
-    let touchY = 0;
-    let touchTarget: EventTarget | null = null;
-
-    const handleTouchStart = (e: TouchEvent) => {
-      touchY = e.touches[0].clientY;
-      touchTarget = e.target;
-    };
-
-    const handleTouchEnd = (e: TouchEvent) => {
-      const el = touchTarget as HTMLElement | null;
-      if (el && el.closest && el.closest('.email-module')) return;
-
-      const diff = touchY - e.changedTouches[0].clientY;
-      if (Math.abs(diff) < 80) return;
-      go(diff > 0 ? 1 : -1);
-    };
-
-    window.addEventListener('wheel', handleWheel, { passive: true });
-    window.addEventListener('touchstart', handleTouchStart, { passive: true });
-    window.addEventListener('touchend', handleTouchEnd, { passive: true });
-
-    return () => {
-      window.removeEventListener('wheel', handleWheel);
-      window.removeEventListener('touchstart', handleTouchStart);
-      window.removeEventListener('touchend', handleTouchEnd);
-    };
-  }, [phase]);
-
-  useEffect(() => {
-    if (phase === 2) trackEvent('phase_2_view');
-    if (phase === 3) trackEvent('phase_3_view');
-  }, [phase, trackEvent]);
-
-  const handleEmailFocus = useCallback(() => {
-    if (!leadStartFired.current) {
-      leadStartFired.current = true;
-      trackEvent('lead_start');
-    }
-  }, [trackEvent]);
-
-  const handleSubmit = useCallback(
-    async (source: string) => {
-      if (!email || !email.includes('@') || !email.includes('.') || isSubmitting || isSubmitted) return;
-
-      setIsSubmitting(true);
-
-      try {
-        const response = await fetch('/api/subscribe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email,
-            segment: 'direct',
-            answers: { sub_reason: '' },
-            tracking: trackingData.current,
-          }),
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-          trackEvent('lead_submit', {
-            segment: 'direct',
-            sub_reason: '',
-            email_domain: email.split('@')[1] || '',
-            source,
-          });
-
-          if (typeof window !== 'undefined' && (window as any).gtag) {
-            (window as any).gtag('event', 'generate_lead', {
-              method: 'email_signup',
-              signup_source: source,
-            });
-          }
-
-          // ✅ Meta Pixel: Lead 전환
-          if (typeof window !== 'undefined' && (window as any).fbq) {
-            (window as any).fbq('track', 'Lead', {
-              content_name: 'piilk_main_teaser',
-              content_category: 'teaser_signup',
-            });
-            (window as any).fbq('track', 'CompleteRegistration', {
-              content_name: 'piilk_main_teaser',
-              value: 1,
-              currency: 'USD',
-            });
-          }
-
-          // ✅ TikTok Pixel: Lead 전환
-          if (typeof window !== 'undefined' && (window as any).ttq) {
-            (window as any).ttq.track('SubmitForm', { content_name: 'piilk_main_teaser' });
-            (window as any).ttq.track('CompleteRegistration', {
-              content_name: 'piilk_main_teaser',
-              value: 1,
-              currency: 'USD',
-            });
-          }
-
-          setIsSubmitted(true);
-        } else {
-          alert(data.error || 'Something went wrong. Please try again.');
-        }
-      } catch {
-        alert('Something went wrong. Please try again.');
-      } finally {
-        setIsSubmitting(false);
-      }
-    },
-    [email, isSubmitting, isSubmitted, trackEvent],
+// ═══════════════════════════════════════════
+// HERO
+// ═══════════════════════════════════════════
+function Hero({ onStart }: { onStart: () => void }) {
+  return (
+    <section className="phase hero-phase">
+      <div className="hero-inner">
+        <h1 className="h1 anim-up">
+          It&apos;s not the protein.
+          <br />
+          It&apos;s the <em>after.</em>
+        </h1>
+        {/* ✅ FIX: 유저 중심 카피로 변경 */}
+        <p className="body anim-up d1">
+          That heavy feeling after. The film that lingers.
+          <br />
+          You&apos;ve felt it. You just never had a name for it.
+        </p>
+        {/* ✅ FIX: 30 seconds를 버튼 안으로 통합 → 참여 장벽 낮춤 */}
+        <button className="btn-primary anim-up d2" onClick={onStart}>
+          Find my type — 30 sec
+        </button>
+      </div>
+    </section>
   );
+}
 
-  const handleSlideClick = (e: React.MouseEvent) => {
-    const target = e.target as HTMLElement;
+// ═══════════════════════════════════════════
+// QUIZ
+// ═══════════════════════════════════════════
+function Quiz({ onComplete }: { onComplete: (type: AfterfeelType) => void }) {
+  const [qi, setQi] = useState(0);
+  const [answers, setAnswers] = useState<string[]>([]);
+  const [picked, setPicked] = useState(false);
 
-    if (target.closest('.email-module')) return;
-    if (target.tagName.toLowerCase() === 'input' || target.tagName.toLowerCase() === 'button') return;
+  const q = QUIZ_QUESTIONS[qi];
 
-    if (phase < 3) setPhase(phase + 1);
-  };
+  function pick(group: string) {
+    if (picked) return;
+    setPicked(true);
 
-  const getPhaseClass = (n: number) => {
-    if (n === phase) return 'center';
-    if (n < phase) return 'above';
-    return 'below';
-  };
+    track.quizStep(qi + 1, group);
+
+    const next = [...answers, group];
+    setAnswers(next);
+
+    setTimeout(() => {
+      if (qi + 1 < QUIZ_QUESTIONS.length) {
+        setQi(qi + 1);
+        setPicked(false);
+      } else {
+        const result = calcAfterfeelType(next);
+        track.quizComplete(result);
+        onComplete(result);
+      }
+    }, 300);
+  }
 
   return (
-    <main className="piilk-page">
-      {/* ═══ Fixed Background ═══ */}
-      <div className="hero-bg">
-        <Image
-          src="/hero-bg.png"
-          alt="Background"
-          fill
-          className="hero-bg-img"
-          style={{ objectPosition: 'center 35%' }}
-          priority
-          sizes="100vw"
-        />
-        <div className="hero-bg-overlay" />
+    <section className="phase quiz-phase">
+      <div className="wrap">
+        <div className="quiz-dots">
+          {QUIZ_QUESTIONS.map((_, i) => (
+            <div key={i} className={`qdot ${i < qi ? "done" : i === qi ? "now" : ""}`} />
+          ))}
+        </div>
+        <div className="caption" style={{ marginBottom: 8 }}>
+          {qi + 1} of {QUIZ_QUESTIONS.length}
+        </div>
+        <h2 className="h2 quiz-q">{q.question}</h2>
+        <div className="quiz-opts">
+          {q.options.map((o, j) => (
+            <div
+              key={`${qi}-${j}`}
+              className={`qo ${picked && answers[qi] === o.group ? "pk" : ""}`}
+              onClick={() => pick(o.group)}
+              style={{ animation: `up .35s cubic-bezier(.16,1,.3,1) ${j * 0.04}s both` }}
+            >
+              <span className="qo-icon">{o.icon}</span>
+              <span>{o.text}</span>
+            </div>
+          ))}
+        </div>
       </div>
+    </section>
+  );
+}
 
-      <div className="screen-wrap">
-        {/* Logo */}
-        <header className="logo-header">
+// ═══════════════════════════════════════════
+// RESULT
+// ═══════════════════════════════════════════
+function Result({ type }: { type: AfterfeelType }) {
+  const t = AFTERFEEL_TYPES[type];
+
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailError, setEmailError] = useState("");
+  const [referralCode, setReferralCode] = useState("");
+  const [queuePosition, setQueuePosition] = useState(0);
+  const [declCounts, setDeclCounts] = useState<Record<string, number>>({});
+  const [votedDecls, setVotedDecls] = useState<Set<string>>(new Set());
+  const [copied, setCopied] = useState(false);
+  const [refCopied, setRefCopied] = useState(false);
+
+  const emailRef = useRef<HTMLInputElement>(null);
+  const referredBy = useRef<string | null>(null);
+  const emailFocusTracked = useRef(false);
+
+  useEffect(() => {
+    referredBy.current = getReferralFromURL();
+    track.typeResult(type);
+
+    fetch("/api/type-declarations")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.declarations) {
+          const counts: Record<string, number> = {};
+          data.declarations.forEach(
+            (d: { statement_key: string; vote_count: number }) => {
+              counts[d.statement_key] = d.vote_count;
+            }
+          );
+          setDeclCounts(counts);
+        }
+      })
+      .catch(() => {});
+  }, [type]);
+
+  // ─── Share ───
+  const doShare = useCallback(
+    (channel: string) => {
+      track.shareClick(channel, type);
+      const txt = getShareText(t.name);
+
+      switch (channel) {
+        case "x":
+          window.open(
+            `https://twitter.com/intent/tweet?text=${encodeURIComponent(txt)}&url=${encodeURIComponent(SHARE_URL)}`,
+            "_blank"
+          );
+          break;
+        case "ig":
+          // ✅ FIX: IG Story — alert 제거, 링크 복사로 대체 (html2canvas 구현 전까지)
+          navigator.clipboard?.writeText(txt + " " + SHARE_URL);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1800);
+          break;
+        case "sms":
+          window.open(`sms:?&body=${encodeURIComponent(txt + " " + SHARE_URL)}`);
+          break;
+        case "link":
+          navigator.clipboard?.writeText(txt + " " + SHARE_URL);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1800);
+          break;
+      }
+    },
+    [t.name, type]
+  );
+
+  // ─── Email ───
+  async function submitEmail() {
+    const email = emailRef.current?.value.trim();
+    if (!email || !email.includes("@") || !email.includes(".")) {
+      setEmailError("Please enter a valid email.");
+      return;
+    }
+    setEmailLoading(true);
+    setEmailError("");
+
+    try {
+      const res = await fetch("/api/type-subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          afterfeel_type: type,
+          referred_by: referredBy.current,
+          tracking: getTrackingData(),
+        }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setReferralCode(data.referral_code);
+        setQueuePosition(data.queue_position);
+        setEmailSent(true);
+        track.emailSubmit(type);
+      } else {
+        setEmailError(
+          data.error === "invalid_email"
+            ? "Please enter a valid email."
+            : "Something went wrong. Try again."
+        );
+      }
+    } catch {
+      setEmailError("Connection error. Try again.");
+    } finally {
+      setEmailLoading(false);
+    }
+  }
+
+  // ─── Declaration Vote ───
+  async function voteDeclaration(key: string) {
+    if (votedDecls.has(key)) return;
+    track.declarationTap(key);
+
+    setDeclCounts((prev) => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
+    setVotedDecls((prev) => new Set(prev).add(key));
+
+    try {
+      const res = await fetch("/api/type-declarations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ statement_key: key, visitor_id: getVisitorId() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setDeclCounts((prev) => ({ ...prev, [key]: data.vote_count }));
+      }
+    } catch {
+      // Optimistic already applied
+    }
+  }
+
+  // ─── Referral Share ───
+  function refShare(channel: string) {
+    track.referralShare(channel);
+    const refUrl = `${SHARE_URL}?ref=${referralCode}`;
+    const txt = `I'm #${queuePosition.toLocaleString()} on the PIILK™ list. Something better is coming:`;
+
+    if (channel === "x") {
+      window.open(
+        `https://twitter.com/intent/tweet?text=${encodeURIComponent(txt)}&url=${encodeURIComponent(refUrl)}`,
+        "_blank"
+      );
+    } else {
+      navigator.clipboard?.writeText(refUrl);
+      setRefCopied(true);
+      setTimeout(() => setRefCopied(false), 1800);
+    }
+  }
+
+  return (
+    <section className="phase result-phase">
+      <div className="result-wrap">
+        {/* CARD */}
+        <div className="card">
+          <div className="card-inner">
+            <div className="label">Your after-feel type</div>
+            <div className="type-icon">{t.icon}</div>
+            <div className="type-name">{t.name}</div>
+            <div className="type-tagline">{t.tagline}</div>
+            <div className="card-foot">PIILK™ by Armored Fresh</div>
+          </div>
+        </div>
+
+        {/* SHARE = #1 CTA */}
+        <div className="share-zone">
+          <div className="share-label">Tell them what you are</div>
+          <div className="share-grid">
+            {/* ✅ FIX: IG Story 버튼 → "Save Card"로 변경, alert 제거 */}
+            <button className="share-btn" onClick={() => doShare("ig")}>📋 Save link</button>
+            <button className="share-btn" onClick={() => doShare("sms")}>💬 Text</button>
+            <button className="share-btn" onClick={() => doShare("x")}>𝕏 Post</button>
+          </div>
+          <div className="copy-row" onClick={() => doShare("link")}>
+            <span>teaser.piilk.com/type</span>
+            <span className="copy-label">{copied ? "Copied!" : "Copy link"}</span>
+          </div>
+        </div>
+
+        <div className="sep" />
+
+        {/* EMAIL = #2 CTA */}
+        <div className="email-section">
+          {!emailSent ? (
+            <div>
+              {/* ✅ FIX: 오퍼 먼저 노출 → 이메일 등록 동기 강화 */}
+              <div className="email-bridge">
+                <div className="offer-pill">$2.99 · 3 bottles · Free shipping</div>
+                <strong>Want to try zero after-feel?</strong>
+                <br />
+                <span style={{ fontSize: 13, color: "#888", marginTop: 4, display: "block" }}>
+                  Love it? Your $2.99 comes back on your first order of 6+.
+                </span>
+              </div>
+              <div className="email-row">
+                <input
+                  ref={emailRef}
+                  type="email"
+                  className="email-input"
+                  placeholder="your@email.com"
+                  onKeyDown={(e) => e.key === "Enter" && submitEmail()}
+                  onFocus={() => {
+                    if (!emailFocusTracked.current) {
+                      emailFocusTracked.current = true;
+                      track.emailFocus(type);
+                    }
+                  }}
+                />
+                <button className="email-btn" onClick={submitEmail} disabled={emailLoading}>
+                  {emailLoading ? "..." : "Get early access"}
+                </button>
+              </div>
+              {emailError && <div className="email-error">{emailError}</div>}
+              <div className="email-note">Launching Mid-March · First 1,000 members only</div>
+            </div>
+          ) : (
+            // ✅ FIX: 이메일 완료 후 $2.99 오퍼 명시
+            <div className="email-ok anim-up">
+              <div className="email-ok-icon">✓</div>
+              <div className="email-ok-head">You&apos;re on the list.</div>
+              <div className="offer-confirm">
+                <strong>$2.99.</strong> Three bottles. Free shipping.
+                <br />
+                <span>Worth $13.47 — launching Mid-March.</span>
+                <br />
+                <span style={{ fontSize: 11, color: "#666", marginTop: 4, display: "block" }}>
+                  Love it? Your $2.99 comes back on your first order of 6+.
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* REFERRAL (이메일 후) */}
+        {emailSent && (
+          <div className="referral anim-up">
+            <div className="ref-rank">#{queuePosition.toLocaleString()}</div>
+            <div className="ref-rank-label">Your spot in line</div>
+            <div className="ref-card">
+              <div className="ref-card-title">Skip the line ⚡</div>
+              {/* ✅ FIX: 티어 현실적으로 조정 */}
+              <div className="ref-tier"><span>3 friends join</span><span className="ref-tier-reward">$2.99 크레딧 추가</span></div>
+              <div className="ref-tier"><span>10 friends join</span><span className="ref-tier-reward">25% off first order</span></div>
+              <div className="ref-tier"><span>20 friends join</span><span className="ref-tier-reward">Free 18-pack case</span></div>
+            </div>
+            <div className="ref-btns">
+              <button className="ref-btn primary" onClick={() => refShare("x")}>Share on 𝕏</button>
+              <button className="ref-btn ghost" onClick={() => refShare("copy")}>{refCopied ? "Copied!" : "Copy your link"}</button>
+            </div>
+          </div>
+        )}
+
+        {/* PROOF (이메일 후 = BOF) */}
+        {emailSent && (
+          <div className="proof-mini anim-up">
+            <span className="ptag">30g protein</span>
+            <span className="ptag">7 ingredients</span>
+            <span className="ptag">Dairy-free</span>
+            <span className="ptag">Nothing after.</span>
+          </div>
+        )}
+
+        <div className="sep" />
+
+        {/* ✅ FIX: Declarations — 이메일 등록 전후 모두 노출 유지 (참여 유도) */}
+        <div className="declarations">
+          <div className="decl-header">
+            <div className="label" style={{ marginBottom: 8 }}>Do you agree?</div>
+            <div className="h3">Tap the ones that feel true.</div>
+          </div>
+          <div className="decl-list">
+            {DECLARATIONS.map((d) => (
+              <div
+                key={d.key}
+                className={`decl-item ${votedDecls.has(d.key) ? "voted" : ""}`}
+                onClick={() => voteDeclaration(d.key)}
+              >
+                <span className="decl-text">{d.text}</span>
+                <span className="decl-count">{(declCounts[d.key] || 0).toLocaleString()} ✊</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ═══════════════════════════════════════════
+// MAIN PAGE
+// ═══════════════════════════════════════════
+export default function TeaserType() {
+  const [phase, setPhase] = useState<"hero" | "quiz" | "result">("hero");
+  const [resultType, setResultType] = useState<AfterfeelType>("brick");
+  const [progress, setProgress] = useState(0);
+
+  const hasStarted = useRef(false);
+
+  function startQuiz() {
+    if (!hasStarted.current) {
+      track.quizStart();
+      hasStarted.current = true;
+    }
+    setPhase("quiz");
+    setProgress(10);
+  }
+
+  function handleQuizComplete(type: AfterfeelType) {
+    setResultType(type);
+    setPhase("result");
+    setProgress(100);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function goHome() {
+    hasStarted.current = false;
+    setPhase("hero");
+    setProgress(0);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  return (
+    <>
+      <nav className="nav">
+        <a className="nav-logo" onClick={goHome}>
           <Image
             src="/pillk-logo.png"
-            alt="Piilk"
-            width={80}
-            height={32}
-            className="logo-img"
-            onClick={() => setPhase(1)}
+            alt="PIILK"
+            width={72}
+            height={28}
+            style={{ display: "block" }}
+            priority
           />
-        </header>
-
-        {/* ═══ Phase 1 ═══ */}
-        <div
-          className={`slide slide--${getPhaseClass(1)}`}
-          onClick={handleSlideClick}
-          style={{ cursor: phase < 3 ? 'pointer' : 'default' }}
-        >
-          <div className="slide-inner">
-            <h1 className="hero-h1">
-              Ever Had a Drink<br />
-              That Felt Off<br />
-              Right After?
-            </h1>
-          </div>
-          <div className="scroll-cue-bottom">
-            <span>Scroll</span>
-            <div className="arrow" />
-          </div>
-        </div>
-
-        {/* ═══ Phase 2 ═══ */}
-        <div
-          className={`slide slide--${getPhaseClass(2)}`}
-          onClick={handleSlideClick}
-          style={{ cursor: phase < 3 ? 'pointer' : 'default' }}
-        >
-          <div className="slide-inner">
-            <p className="launch-badge">Targeting mid-March</p>
-
-            <h1 className="hero-h1">
-              30g protein.<br />
-              7 ingredients.<br />
-              Nothing after.
-            </h1>
-
-            <p className="hero-desc">
-              Heavy after. Film that lingers. You know the moment.<br />
-              PIILK is built to end it.
-            </p>
-
-            <p className="hero-proof">Dairy-free · No artificial sweeteners · Clean label</p>
-
-            <div className="offer-box">
-              <p className="offer-main">
-                <strong>$2.99.</strong> Three bottles. Free shipping.
-              </p>
-              <p className="offer-sub">
-                That&apos;s $13.47 in value, so there&apos;s no reason not to try.<br />
-                Love it? Your $2.99 comes back on your first order of 6+.
-              </p>
-            </div>
-
-            <div className="email-wrap">
-              <EmailForm
-                email={email}
-                isSubmitted={isSubmitted}
-                isSubmitting={isSubmitting}
-                source="hero"
-                onEmailChange={setEmail}
-                onFocus={handleEmailFocus}
-                onSubmit={handleSubmit}
-              />
-            </div>
-          </div>
-
-          <div className="scroll-cue-bottom">
-            <span>Scroll</span>
-            <div className="arrow" />
-          </div>
-        </div>
-
-        {/* ═══ Phase 3 ═══ */}
-        <div className={`slide slide--${getPhaseClass(3)}`}>
-          <div className="slide-inner">
-            <h2 className="why-title">Why we built PIILK</h2>
-            <div className="why-body">
-              <p>Most shakes obsess over macros.</p>
-              <p>We obsessed over what happens after you drink it.</p>
-            </div>
-
-            <p className="why-sub">Targeting mid-March. Your sample is on us.</p>
-
-            <div className="cta-wrap">
-              <EmailForm
-                email={email}
-                isSubmitted={isSubmitted}
-                isSubmitting={isSubmitting}
-                source="cta"
-                onEmailChange={setEmail}
-                onFocus={handleEmailFocus}
-                onSubmit={handleSubmit}
-              />
-            </div>
-
-            <div className="footer-area">
-              <p className="footer-brand">PIILK™ by ARMORED FRESH</p>
-              <p className="footer-sub">RTD High Protein Shake.</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Dots */}
-        <nav className="dots">
-          {[1, 2, 3].map((n) => (
-            <button
-              key={n}
-              className={`dot ${phase === n ? 'active' : ''}`}
-              onClick={() => setPhase(n)}
-              aria-label={`Section ${n}`}
-            />
-          ))}
-        </nav>
-      </div>
-
-      <style jsx global>{`
-        :root {
-          --accent: #bfff00;
-          --accent-hover: #d4ff33;
-          --success: #00ff88;
-          --muted: #888888;
-          --secondary: #cccccc;
-          --input-bg: rgba(17, 17, 17, 0.7);
-          --border: rgba(255, 255, 255, 0.1);
-          --radius: 12px;
-          --tap: 52px;
-          --font: 'DM Sans', system-ui, sans-serif;
-        }
-
-        html,
-        body {
-          margin: 0;
-          padding: 0;
-          overflow: hidden;
-          height: 100%;
-        }
-
-        .piilk-page {
-          position: fixed;
-          inset: 0;
-          background: #000;
-          color: #fff;
-          font-family: var(--font);
-          -webkit-font-smoothing: antialiased;
-        }
-
-        .hero-bg {
-          position: fixed;
-          inset: 0;
-          z-index: 0;
-        }
-
-        .hero-bg-img {
-          object-fit: cover;
-          transform: scale(1.1);
-        }
-
-        .hero-bg-overlay {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(
-            180deg,
-            rgba(0, 0, 0, 0.15) 0%,
-            rgba(0, 0, 0, 0.3) 40%,
-            rgba(0, 0, 0, 0.65) 100%
-          );
-        }
-
-        .screen-wrap {
-          position: relative;
-          z-index: 1;
-          width: 100%;
-          height: 100%;
-          overflow: hidden;
-        }
-
-        .logo-header {
-          position: absolute;
-          top: 20px;
-          left: 50%;
-          transform: translateX(-50%);
-          z-index: 10;
-        }
-
-        .logo-img {
-          opacity: 0.9;
-          cursor: pointer;
-          transition: opacity 0.3s;
-        }
-
-        .logo-img:hover {
-          opacity: 0.6;
-        }
-
-        /* Launch Badge */
-        .launch-badge {
-          display: inline-block;
-          font-size: 11px;
-          font-weight: 600;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          color: var(--accent);
-          border: 1px solid rgba(191, 255, 0, 0.3);
-          border-radius: 20px;
-          padding: 4px 12px;
-          margin-bottom: 16px;
-        }
-
-        /* Offer Box */
-        .offer-box {
-          margin: 16px auto 0;
-          max-width: 420px;
-          background: rgba(191, 255, 0, 0.06);
-          border: 1px solid rgba(191, 255, 0, 0.2);
-          border-radius: 12px;
-          padding: 14px 18px;
-        }
-
-        .offer-main {
-          font-size: 15px;
-          color: #fff;
-          margin: 0 0 6px;
-        }
-
-        .offer-main strong {
-          color: var(--accent);
-          font-size: 18px;
-        }
-
-        .offer-sub {
-          font-size: 12px;
-          color: var(--muted);
-          margin: 0;
-          line-height: 1.6;
-        }
-
-        /* Why sub */
-        .why-sub {
-          margin-top: 12px;
-          font-size: 13px;
-          color: var(--accent);
-          font-weight: 500;
-          letter-spacing: 0.03em;
-        }
-
-        /* Slides */
-        .slide {
-          position: absolute;
-          inset: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
-          padding: 80px 24px 40px;
-          transition:
-            transform 0.7s cubic-bezier(0.4, 0, 0.2, 1),
-            opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1);
-          will-change: transform, opacity;
-        }
-
-        .slide--center {
-          transform: translateY(0);
-          opacity: 1;
-          pointer-events: auto;
-        }
-
-        .slide--above {
-          transform: translateY(-100vh);
-          opacity: 0;
-          pointer-events: none;
-        }
-
-        .slide--below {
-          transform: translateY(100vh);
-          opacity: 0;
-          pointer-events: none;
-        }
-
-        .slide-inner {
-          max-width: 680px;
-          width: 100%;
-        }
-
-        .hero-h1 {
-          font-family: var(--font);
-          font-size: clamp(28px, 7vw, 52px);
-          font-weight: 700;
-          line-height: 1.15;
-          letter-spacing: -0.01em;
-        }
-
-        .hero-desc {
-          margin-top: 16px;
-          font-size: 15px;
-          line-height: 1.6;
-          color: var(--secondary);
-        }
-
-        .hero-proof {
-          margin-top: 8px;
-          font-size: 12px;
-          color: var(--muted);
-          letter-spacing: 0.04em;
-        }
-
-        .why-title {
-          font-family: var(--font);
-          font-size: clamp(26px, 6vw, 46px);
-          font-weight: 700;
-          line-height: 1.15;
-          letter-spacing: -0.01em;
-          margin-bottom: 16px;
-        }
-
-        .why-body {
-          font-size: 15px;
-          line-height: 1.5;
-          color: var(--secondary);
-        }
-
-        .why-body p + p {
-          margin-top: 6px;
-        }
-
-        .email-wrap,
-        .cta-wrap {
-          margin-top: 20px;
-          max-width: 460px;
-          margin-left: auto;
-          margin-right: auto;
-        }
-
-        /* Scroll cue */
-        .scroll-cue-bottom {
-          position: absolute;
-          bottom: 32px;
-          left: 50%;
-          transform: translateX(-50%);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 8px;
-          opacity: 0.4;
-        }
-
-        .scroll-cue-bottom span {
-          font-size: 12px;
-          color: var(--muted);
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-        }
-
-        .scroll-cue-bottom .arrow {
-          width: 16px;
-          height: 16px;
-          border-right: 1.5px solid var(--muted);
-          border-bottom: 1.5px solid var(--muted);
-          transform: rotate(45deg);
-          animation: bounce 2s ease-in-out infinite;
-        }
-
-        @keyframes bounce {
-          0%,
-          100% {
-            transform: rotate(45deg) translateY(0);
-          }
-          50% {
-            transform: rotate(45deg) translateY(5px);
-          }
-        }
-
-        /* Footer */
-        .footer-area {
-          margin-top: 40px;
-        }
-
-        .footer-brand {
-          font-size: 9px;
-          letter-spacing: 0.25em;
-          color: var(--muted);
-          text-transform: uppercase;
-          font-weight: 500;
-        }
-
-        .footer-sub {
-          font-size: 9px;
-          letter-spacing: 0.15em;
-          color: var(--muted);
-          margin-top: 4px;
-          font-weight: 500;
-        }
-
-        /* Email */
-        .email-module {
-          width: 100%;
-        }
-
-        .email-form-row {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .email-input {
-          width: 100%;
-          height: 44px;
-          padding: 0 14px;
-          background: var(--input-bg);
-          border: 1px solid var(--border);
-          border-radius: 10px;
-          color: #fff;
-          font-family: var(--font);
-          font-size: 15px;
-          outline: none;
-          transition: border-color 0.2s;
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-        }
-
-        .email-input::placeholder {
-          color: var(--muted);
-        }
-
-        .email-input:focus {
-          border-color: var(--accent);
-        }
-
-        .email-input:disabled {
-          opacity: 0.4;
-          cursor: not-allowed;
-        }
-
-        .email-btn {
-          width: 100%;
-          height: 44px;
-          background: var(--accent);
-          color: #000;
-          border: none;
-          border-radius: 10px;
-          font-family: var(--font);
-          font-size: 15px;
-          font-weight: 600;
-          cursor: pointer;
-          transition:
-            background 0.2s,
-            transform 0.1s,
-            box-shadow 0.2s;
-          box-shadow: 0 0 16px rgba(191, 255, 0, 0.25);
-        }
-
-        .email-btn:hover {
-          background: var(--accent-hover);
-          box-shadow: 0 0 24px rgba(191, 255, 0, 0.4);
-        }
-
-        .email-btn:active {
-          transform: scale(0.98);
-        }
-
-        .email-btn:disabled {
-          opacity: 0.4;
-          cursor: not-allowed;
-          box-shadow: none;
-        }
-
-        .email-trust {
-          margin-top: 8px;
-          font-size: 11px;
-          color: var(--muted);
-          text-align: center;
-        }
-
-        .email-success {
-          font-size: 14px;
-          color: var(--success);
-          font-weight: 500;
-          text-align: center;
-          animation: fadeIn 300ms ease forwards;
-        }
-
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-
-        /* Dots */
-        .dots {
-          position: absolute;
-          right: 20px;
-          top: 50%;
-          transform: translateY(-50%);
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          z-index: 10;
-        }
-
-        .dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          border: 1px solid rgba(255, 255, 255, 0.3);
-          background: transparent;
-          cursor: pointer;
-          padding: 0;
-          transition: all 0.3s;
-        }
-
-        .dot.active {
-          background: var(--accent);
-          border-color: var(--accent);
-          transform: scale(1.3);
-        }
-
-        .dot:hover {
-          border-color: rgba(255, 255, 255, 0.6);
-        }
-
-        @media (min-width: 768px) {
-          .email-form-row {
-            flex-direction: row;
-          }
-          .email-form-row .email-input {
-            flex: 1;
-            min-width: 0;
-          }
-          .email-form-row .email-btn {
-            width: auto;
-            min-width: 160px;
-            flex-shrink: 0;
-          }
-        }
-
-        /* Mobile optimization */
-        @media (max-width: 767px) {
-          .slide {
-            padding: 60px 20px 30px;
-          }
-          .hero-h1 {
-            font-size: clamp(24px, 8vw, 36px);
-          }
-          .hero-desc {
-            font-size: 13px;
-            margin-top: 10px;
-          }
-          .hero-proof {
-            font-size: 11px;
-            margin-top: 6px;
-          }
-          .why-title {
-            font-size: clamp(22px, 7vw, 32px);
-          }
-          .why-body {
-            font-size: 14px;
-          }
-          .offer-box {
-            margin-top: 12px;
-            padding: 11px 14px;
-          }
-          .offer-main {
-            font-size: 13px;
-          }
-          .offer-main strong {
-            font-size: 15px;
-          }
-          .offer-sub {
-            font-size: 11px;
-          }
-          .email-wrap,
-          .cta-wrap {
-            margin-top: 14px;
-            max-width: 320px;
-            padding: 0 8px;
-          }
-          .email-input {
-            height: 42px;
-            font-size: 14px;
-            border-radius: 8px;
-          }
-          .email-btn {
-            height: 42px;
-            font-size: 14px;
-            border-radius: 8px;
-          }
-          .scroll-cue-bottom {
-            bottom: 20px;
-          }
-          .logo-header {
-            top: 14px;
-          }
-          .logo-img {
-            width: 60px !important;
-            height: auto !important;
-          }
-          .dots {
-            right: 12px;
-          }
-          .dot {
-            width: 6px;
-            height: 6px;
-          }
-          .launch-badge {
-            font-size: 10px;
-            padding: 3px 10px;
-          }
-        }
-      `}</style>
-    </main>
+        </a>
+        <span className="nav-right">by Armored Fresh</span>
+      </nav>
+
+      <div className="progress-bar" style={{ width: `${progress}%` }} />
+
+      {phase === "hero" && <Hero onStart={startQuiz} />}
+      {phase === "quiz" && <Quiz onComplete={handleQuizComplete} />}
+      {phase === "result" && <Result type={resultType} />}
+
+      <footer className="footer">
+        <div>PIILK™ by Armored Fresh</div>
+        <div>© 2026 Armoredfresh Inc.</div>
+      </footer>
+    </>
   );
 }
