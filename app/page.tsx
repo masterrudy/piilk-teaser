@@ -79,20 +79,6 @@ function getOrCreateId(key: string, storage: 'session' | 'local'): string {
   return id;
 }
 
-/* ─── Spot Counter (simulated social proof) ─── */
-function useSpotCount() {
-  const [count, setCount] = useState(0);
-  useEffect(() => {
-    // Base count: grows ~8/day from launch date (Jan 21)
-    const launchDate = new Date('2026-01-21').getTime();
-    const now = Date.now();
-    const daysSinceLaunch = Math.floor((now - launchDate) / (1000 * 60 * 60 * 24));
-    const base = Math.min(Math.floor(daysSinceLaunch * 8.3 + 47), 940);
-    setCount(base);
-  }, []);
-  return count;
-}
-
 /* ─── Main Page ─── */
 export default function TeaserPage() {
   const [email, setEmail] = useState('');
@@ -103,7 +89,6 @@ export default function TeaserPage() {
   const sessionId = useRef('');
   const visitorId = useRef('');
   const leadStartFired = useRef(false);
-  const spotCount = useSpotCount();
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -226,15 +211,17 @@ export default function TeaserPage() {
       <div className="page-scroll">
         {/* ═══ HERO SECTION — Everything above the fold ═══ */}
         <section className="hero-section">
-          {/* Logo */}
+          {/* Logo — links to home */}
           <header className="logo-header">
-            <Image
-              src="/pillk-logo.png"
-              alt="Piilk"
-              width={80}
-              height={32}
-              className="logo-img"
-            />
+            <a href="/" aria-label="PIILK Home">
+              <Image
+                src="/pillk-logo.png"
+                alt="Piilk"
+                width={80}
+                height={32}
+                className="logo-img"
+              />
+            </a>
           </header>
 
           <div className="hero-content">
@@ -293,11 +280,11 @@ export default function TeaserPage() {
               />
             </div>
 
-            {/* ✅ NEW: Live spot counter */}
-            {!isSubmitted && spotCount > 0 && (
+            {/* ✅ Scarcity — honest, no fake numbers */}
+            {!isSubmitted && (
               <p className="spot-counter">
                 <span className="spot-dot" />
-                {spotCount.toLocaleString()} / 1,000 early access spots claimed
+                Limited to first 1,000 members
               </p>
             )}
           </div>
@@ -406,13 +393,15 @@ export default function TeaserPage() {
           transform: translateX(-50%);
           z-index: 10;
         }
-        .logo-img { opacity: 0.9; }
+        .logo-img { opacity: 0.9; cursor: pointer; transition: opacity 0.3s; }
+        .logo-img:hover { opacity: 0.6; }
+        .logo-header a { display: inline-block; line-height: 0; }
 
         /* ── Hero Content ── */
         .hero-content {
           max-width: 520px;
           width: 100%;
-          animation: heroFadeIn 0.6s ease-out;
+          animation: heroFadeIn 0.8s ease-out 0.15s both;
         }
         @keyframes heroFadeIn {
           from { opacity: 0; transform: translateY(16px); }
