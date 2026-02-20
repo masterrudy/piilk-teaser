@@ -1068,8 +1068,8 @@ const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.
                 <span className={`text-xs px-2 py-0.5 rounded border ${variant === 'main' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-purple-500/10 text-purple-400 border-purple-500/30'}`}>{variant === 'main' ? 'Main Teaser' : 'Quiz Type'}</span>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-{[{key:'all',label:'All'},{key:'today',label:'Today'},{key:'yesterday',label:'Yesterday'},{key:'last_7_days',label:'Last 7D'},{key:'this_week',label:'This Week'},{key:'this_month',label:'This Month'},{key:'last_month',label:'Last Month'}].map(opt => (
-  
+{[{key:'all',label:'All'},{key:'today',label:'Today'},{key:'yesterday',label:'Yesterday'},{key:'last_7_days',label:'Last 7D'},{key:'this_week',label:'This Week'},{key:'this_month',label:'This Month'},{key:'last_month',label:'Last Month'}
+                
 
             
                   <button key={opt.key} onClick={() => { setAnalyticsPeriod(opt.key); setAnalyticsDateFrom(''); setAnalyticsDateTo(''); }} className={`px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-medium transition-all ${analyticsPeriod === opt.key ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-500 hover:text-zinc-300'}`}>{opt.label}</button>
