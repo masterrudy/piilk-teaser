@@ -246,7 +246,7 @@ export default function TeaserPage() {
               <div className="offer-box">
                 <div className="offer-price-row">
                   <span className="offer-price">$2.99</span>
-                  <span className="offer-detail">3 bottles · Free shipping</span>
+                  <span className="offer-detail">3 packs · Free shipping</span>
                 </div>
                 <p className="offer-sub">
                   Worth $13.47 — Love it? $2.99 back on your first 6-pack.
@@ -259,7 +259,7 @@ export default function TeaserPage() {
               <div className="offer-box offer-confirmed">
                 <div className="offer-price-row">
                   <span className="offer-price">$2.99</span>
-                  <span className="offer-detail">3 bottles · Free shipping</span>
+                  <span className="offer-detail">3 packs · Free shipping</span>
                 </div>
                 <p className="offer-sub">
                   You&apos;re locked in. We&apos;ll reach out before launch.
