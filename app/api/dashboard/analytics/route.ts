@@ -1,13 +1,11 @@
 // ═══════════════════════════════════════════════════════════
 // 📁 파일 위치: app/api/dashboard/analytics/route.ts
 // 📌 역할: 대시보드 퍼널 분석 API (variant 필터 지원)
-// 📌 v6 수정:
-//   - MAIN_EVENT_MAP: 새 page.tsx 이벤트 반영 + 과거 이벤트 호환
-//   - fetchAllEvents: variant='a' 지원 (DB에 'a'로 저장됨)
-//   - buildVisitorStats: page_view 기반 정확한 visitor 카운팅
-//   - buildUtmSourceStats: page_view 기반 visitor + 전체 이벤트 카운팅
-//   - getSid/getVid: 빈 문자열 방어
-//   - rawEvents: um, uc 포함
+// 📌 v7 수정:
+//   - v6의 모든 수정 포함
+//   - Quiz Type: page_view가 없는 세션에만 synthetic page_view 주입
+//     (기존: hasRealPageView 체크로 전체 스킵 → 일부 세션 누락)
+//     (수정: 세션별로 page_view 유무 확인 후 없는 세션에만 주입)
 // ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -254,13 +252,23 @@ function buildVisitorStats(normalizedEvents: any[], todayStr: string) {
   };
 }
 
-/* ─── Quiz Type: synthetic page_view 주입 ─── */
-function buildSyntheticPageViews(events: any[]) {
-  const sessionFirstEvent = new Map<string, any>();
+/* ─── ✅ v7: Quiz Type: page_view가 없는 세션에만 synthetic page_view 주입 ─── */
+function buildSyntheticPageViews(events: any[], normalizedEvents: any[]) {
+  // 이미 page_view가 있는 세션 수집
+  const sessionsWithPageView = new Set<string>();
+  normalizedEvents.forEach(ev => {
+    if (ev.event_name === 'page_view') {
+      const sid = getSid(ev);
+      if (sid) sessionsWithPageView.add(sid);
+    }
+  });
 
+  // page_view가 없는 세션의 첫 이벤트로 synthetic page_view 생성
+  const sessionFirstEvent = new Map<string, any>();
   events.forEach(ev => {
     const sid = getSid(ev);
     if (!sid) return;
+    if (sessionsWithPageView.has(sid)) return; // 이미 page_view 있음
     if (!sessionFirstEvent.has(sid)) {
       sessionFirstEvent.set(sid, ev);
     }
@@ -307,14 +315,13 @@ export async function GET(request: NextRequest) {
       event_name: normalizeEventName(ev.event_name, isTypeVariant),
     }));
 
-    // ✅ Quiz Type: synthetic page_view 주입
+    // ✅ v7: Quiz Type: page_view가 없는 세션에 synthetic page_view 주입
     let allNormalizedEvents = [...normalizedEvents];
     let allEvents = [...events];
 
     if (isTypeVariant) {
-      const hasRealPageView = normalizedEvents.some(ev => ev.event_name === 'page_view');
-      if (!hasRealPageView) {
-        const synthetics = buildSyntheticPageViews(events);
+      const synthetics = buildSyntheticPageViews(events, normalizedEvents);
+      if (synthetics.length > 0) {
         synthetics.forEach(spv => {
           allEvents.push(spv);
           allNormalizedEvents.push({ ...spv, event_name: 'page_view' });
