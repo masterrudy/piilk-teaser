@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Image from 'next/image';
 
 /* ─────────────────────────── Types ─────────────────────────── */
@@ -82,6 +82,30 @@ interface VisitorStat {
   events: number;
 }
 
+/* ─────────────────────────── UTM Normalization ─────────────────────────── */
+const META_SOURCES = ['fb', 'ig', 'meta', 'facebook', 'instagram'];
+
+function normalizeUtmSource(source: string | undefined | null): string {
+  if (!source) return 'Direct';
+  const lower = source.toLowerCase().trim();
+  if (META_SOURCES.includes(lower)) return 'meta';
+  return source;
+}
+
+function getRawPlatformLabel(source: string | undefined | null): string {
+  if (!source) return 'Direct';
+  const lower = source.toLowerCase().trim();
+  if (lower === 'fb' || lower === 'facebook') return 'Facebook';
+  if (lower === 'ig' || lower === 'instagram') return 'Instagram';
+  if (lower === 'meta') return 'Meta (unspecified)';
+  return source;
+}
+
+function getNYCDate(offset = 0): string {
+  const n = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  n.setDate(n.getDate() + offset);
+  return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;
+}
 
 /* ─────────────────────────── Quiz Type Labels ─────────────────────────── */
 
@@ -127,7 +151,16 @@ export default function DashboardPage() {
   // Analytics
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
-  const [analyticsPeriod, setAnalyticsPeriod] = useState<string>('all');
+const [analyticsPeriod, setAnalyticsPeriod] = useState<string>('all');
+
+  // ✅ NEW: Custom date range, traffic filter, meta ads
+  const [analyticsDateFrom, setAnalyticsDateFrom] = useState<string>('');
+  const [analyticsDateTo, setAnalyticsDateTo] = useState<string>('');
+  const [trafficFilter, setTrafficFilter] = useState<'all' | 'paid' | 'organic'>('all');
+  const [metaAdsData, setMetaAdsData] = useState<any[]>([]);
+  const [metaAdsDate, setMetaAdsDate] = useState<string>('');
+  const metaFileRef = useRef<HTMLInputElement>(null);
+  
 
   // Participant list
   const [participants, setParticipants] = useState<{ klaviyo: Participant[]; supabase: Participant[] }>({ klaviyo: [], supabase: [] });
@@ -311,7 +344,8 @@ export default function DashboardPage() {
     const s = new Set<string>(); currentParticipants.forEach(p => { if (p.device_type) s.add(p.device_type); }); return Array.from(s).sort();
   }, [currentParticipants]);
 
-  const trackingAnalytics = useMemo(() => {
+  
+const trackingAnalytics = useMemo(() => {
     const p = currentParticipants;
     if (p.length === 0) return null;
     const countryCounts: Record<string, number> = {};
@@ -321,7 +355,7 @@ export default function DashboardPage() {
     const deviceCounts: Record<string, number> = {};
     p.forEach(x => { const d = x.device_type || 'Unknown'; deviceCounts[d] = (deviceCounts[d] || 0) + 1; });
     const utmCounts: Record<string, number> = {};
-    p.forEach(x => { const u = x.utm_source || 'Direct'; utmCounts[u] = (utmCounts[u] || 0) + 1; });
+    p.forEach(x => { const u = normalizeUtmSource(x.utm_source); utmCounts[u] = (utmCounts[u] || 0) + 1; });
     const sortMap = (map: Record<string, number>) => Object.entries(map).sort((a, b) => b[1] - a[1]);
     return {
       countries: sortMap(countryCounts), cities: sortMap(cityCounts).slice(0, 10),
@@ -329,6 +363,7 @@ export default function DashboardPage() {
       hasTrackingData: p.some(x => x.country || x.device_type || x.utm_source),
     };
   }, [currentParticipants]);
+  
 
   const activeFilterCount = useMemo(() => {
     let c = 0;
@@ -408,55 +443,60 @@ export default function DashboardPage() {
     analyticsData.daily.forEach((d: any) => { if (d.date) months.add(d.date.slice(0, 7)); });
     return Array.from(months).sort().reverse();
   }, [analyticsData]);
-
-  const filteredAnalytics = useMemo(() => {
+const filteredAnalytics = useMemo(() => {
     if (!analyticsData) return null;
-    if (analyticsPeriod === 'all') return analyticsData;
-    const nowNYC = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
     let startDate = '', endDate = '';
-    if (analyticsPeriod === 'today') {
-      startDate = endDate = `${nowNYC.getFullYear()}-${String(nowNYC.getMonth()+1).padStart(2,'0')}-${String(nowNYC.getDate()).padStart(2,'0')}`;
-    } else if (analyticsPeriod === 'this_week') {
-      const dow = nowNYC.getDay(); const mon = new Date(nowNYC); mon.setDate(nowNYC.getDate() - (dow === 0 ? 6 : dow - 1));
-      startDate = `${mon.getFullYear()}-${String(mon.getMonth()+1).padStart(2,'0')}-${String(mon.getDate()).padStart(2,'0')}`;
-      endDate = `${nowNYC.getFullYear()}-${String(nowNYC.getMonth()+1).padStart(2,'0')}-${String(nowNYC.getDate()).padStart(2,'0')}`;
-    } else if (analyticsPeriod === 'this_month') {
-      startDate = `${nowNYC.getFullYear()}-${String(nowNYC.getMonth()+1).padStart(2,'0')}-01`;
-      endDate = `${nowNYC.getFullYear()}-${String(nowNYC.getMonth()+1).padStart(2,'0')}-${String(nowNYC.getDate()).padStart(2,'0')}`;
-    } else if (analyticsPeriod === 'last_month') {
-      const lm = new Date(nowNYC.getFullYear(), nowNYC.getMonth()-1, 1);
-      startDate = `${lm.getFullYear()}-${String(lm.getMonth()+1).padStart(2,'0')}-01`;
-      const lmEnd = new Date(nowNYC.getFullYear(), nowNYC.getMonth(), 0);
-      endDate = `${lmEnd.getFullYear()}-${String(lmEnd.getMonth()+1).padStart(2,'0')}-${String(lmEnd.getDate()).padStart(2,'0')}`;
-    } else {
-      startDate = `${analyticsPeriod}-01`;
-      const [y, m] = analyticsPeriod.split('-').map(Number);
-      endDate = new Date(y, m, 0).toISOString().slice(0, 10);
+    const hasDateFilter = analyticsPeriod !== 'all';
+
+    if (analyticsPeriod === 'custom_range') { startDate = analyticsDateFrom || '2000-01-01'; endDate = analyticsDateTo || '2099-12-31'; }
+    else if (analyticsPeriod !== 'all') {
+      const nowNYC = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+      if (analyticsPeriod === 'today') { startDate = endDate = getNYCDate(0); }
+      else if (analyticsPeriod === 'yesterday') { startDate = endDate = getNYCDate(-1); }
+      else if (analyticsPeriod === 'last_7_days') { startDate = getNYCDate(-6); endDate = getNYCDate(0); }
+      else if (analyticsPeriod === 'this_week') { const dow = nowNYC.getDay(); const mon = new Date(nowNYC); mon.setDate(nowNYC.getDate() - (dow === 0 ? 6 : dow - 1)); startDate = `${mon.getFullYear()}-${String(mon.getMonth()+1).padStart(2,'0')}-${String(mon.getDate()).padStart(2,'0')}`; endDate = getNYCDate(0); }
+      else if (analyticsPeriod === 'this_month') { startDate = `${nowNYC.getFullYear()}-${String(nowNYC.getMonth()+1).padStart(2,'0')}-01`; endDate = getNYCDate(0); }
+      else if (analyticsPeriod === 'last_month') { const lm = new Date(nowNYC.getFullYear(), nowNYC.getMonth()-1, 1); startDate = `${lm.getFullYear()}-${String(lm.getMonth()+1).padStart(2,'0')}-01`; const lmEnd = new Date(nowNYC.getFullYear(), nowNYC.getMonth(), 0); endDate = `${lmEnd.getFullYear()}-${String(lmEnd.getMonth()+1).padStart(2,'0')}-${String(lmEnd.getDate()).padStart(2,'0')}`; }
+      else { startDate = `${analyticsPeriod}-01`; const [y, m] = analyticsPeriod.split('-').map(Number); endDate = new Date(y, m, 0).toISOString().slice(0, 10); }
     }
-    const filteredDaily = (analyticsData.daily||[]).filter((d:any) => d.date >= startDate && d.date <= endDate);
-    const filteredRaw = (analyticsData.rawEvents||[]).filter((ev:any) => ev.d >= startDate && ev.d <= endDate);
+
+    const filteredDaily = hasDateFilter ? (analyticsData.daily||[]).filter((d:any) => d.date >= startDate && d.date <= endDate) : (analyticsData.daily||[]);
+    let filteredRaw = hasDateFilter ? (analyticsData.rawEvents||[]).filter((ev:any) => ev.d >= startDate && ev.d <= endDate) : (analyticsData.rawEvents||[]);
+
+    // Paid vs Organic filter
+    if (trafficFilter !== 'all') { filteredRaw = filteredRaw.filter((ev: any) => { const isPaid = ev.um === 'paid'; return trafficFilter === 'paid' ? isPaid : !isPaid; }); }
+
     const funnelEvents = ['page_view','step1_cta_click','step2_answer','step3_email_focus','step3_reason_select','step4_submit'];
     const sessionsByEvt: Record<string,Set<string>> = {}; funnelEvents.forEach(e => { sessionsByEvt[e] = new Set(); });
     filteredRaw.forEach((ev:any) => { if (funnelEvents.includes(ev.n)) sessionsByEvt[ev.n].add(ev.s); });
     const funnel: Record<string,number> = {}; funnelEvents.forEach(e => { funnel[e] = sessionsByEvt[e].size; });
+
     const weeklyMap: Record<string,{views:number;submits:number}> = {};
-    filteredDaily.forEach((d:any) => {
-      const dt = new Date(d.date); const jan1 = new Date(dt.getFullYear(),0,1);
-      const wn = Math.ceil(((dt.getTime()-jan1.getTime())/86400000+jan1.getDay()+1)/7);
-      const key = `${dt.getFullYear()}-W${String(wn).padStart(2,'0')}`;
-      if (!weeklyMap[key]) weeklyMap[key] = {views:0,submits:0};
-      weeklyMap[key].views += d.page_view||0; weeklyMap[key].submits += d.step4_submit||0;
-    });
+    filteredDaily.forEach((d:any) => { const dt = new Date(d.date); const jan1 = new Date(dt.getFullYear(),0,1); const wn = Math.ceil(((dt.getTime()-jan1.getTime())/86400000+jan1.getDay()+1)/7); const key = `${dt.getFullYear()}-W${String(wn).padStart(2,'0')}`; if (!weeklyMap[key]) weeklyMap[key] = {views:0,submits:0}; weeklyMap[key].views += d.page_view||0; weeklyMap[key].submits += d.step4_submit||0; });
     const weekly = Object.entries(weeklyMap).sort((a,b)=>a[0].localeCompare(b[0])).map(([week,data])=>({week,...data}));
+
+    // UTM normalized
     const utmMap: Record<string,{views:Set<string>;submits:Set<string>}> = {};
-    filteredRaw.forEach((ev:any) => {
-      const src = ev.u||'Direct'; if (!utmMap[src]) utmMap[src]={views:new Set(),submits:new Set()};
-      if (ev.n==='page_view') utmMap[src].views.add(ev.s);
-      if (ev.n==='step4_submit') utmMap[src].submits.add(ev.s);
-    });
+    filteredRaw.forEach((ev:any) => { const src = normalizeUtmSource(ev.u); if (!utmMap[src]) utmMap[src]={views:new Set(),submits:new Set()}; if (ev.n==='page_view') utmMap[src].views.add(ev.s); if (ev.n==='step4_submit') utmMap[src].submits.add(ev.s); });
     const utmPerformance = Object.entries(utmMap).map(([source,data])=>({source,views:data.views.size,submits:data.submits.size,cvr:data.views.size>0?((data.submits.size/data.views.size)*100).toFixed(1):'0'})).sort((a,b)=>b.views-a.views);
-    const hourMapF: Record<number,number> = {};
-    filteredRaw.filter((ev:any)=>ev.n==='step4_submit').forEach((ev:any)=>{hourMapF[ev.h]=(hourMapF[ev.h]||0)+1;});
+
+    // Platform sub-breakdown (fb vs ig)
+    const platformMap: Record<string,{views:Set<string>;submits:Set<string>}> = {};
+    filteredRaw.forEach((ev:any) => { const src = getRawPlatformLabel(ev.u); if (!platformMap[src]) platformMap[src]={views:new Set(),submits:new Set()}; if (ev.n==='page_view') platformMap[src].views.add(ev.s); if (ev.n==='step4_submit') platformMap[src].submits.add(ev.s); });
+    const platformPerformance = Object.entries(platformMap).map(([platform,data])=>({platform,views:data.views.size,submits:data.submits.size,cvr:data.views.size>0?((data.submits.size/data.views.size)*100).toFixed(1):'0'})).sort((a,b)=>b.views-a.views);
+
+    // Campaign performance
+    const campaignMap: Record<string,{views:Set<string>;submits:Set<string>;source:string;medium:string}> = {};
+    filteredRaw.forEach((ev:any) => { const camp = ev.uc || '(no campaign)'; const src = normalizeUtmSource(ev.u); const med = ev.um || ''; if (!campaignMap[camp]) campaignMap[camp]={views:new Set(),submits:new Set(),source:src,medium:med}; if (ev.n==='page_view') campaignMap[camp].views.add(ev.s); if (ev.n==='step4_submit') campaignMap[camp].submits.add(ev.s); });
+    const campaignPerformance = Object.entries(campaignMap).map(([campaign,data])=>({campaign,source:data.source,medium:data.medium,views:data.views.size,submits:data.submits.size,cvr:data.views.size>0?((data.submits.size/data.views.size)*100).toFixed(1):'0',isPaid:data.medium==='paid'})).sort((a,b)=>b.views-a.views);
+
+    // Paid vs Organic summary
+    const allRawP = hasDateFilter ? (analyticsData.rawEvents||[]).filter((ev:any) => ev.d >= startDate && ev.d <= endDate) : (analyticsData.rawEvents||[]);
+    const pS = new Set<string>(); const oS = new Set<string>(); const pSub = new Set<string>(); const oSub = new Set<string>();
+    allRawP.forEach((ev:any) => { const ip = ev.um === 'paid'; if (ev.n==='page_view') { if(ip) pS.add(ev.s); else oS.add(ev.s); } if (ev.n==='step4_submit') { if(ip) pSub.add(ev.s); else oSub.add(ev.s); } });
+    const paidVsOrganic = { paid: { views: pS.size, submits: pSub.size, cvr: pS.size > 0 ? ((pSub.size/pS.size)*100).toFixed(1) : '0' }, organic: { views: oS.size, submits: oSub.size, cvr: oS.size > 0 ? ((oSub.size/oS.size)*100).toFixed(1) : '0' } };
+
+    const hourMapF: Record<number,number> = {}; filteredRaw.filter((ev:any)=>ev.n==='step4_submit').forEach((ev:any)=>{hourMapF[ev.h]=(hourMapF[ev.h]||0)+1;});
     const hourly = Array.from({length:24},(_,i)=>({hour:i,label:`${i.toString().padStart(2,'0')}:00`,count:hourMapF[i]||0}));
     const wdNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     const wdMap: Record<number,{views:number;submits:number}> = {}; for(let i=0;i<7;i++) wdMap[i]={views:0,submits:0};
@@ -465,21 +505,17 @@ export default function DashboardPage() {
     const moMap: Record<string,{views:number;submits:number}> = {};
     filteredRaw.forEach((ev:any) => { const k=ev.d?.slice(0,7); if(!k)return; if(!moMap[k])moMap[k]={views:0,submits:0}; if(ev.n==='page_view')moMap[k].views++; if(ev.n==='step4_submit')moMap[k].submits++; });
     const monthly = Object.entries(moMap).sort((a,b)=>a[0].localeCompare(b[0])).map(([month,data])=>({month,...data}));
-    const segDist: Record<string,number> = {};
-    filteredRaw.filter((ev:any)=>ev.n==='step2_answer').forEach((ev:any)=>{const seg=ev.ed?.segment||'Unknown';segDist[seg]=(segDist[seg]||0)+1;});
-    const reasonDist: Record<string,number> = {};
-    filteredRaw.filter((ev:any)=>ev.n==='step3_reason_select').forEach((ev:any)=>{const r=ev.ed?.reason||'Unknown';reasonDist[r]=(reasonDist[r]||0)+1;});
-    
-const uvSessions = new Set(filteredRaw.map((ev:any)=>ev.s).filter(Boolean));
-const uvVisitors = new Set(filteredRaw.map((ev:any)=>ev.v || ev.s).filter(Boolean));
-if (variant === 'type') {
-  const submitSids = sessionsByEvt['step4_submit'];
-  submitSids.forEach((sid:string) => { sessionsByEvt['step3_email_focus'].add(sid); });
-  funnel['step3_email_focus'] = sessionsByEvt['step3_email_focus'].size;
-}
-return {...analyticsData,funnel,daily:filteredDaily,weekly,weekday,monthly,utmPerformance,hourly,segmentDistribution:segDist,reasonDistribution:reasonDist,totalVisitors:uvVisitors.size,totalSessions:uvSessions.size};
-    
-  }, [analyticsData, analyticsPeriod]);
+    const segDist: Record<string,number> = {}; filteredRaw.filter((ev:any)=>ev.n==='step2_answer').forEach((ev:any)=>{segDist[ev.ed?.segment||'Unknown']=(segDist[ev.ed?.segment||'Unknown']||0)+1;});
+    const reasonDist: Record<string,number> = {}; filteredRaw.filter((ev:any)=>ev.n==='step3_reason_select').forEach((ev:any)=>{reasonDist[ev.ed?.reason||'Unknown']=(reasonDist[ev.ed?.reason||'Unknown']||0)+1;});
+    const uvSessions = new Set(filteredRaw.map((ev:any)=>ev.s).filter(Boolean));
+    const uvVisitors = new Set(filteredRaw.map((ev:any)=>ev.v || ev.s).filter(Boolean));
+    if (variant === 'type') { const submitSids = sessionsByEvt['step4_submit']; submitSids.forEach((sid:string) => { sessionsByEvt['step3_email_focus'].add(sid); }); funnel['step3_email_focus'] = sessionsByEvt['step3_email_focus'].size; }
+
+    return {...analyticsData,funnel,daily:filteredDaily,weekly,weekday,monthly,utmPerformance,platformPerformance,campaignPerformance,paidVsOrganic,hourly,segmentDistribution:segDist,reasonDistribution:reasonDist,totalVisitors:uvVisitors.size,totalSessions:uvSessions.size};
+  }, [analyticsData, analyticsPeriod, analyticsDateFrom, analyticsDateTo, trafficFilter, variant]);
+
+
+  
 
   const segColor = (s?: string) => {
     if (variant === 'type') {
@@ -564,7 +600,26 @@ return {...analyticsData,funnel,daily:filteredDaily,weekly,weekday,monthly,utmPe
   /* ─── UTM Source Stats Section ─── */
   const UtmSourceStatsSection = () => {
     const [utmView, setUtmView] = useState<'today' | 'total'>('today');
-    const utmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.[utmView];
+
+
+
+    
+const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.[utmView];
+    const utmStats = useMemo(() => {
+      if (!rawUtmStats) return undefined;
+      const merged: Record<string, UtmSourceStat> = {};
+      rawUtmStats.forEach(stat => { const n = normalizeUtmSource(stat.source); if (!merged[n]) { merged[n] = { ...stat, source: n }; } else { merged[n].visitors += stat.visitors; merged[n].sessions += stat.sessions; merged[n].events += stat.events; merged[n].page_views += stat.page_views; merged[n].submits += stat.submits; } });
+      Object.values(merged).forEach(m => { m.cvr = m.page_views > 0 ? ((m.submits / m.page_views) * 100).toFixed(1) : '0'; });
+      return Object.values(merged).sort((a, b) => b.visitors - a.visitors);
+    }, [rawUtmStats]);
+    const rawMetaStats = useMemo(() => {
+      if (!rawUtmStats) return [];
+      return rawUtmStats.filter(s => META_SOURCES.includes((s.source || '').toLowerCase()));
+    }, [rawUtmStats]);
+
+
+
+    
     const visitorStatsData: { total: VisitorStat; today: VisitorStat } | undefined = analyticsData?.visitorStats;
     if (!utmStats && !visitorStatsData) return null;
     const currentVS = visitorStatsData?.[utmView];
@@ -1013,8 +1068,11 @@ return {...analyticsData,funnel,daily:filteredDaily,weekly,weekday,monthly,utmPe
                 <span className={`text-xs px-2 py-0.5 rounded border ${variant === 'main' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-purple-500/10 text-purple-400 border-purple-500/30'}`}>{variant === 'main' ? 'Main Teaser' : 'Quiz Type'}</span>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                {[{key:'all',label:'All'},{key:'today',label:'Today'},{key:'this_week',label:'This Week'},{key:'this_month',label:'This Month'},{key:'last_month',label:'Last Month'}].map(opt => (
-                  <button key={opt.key} onClick={() => setAnalyticsPeriod(opt.key)} className={`px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-medium transition-all ${analyticsPeriod === opt.key ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-500 hover:text-zinc-300'}`}>{opt.label}</button>
+{[{key:'all',label:'All'},{key:'today',label:'Today'},{key:'yesterday',label:'Yesterday'},{key:'last_7_days',label:'Last 7D'},{key:'this_week',label:'This Week'},{key:'this_month',label:'This Month'},{key:'last_month',label:'Last Month'}].map(opt => (
+  
+
+            
+                  <button key={opt.key} onClick={() => { setAnalyticsPeriod(opt.key); setAnalyticsDateFrom(''); setAnalyticsDateTo(''); }} className={`px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-medium transition-all ${analyticsPeriod === opt.key ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-500 hover:text-zinc-300'}`}>{opt.label}</button>
                 ))}
                 {availableMonths.length > 1 && (
                   <select value={analyticsPeriod.match(/^\d{4}-\d{2}$/) ? analyticsPeriod : ''} onChange={e => { if (e.target.value) setAnalyticsPeriod(e.target.value); }} className="px-2 py-1 bg-zinc-800 border border-zinc-700 rounded-lg text-[10px] sm:text-xs text-zinc-400 focus:outline-none cursor-pointer">
@@ -1027,13 +1085,55 @@ return {...analyticsData,funnel,daily:filteredDaily,weekly,weekday,monthly,utmPe
               </div>
             </div>
 
+            {/* Custom Date Range + Paid/Organic Toggle */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <div className="flex items-center gap-2">
+                <label className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Range:</label>
+                <input type="date" value={analyticsDateFrom} onChange={e => { setAnalyticsDateFrom(e.target.value); if (e.target.value && analyticsDateTo) setAnalyticsPeriod('custom_range'); }} className="px-2 py-1 bg-zinc-800 border border-zinc-700 rounded-lg text-xs text-white focus:outline-none focus:border-zinc-600" />
+                <span className="text-zinc-600 text-xs">→</span>
+                <input type="date" value={analyticsDateTo} onChange={e => { setAnalyticsDateTo(e.target.value); if (analyticsDateFrom && e.target.value) setAnalyticsPeriod('custom_range'); }} className="px-2 py-1 bg-zinc-800 border border-zinc-700 rounded-lg text-xs text-white focus:outline-none focus:border-zinc-600" />
+                {analyticsPeriod === 'custom_range' && <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">Custom</span>}
+              </div>
+              <div className="flex gap-1 bg-zinc-800 rounded-lg p-0.5 ml-auto">
+                {([{key:'all' as const,label:'All',icon:'🌐'},{key:'paid' as const,label:'Paid',icon:'💰'},{key:'organic' as const,label:'Organic',icon:'🌱'}]).map(opt => (
+                  <button key={opt.key} onClick={() => setTrafficFilter(opt.key)} className={`px-2.5 py-1.5 rounded-md text-[10px] sm:text-xs font-bold transition-all flex items-center gap-1 ${trafficFilter === opt.key ? (opt.key === 'paid' ? 'bg-red-500 text-white' : opt.key === 'organic' ? 'bg-emerald-500 text-white' : 'bg-white text-black') : 'text-zinc-500 hover:text-zinc-300'}`}><span>{opt.icon}</span>{opt.label}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Meta Ads Upload */}
+            <div className="flex items-center gap-3">
+              <input ref={metaFileRef} type="file" accept=".xlsx,.xls,.csv" onChange={async (e) => { const file = e.target.files?.[0]; if (!file) return; try { const XLSX = await import('xlsx'); const buf = await file.arrayBuffer(); const wb = XLSX.read(buf, {type:'array'}); const ws = wb.Sheets[wb.SheetNames[0]]; const rows: any[] = XLSX.utils.sheet_to_json(ws); const parsed = rows.map((r:any) => { const name = r['광고 이름']||r['Ad Name']||''; const nl = name.toLowerCase(); return { adName:name, date:r['보고 시작']||'', status:r['광고 게재']||'', results:Number(r['결과']||0)||0, reach:Number(r['도달']||0)||0, spend:Number(r['지출 금액 (USD)']||0)||0, impressions:Number(r['노출']||0)||0, linkClicks:Number(r['링크 클릭']||0)||0, cpc:Number(r['CPC(링크 클릭당 비용) (USD)']||0)||0, ctrLink:Number(r['CTR(링크 클릭률)']||0)||0, allClicks:Number(r['클릭(전체)']||0)||0, landingPageViews:Number(r['랜딩 페이지 조회']||0)||0, variant: nl.includes('_main')||nl.includes('main') ? 'main' : nl.includes('_type')||nl.includes('type') ? 'type' : 'unknown' }; }).filter((r:any) => r.spend > 0 || r.impressions > 0); setMetaAdsData(parsed); if (parsed.length > 0) setMetaAdsDate(parsed[0].date); } catch(err) { alert('파일 파싱 실패'); } }} className="hidden" />
+              <button onClick={() => metaFileRef.current?.click()} className="px-3 py-1.5 bg-blue-600/20 border border-blue-600/30 rounded-lg text-xs text-blue-400 hover:bg-blue-600/30 transition-colors flex items-center gap-1.5"><span>📊</span>Upload Meta Ads Report</button>
+              {metaAdsDate && <span className="text-[10px] text-blue-400">✓ {metaAdsDate} ({metaAdsData.length} ads)</span>}
+            </div>
+            
             {analyticsLoading && !analyticsData ? (
               <div className="flex items-center justify-center py-16"><div className="w-8 h-8 border-2 border-zinc-800 border-t-emerald-500 rounded-full animate-spin" /></div>
               ) : analyticsData ? (
               <>
-                <UtmSourceStatsSection />
+<UtmSourceStatsSection />
+
+                {/* ✅ Meta Ads Comparison */}
+                {metaAdsData.length > 0 && (() => {
+                  const metaTotal = metaAdsData.reduce((acc:any, ad:any) => ({ spend: acc.spend + ad.spend, impressions: acc.impressions + ad.impressions, linkClicks: acc.linkClicks + ad.linkClicks, landingPageViews: acc.landingPageViews + ad.landingPageViews, results: acc.results + ad.results }), { spend:0, impressions:0, linkClicks:0, landingPageViews:0, results:0 });
+                  const ourSubmits = currentParticipants.filter(p => p.signed_up_at?.slice(0,10) === metaAdsDate && normalizeUtmSource(p.utm_source) === 'meta').length;
+                  return (
+                    <div className="bg-gradient-to-br from-blue-950/30 to-zinc-900/60 border border-blue-900/40 rounded-xl p-4 sm:p-6">
+                      <div className="flex items-center justify-between mb-4"><div className="flex items-center gap-2"><span className="text-base">📊</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Meta Ads vs Dashboard</h3><span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">{metaAdsDate}</span></div><button onClick={() => { setMetaAdsData([]); setMetaAdsDate(''); }} className="text-[10px] text-zinc-500 hover:text-red-400">✕ Remove</button></div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4"><div className="bg-zinc-800/50 border border-zinc-700/30 rounded-lg p-3"><p className="text-[8px] text-zinc-500 uppercase tracking-widest font-semibold mb-0.5">Meta Spend</p><p className="text-xl font-black text-white">${metaTotal.spend.toFixed(2)}</p></div><div className="bg-zinc-800/50 border border-zinc-700/30 rounded-lg p-3"><p className="text-[8px] text-zinc-500 uppercase tracking-widest font-semibold mb-0.5">Link Clicks</p><p className="text-xl font-black text-white">{metaTotal.linkClicks}</p></div><div className="bg-zinc-800/50 border border-zinc-700/30 rounded-lg p-3"><p className="text-[8px] text-zinc-500 uppercase tracking-widest font-semibold mb-0.5">LP Views</p><p className="text-xl font-black text-amber-400">{metaTotal.landingPageViews}</p></div><div className="bg-emerald-950/30 border border-emerald-900/30 rounded-lg p-3"><p className="text-[8px] text-emerald-500 uppercase tracking-widest font-semibold mb-0.5">Our Submits</p><p className="text-xl font-black text-emerald-400">{ourSubmits}</p></div></div>
+                      <div className="bg-zinc-800/30 rounded-lg p-3 mb-4"><p className="text-[9px] text-zinc-500 uppercase tracking-widest font-semibold mb-2">Full Funnel</p><div className="flex items-center gap-2 text-xs flex-wrap"><span className="text-zinc-400">Impressions <span className="text-white font-bold">{metaTotal.impressions.toLocaleString()}</span></span><span className="text-zinc-600">→</span><span className="text-zinc-400">Clicks <span className="text-white font-bold">{metaTotal.linkClicks}</span></span><span className="text-zinc-600">→</span><span className="text-zinc-400">LP Views <span className="text-amber-400 font-bold">{metaTotal.landingPageViews}</span></span><span className="text-zinc-600">→</span><span className="text-zinc-400">Submits <span className="text-emerald-400 font-bold">{ourSubmits}</span></span></div><div className="flex items-center gap-4 mt-2 text-[10px]"><span className="text-zinc-500">CTR: <span className="text-white font-bold">{metaTotal.impressions > 0 ? ((metaTotal.linkClicks / metaTotal.impressions) * 100).toFixed(2) : '0'}%</span></span><span className="text-zinc-500">Click→Submit: <span className="text-emerald-400 font-bold">{metaTotal.linkClicks > 0 ? ((ourSubmits / metaTotal.linkClicks) * 100).toFixed(1) : '0'}%</span></span><span className="text-zinc-500">CPA: <span className="text-amber-400 font-bold">{ourSubmits > 0 ? `$${(metaTotal.spend / ourSubmits).toFixed(2)}` : 'N/A'}</span></span></div></div>
+                      <div className="overflow-x-auto"><table className="w-full text-left"><thead><tr className="border-b border-zinc-800/80"><th className="px-2 py-1.5 text-[9px] text-zinc-500 uppercase font-semibold">Ad</th><th className="px-2 py-1.5 text-[9px] text-zinc-500 uppercase font-semibold">Variant</th><th className="px-2 py-1.5 text-[9px] text-zinc-500 uppercase font-semibold text-right">Spend</th><th className="px-2 py-1.5 text-[9px] text-zinc-500 uppercase font-semibold text-right">Clicks</th><th className="px-2 py-1.5 text-[9px] text-zinc-500 uppercase font-semibold text-right">LP Views</th><th className="px-2 py-1.5 text-[9px] text-zinc-500 uppercase font-semibold text-right">CTR</th><th className="px-2 py-1.5 text-[9px] text-zinc-500 uppercase font-semibold text-right">Results</th></tr></thead><tbody>{metaAdsData.map((ad:any, i:number) => (<tr key={i} className="border-b border-zinc-800/30 hover:bg-zinc-800/20"><td className="px-2 py-1.5 text-xs text-white max-w-[180px] truncate">{ad.adName}</td><td className="px-2 py-1.5"><span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${ad.variant === 'main' ? 'bg-emerald-500/20 text-emerald-400' : ad.variant === 'type' ? 'bg-purple-500/20 text-purple-400' : 'bg-zinc-700/30 text-zinc-500'}`}>{ad.variant}</span></td><td className="px-2 py-1.5 text-xs text-white text-right font-mono">${ad.spend.toFixed(2)}</td><td className="px-2 py-1.5 text-xs text-zinc-300 text-right font-mono">{ad.linkClicks}</td><td className="px-2 py-1.5 text-xs text-amber-400 text-right font-mono">{ad.landingPageViews}</td><td className="px-2 py-1.5 text-xs text-zinc-400 text-right font-mono">{ad.ctrLink?.toFixed(2)}%</td><td className="px-2 py-1.5 text-xs text-emerald-400 text-right font-mono font-bold">{ad.results}</td></tr>))}</tbody></table></div>
+                    </div>
+                  );
+                })()}
+
+                {/* ✅ Paid vs Organic */}
+                {filteredAnalytics?.paidVsOrganic && (<div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-6"><div className="flex items-center gap-2 mb-4"><span className="text-base">💰</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Paid vs Organic</h3></div><div className="grid grid-cols-1 sm:grid-cols-2 gap-3"><div className="bg-red-950/20 border border-red-900/30 rounded-xl p-4"><div className="flex items-center gap-2 mb-3"><span className="w-2.5 h-2.5 rounded-full bg-red-500" /><span className="text-sm font-bold text-red-400">Paid</span></div><div className="grid grid-cols-3 gap-3"><div className="text-center"><p className="text-2xl font-black text-white">{filteredAnalytics.paidVsOrganic.paid.views}</p><p className="text-[8px] text-zinc-500 uppercase mt-1">Views</p></div><div className="text-center"><p className="text-2xl font-black text-emerald-400">{filteredAnalytics.paidVsOrganic.paid.submits}</p><p className="text-[8px] text-zinc-500 uppercase mt-1">Submits</p></div><div className="text-center"><p className={`text-2xl font-black ${Number(filteredAnalytics.paidVsOrganic.paid.cvr) > 0 ? 'text-amber-400' : 'text-zinc-500'}`}>{filteredAnalytics.paidVsOrganic.paid.cvr}%</p><p className="text-[8px] text-zinc-500 uppercase mt-1">CVR</p></div></div></div><div className="bg-emerald-950/20 border border-emerald-900/30 rounded-xl p-4"><div className="flex items-center gap-2 mb-3"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /><span className="text-sm font-bold text-emerald-400">Organic</span></div><div className="grid grid-cols-3 gap-3"><div className="text-center"><p className="text-2xl font-black text-white">{filteredAnalytics.paidVsOrganic.organic.views}</p><p className="text-[8px] text-zinc-500 uppercase mt-1">Views</p></div><div className="text-center"><p className="text-2xl font-black text-emerald-400">{filteredAnalytics.paidVsOrganic.organic.submits}</p><p className="text-[8px] text-zinc-500 uppercase mt-1">Submits</p></div><div className="text-center"><p className={`text-2xl font-black ${Number(filteredAnalytics.paidVsOrganic.organic.cvr) > 0 ? 'text-amber-400' : 'text-zinc-500'}`}>{filteredAnalytics.paidVsOrganic.organic.cvr}%</p><p className="text-[8px] text-zinc-500 uppercase mt-1">CVR</p></div></div></div></div></div>)}
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+
+                  
                   <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-3 sm:p-4"><p className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-widest mb-1">Visitors</p><p className="text-xl sm:text-2xl font-black text-white">{filteredAnalytics?.totalVisitors}</p></div>
                   <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-3 sm:p-4"><p className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-widest mb-1">Sessions</p><p className="text-xl sm:text-2xl font-black text-white">{filteredAnalytics?.totalSessions}</p></div>
                   <div className="bg-emerald-950/30 border border-emerald-900/30 rounded-xl p-3 sm:p-4"><p className="text-[10px] sm:text-xs text-emerald-500 uppercase tracking-widest mb-1">Submits</p><p className="text-xl sm:text-2xl font-black text-emerald-400">{filteredAnalytics?.funnel?.step4_submit || 0}</p></div>
@@ -1088,7 +1188,9 @@ return {...analyticsData,funnel,daily:filteredDaily,weekly,weekday,monthly,utmPe
                     </tbody></table></div>
                   </div>
                 )}
-
+{/* ✅ Campaign Performance */}
+                {filteredAnalytics?.campaignPerformance?.length > 0 && (<div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-6"><div className="flex items-center gap-2 mb-4"><span className="text-base">🎯</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Campaign Performance</h3></div><div className="overflow-x-auto"><table className="w-full text-left"><thead><tr className="border-b border-zinc-800/80"><th className="px-3 py-2 text-[10px] text-zinc-500 uppercase font-semibold">Campaign</th><th className="px-3 py-2 text-[10px] text-zinc-500 uppercase font-semibold">Source</th><th className="px-3 py-2 text-[10px] text-zinc-500 uppercase font-semibold">Type</th><th className="px-3 py-2 text-[10px] text-zinc-500 uppercase font-semibold text-right">Views</th><th className="px-3 py-2 text-[10px] text-zinc-500 uppercase font-semibold text-right">Submits</th><th className="px-3 py-2 text-[10px] text-zinc-500 uppercase font-semibold text-right">CVR</th></tr></thead><tbody>{filteredAnalytics.campaignPerformance.map((c:any) => (<tr key={c.campaign} className="border-b border-zinc-800/40 hover:bg-zinc-800/20"><td className="px-3 py-2.5 text-sm text-white max-w-[200px] truncate" title={c.campaign}>{c.campaign}</td><td className="px-3 py-2.5 text-xs text-zinc-400">{c.source}</td><td className="px-3 py-2.5">{c.isPaid ? <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30 font-bold">PAID</span> : <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold">ORG</span>}</td><td className="px-3 py-2.5 text-sm text-zinc-400 text-right font-mono">{c.views}</td><td className="px-3 py-2.5 text-sm text-emerald-400 text-right font-mono font-bold">{c.submits}</td><td className="px-3 py-2.5 text-right"><span className={`text-sm font-bold font-mono ${Number(c.cvr) > 5 ? 'text-emerald-400' : Number(c.cvr) > 0 ? 'text-amber-400' : 'text-zinc-500'}`}>{c.cvr}%</span></td></tr>))}</tbody></table></div></div>)}
+                
                 {/* Hourly */}
                 {filteredAnalytics?.hourly?.some((h: any) => h.count > 0) && (
                   <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5">
