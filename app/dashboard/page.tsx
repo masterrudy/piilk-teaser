@@ -706,7 +706,7 @@ const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.
   const goal = 15000;
   const progress = data ? Math.min((data.total / goal) * 100, 100) : 0;
 
-  /* ─── MAIN ─── */
+{/* —— MAIN —— */}
   return (
     <main className="min-h-screen bg-gradient-to-br from-zinc-950 via-black to-zinc-900 text-white">
       {/* Header */}
