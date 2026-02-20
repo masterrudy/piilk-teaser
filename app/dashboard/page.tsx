@@ -468,7 +468,7 @@ const filteredAnalytics = useMemo(() => {
 
     const funnelEvents = ['page_view','step1_cta_click','step2_answer','step3_email_focus','step3_reason_select','step4_submit'];
     const sessionsByEvt: Record<string,Set<string>> = {}; funnelEvents.forEach(e => { sessionsByEvt[e] = new Set(); });
-    filteredRaw.forEach((ev:any) => { if (funnelEvents.includes(ev.n)) sessionsByEvt[ev.n].add(ev.s); });
+  filteredRaw.forEach((ev:any) => { if (funnelEvents.includes(ev.n) && ev.s) sessionsByEvt[ev.n].add(ev.s); });
     const funnel: Record<string,number> = {}; funnelEvents.forEach(e => { funnel[e] = sessionsByEvt[e].size; });
 
     const weeklyMap: Record<string,{views:number;submits:number}> = {};
