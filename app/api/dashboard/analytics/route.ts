@@ -3,12 +3,10 @@
 // 📌 역할: 대시보드 퍼널 분석 API (variant 필터 지원)
 // 📌 추가: UTM 소스별 방문자/이벤트 상세 + Today/Total 분리
 // 📌 페이지네이션: 1,000행씩 반복 fetch → 전체 데이터 수집
-// 📌 v3 수정:
-//   - Quiz Type: synthetic page_view 주입 (세션 첫 이벤트 기반)
-//   - null visitor_id/session_id → null 반환 (unknown 제거)
-//   - rawEvents에 v(visitor_id) 추가
-//   - email_focus 보정: submit 세션 → email_focus에도 포함
-//   - Quiz Type utm_source 지원 (meta 등)
+// 📌 v4 수정:
+//   - rawEvents에 um(utm_medium), uc(utm_campaign) 추가
+//   - Paid/Organic 필터 + Campaign Performance 지원
+//   - 기존 v3 기능 모두 유지
 // ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -419,7 +417,7 @@ export async function GET(request: NextRequest) {
       weekly, weekday, monthly,
       _totalFetched: events.length,
       _todayNYC: todayStr,
-      // ✅ v3: rawEvents에 v(visitor_id) 추가
+      // ✅ v4: rawEvents에 um(utm_medium), uc(utm_campaign) 추가
       rawEvents: allNormalizedEvents.map(ev => ({
         n: ev.event_name,
         d: toNYCDateStr(ev.created_at),
@@ -427,6 +425,8 @@ export async function GET(request: NextRequest) {
         s: getSid(ev) || '',
         v: getVid(ev) || '',
         u: ev.utm_source || '',
+        um: ev.utm_medium || '',     // ← Paid/Organic 필터용
+        uc: ev.utm_campaign || '',   // ← Campaign Performance용
         ed: ev.event_data || null,
       })),
     });
