@@ -42,10 +42,10 @@ function EmailForm({
           onClick={() => onSubmit(source)}
           disabled={isSubmitting || !email}
         >
-          {isSubmitting ? 'Submitting...' : 'Get early access'}
+          {isSubmitting ? 'Submitting...' : 'Get Early Access →'}
         </button>
       </div>
-      <p className="email-trust">Join early · First 1,000 members only · No purchase required</p>
+      <p className="email-trust">No purchase required · No spam · Unsubscribe anytime</p>
     </div>
   );
 }
@@ -79,18 +79,31 @@ function getOrCreateId(key: string, storage: 'session' | 'local'): string {
   return id;
 }
 
+/* ─── Spot Counter (simulated social proof) ─── */
+function useSpotCount() {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    // Base count: grows ~8/day from launch date (Jan 21)
+    const launchDate = new Date('2026-01-21').getTime();
+    const now = Date.now();
+    const daysSinceLaunch = Math.floor((now - launchDate) / (1000 * 60 * 60 * 24));
+    const base = Math.min(Math.floor(daysSinceLaunch * 8.3 + 47), 940);
+    setCount(base);
+  }, []);
+  return count;
+}
+
 /* ─── Main Page ─── */
 export default function TeaserPage() {
-  const [phase, setPhase] = useState(1);
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [showMore, setShowMore] = useState(false);
   const trackingData = useRef<Record<string, string>>({});
   const sessionId = useRef('');
   const visitorId = useRef('');
   const leadStartFired = useRef(false);
-  const scrollLocked = useRef(false);
-  const prevPhase = useRef(1);
+  const spotCount = useSpotCount();
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -105,53 +118,8 @@ export default function TeaserPage() {
     sessionId.current = getOrCreateId('piilk_session', 'session');
     visitorId.current = getOrCreateId('piilk_visitor', 'local');
     trackEvent('page_view');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  /* ─── Scroll/wheel/touch ─── */
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const go = (dir: 1 | -1) => {
-      if (scrollLocked.current) return;
-      const next = phase + dir;
-      if (next < 1 || next > 3) return;
-      scrollLocked.current = true;
-      prevPhase.current = phase;
-      setPhase(next);
-      setTimeout(() => { scrollLocked.current = false; }, 900);
-    };
-    const handleWheel = (e: WheelEvent) => {
-      const active = document.activeElement;
-      if (active && active.classList.contains('email-input')) return;
-      if (Math.abs(e.deltaY) < 30) return;
-      go(e.deltaY > 0 ? 1 : -1);
-    };
-    let touchY = 0;
-    let touchTarget: EventTarget | null = null;
-    const handleTouchStart = (e: TouchEvent) => {
-      touchY = e.touches[0].clientY;
-      touchTarget = e.target;
-    };
-    const handleTouchEnd = (e: TouchEvent) => {
-      const el = touchTarget as HTMLElement | null;
-      if (el && el.closest && el.closest('.email-module')) return;
-      const diff = touchY - e.changedTouches[0].clientY;
-      if (Math.abs(diff) < 80) return;
-      go(diff > 0 ? 1 : -1);
-    };
-    window.addEventListener('wheel', handleWheel, { passive: true });
-    window.addEventListener('touchstart', handleTouchStart, { passive: true });
-    window.addEventListener('touchend', handleTouchEnd, { passive: true });
-    return () => {
-      window.removeEventListener('wheel', handleWheel);
-      window.removeEventListener('touchstart', handleTouchStart);
-      window.removeEventListener('touchend', handleTouchEnd);
-    };
-  }, [phase]);
-
-  useEffect(() => {
-    if (phase === 2) trackEvent('phase_2_view');
-    if (phase === 3) trackEvent('phase_3_view');
-  }, [phase]);
 
   const trackEvent = useCallback((eventName: string, eventData?: Record<string, unknown>) => {
     const td = trackingData.current;
@@ -234,21 +202,10 @@ export default function TeaserPage() {
     }
   }, [email, isSubmitting, isSubmitted, trackEvent]);
 
-  const handleSlideClick = (e: React.MouseEvent) => {
-    const target = e.target as HTMLElement;
-    if (target.closest('.email-module')) return;
-    if (target.tagName.toLowerCase() === 'input' || target.tagName.toLowerCase() === 'button') return;
-    if (phase < 3) {
-      prevPhase.current = phase;
-      setPhase(phase + 1);
-    }
-  };
-
-  const getPhaseClass = (n: number) => {
-    if (n === phase) return 'center';
-    if (n < phase) return 'above';
-    return 'below';
-  };
+  // Track "learn more" scroll
+  useEffect(() => {
+    if (showMore) trackEvent('section_why_view');
+  }, [showMore, trackEvent]);
 
   return (
     <main className="piilk-page">
@@ -266,61 +223,64 @@ export default function TeaserPage() {
         <div className="hero-bg-overlay" />
       </div>
 
-      <div className="screen-wrap">
-        {/* Logo */}
-        <header className="logo-header">
-          <Image
-            src="/pillk-logo.png"
-            alt="Piilk"
-            width={80}
-            height={32}
-            className="logo-img"
-            onClick={() => { prevPhase.current = phase; setPhase(1); }}
-          />
-        </header>
+      <div className="page-scroll">
+        {/* ═══ HERO SECTION — Everything above the fold ═══ */}
+        <section className="hero-section">
+          {/* Logo */}
+          <header className="logo-header">
+            <Image
+              src="/pillk-logo.png"
+              alt="Piilk"
+              width={80}
+              height={32}
+              className="logo-img"
+            />
+          </header>
 
-        {/* ═══ Phase 1 ═══ */}
-        <div className={`slide slide--${getPhaseClass(1)}`} onClick={handleSlideClick} style={{ cursor: phase < 3 ? 'pointer' : 'default' }}>
-          <div className="slide-inner">
-            <h1 className="hero-h1">
-              Ever Had a Drink<br />That Felt Off<br />Right After?
-            </h1>
-          </div>
-          <div className="scroll-cue-bottom">
-            <span>Scroll</span>
-            <div className="arrow" />
-          </div>
-        </div>
+          <div className="hero-content">
+            {/* Launch Badge */}
+            <p className="launch-badge">Launching Mid-March in NYC</p>
 
-        {/* ═══ Phase 2 ═══ */}
-        <div className={`slide slide--${getPhaseClass(2)}`} onClick={handleSlideClick} style={{ cursor: phase < 3 ? 'pointer' : 'default' }}>
-          <div className="slide-inner">
-            <p className="launch-badge">Launching Mid-March</p>
+            {/* ✅ CHANGED: Value-prop headline replaces question */}
             <h1 className="hero-h1">
-              30g protein.<br />7 ingredients.<br />Nothing after.
+              30g Protein.<br />
+              Nothing After. Period.
             </h1>
+
             <p className="hero-desc">
-              Heavy after. Film that lingers. You know the moment.<br />
-              PIILK is built to end it.
+              No film. No aftertaste. No regret.<br />
+              The clean protein shake you&apos;ve been waiting for.
             </p>
-            <p className="hero-proof">Dairy-free · No artificial sweeteners · Clean label</p>
 
-            {/* ✅ $2.99 박스 — 이메일 제출 전에만 보임 */}
+            <p className="hero-proof">Dairy-free · 7 ingredients · No artificial sweeteners</p>
+
+            {/* ✅ CHANGED: $2.99 offer box — immediately visible */}
             {!isSubmitted && (
               <div className="offer-box">
-                <p className="offer-main"><strong>$2.99.</strong> Three bottles. Free shipping.</p>
-                <p className="offer-sub">Worth $13.47 — no excuse not to try.<br />Love it? Your $2.99 comes back on your first order of 6+.</p>
+                <div className="offer-price-row">
+                  <span className="offer-price">$2.99</span>
+                  <span className="offer-detail">3 bottles · Free shipping</span>
+                </div>
+                <p className="offer-sub">
+                  Worth $13.47 — Love it? $2.99 back on your first 6-pack.
+                </p>
               </div>
             )}
 
-            {/* ✅ 이메일 제출 후 오퍼 확인 메시지 */}
+            {/* ✅ Submitted confirmation */}
             {isSubmitted && (
               <div className="offer-box offer-confirmed">
-                <p className="offer-main"><strong>$2.99.</strong> Three bottles. Free shipping.</p>
-                <p className="offer-sub">Worth $13.47. We&apos;ll reach out before launch.<br />Love it? Your $2.99 comes back on your first order of 6+.</p>
+                <div className="offer-price-row">
+                  <span className="offer-price">$2.99</span>
+                  <span className="offer-detail">3 bottles · Free shipping</span>
+                </div>
+                <p className="offer-sub">
+                  You&apos;re locked in. We&apos;ll reach out before launch.
+                </p>
               </div>
             )}
 
+            {/* ✅ CHANGED: Email form immediately in hero */}
             <div className="email-wrap">
               <EmailForm
                 email={email}
@@ -332,51 +292,64 @@ export default function TeaserPage() {
                 onSubmit={handleSubmit}
               />
             </div>
-          </div>
-          <div className="scroll-cue-bottom">
-            <span>Scroll</span>
-            <div className="arrow" />
-          </div>
-        </div>
 
-        {/* ═══ Phase 3 ═══ */}
-        <div className={`slide slide--${getPhaseClass(3)}`}>
-          <div className="slide-inner">
-            <h2 className="why-title">Why we built PIILK</h2>
-            <div className="why-body">
-              <p>Most shakes obsess over macros.</p>
-              <p>We obsessed over what happens after you drink it.</p>
-            </div>
-            <p className="why-sub">Launching Mid-March. Your sample is on us.</p>
-            <div className="cta-wrap">
-              <EmailForm
-                email={email}
-                isSubmitted={isSubmitted}
-                isSubmitting={isSubmitting}
-                source="cta"
-                onEmailChange={setEmail}
-                onFocus={handleEmailFocus}
-                onSubmit={handleSubmit}
-              />
-            </div>
-            <div className="footer-area">
-              <p className="footer-brand">PIILK™ by ARMORED FRESH</p>
-              <p className="footer-sub">RTD High Protein Shake.</p>
-            </div>
+            {/* ✅ NEW: Live spot counter */}
+            {!isSubmitted && spotCount > 0 && (
+              <p className="spot-counter">
+                <span className="spot-dot" />
+                {spotCount.toLocaleString()} / 1,000 early access spots claimed
+              </p>
+            )}
           </div>
-        </div>
 
-        {/* Dots */}
-        <nav className="dots">
-          {[1, 2, 3].map((n) => (
+          {/* ✅ CHANGED: "Learn more" replaces mandatory scroll */}
+          {!isSubmitted && (
             <button
-              key={n}
-              className={`dot ${phase === n ? 'active' : ''}`}
-              onClick={() => { prevPhase.current = phase; setPhase(n); }}
-              aria-label={`Section ${n}`}
-            />
-          ))}
-        </nav>
+              className="learn-more-cue"
+              onClick={() => {
+                setShowMore(true);
+                setTimeout(() => {
+                  document.getElementById('why-section')?.scrollIntoView({ behavior: 'smooth' });
+                }, 50);
+              }}
+            >
+              <span>Learn more</span>
+              <div className="arrow" />
+            </button>
+          )}
+        </section>
+
+        {/* ═══ SECTION 2 — Optional "Why" (below fold) ═══ */}
+        {showMore && (
+          <section className="why-section" id="why-section">
+            <div className="why-inner">
+              <h2 className="why-title">Why we built PIILK</h2>
+              <div className="why-body">
+                <p>Most shakes obsess over macros.</p>
+                <p>We obsessed over what happens <em>after</em> you drink it.</p>
+              </div>
+              <p className="why-sub">Launching Mid-March. Your sample is on us.</p>
+
+              {/* Second CTA */}
+              <div className="cta-wrap">
+                <EmailForm
+                  email={email}
+                  isSubmitted={isSubmitted}
+                  isSubmitting={isSubmitting}
+                  source="cta"
+                  onEmailChange={setEmail}
+                  onFocus={handleEmailFocus}
+                  onSubmit={handleSubmit}
+                />
+              </div>
+
+              <div className="footer-area">
+                <p className="footer-brand">PIILK™ by ARMORED FRESH</p>
+                <p className="footer-sub">RTD High Protein Shake.</p>
+              </div>
+            </div>
+          </section>
+        )}
       </div>
 
       <style jsx global>{`
@@ -392,9 +365,12 @@ export default function TeaserPage() {
           --tap:          52px;
           --font:         'DM Sans', system-ui, sans-serif;
         }
-        html, body { margin:0; padding:0; overflow:hidden; height:100%; }
+        html, body { margin:0; padding:0; height:100%; }
+        
+        /* ── Page: normal scroll, no snap ── */
         .piilk-page {
-          position: fixed; inset: 0;
+          position: relative;
+          min-height: 100vh;
           background: #000;
           color: #fff;
           font-family: var(--font);
@@ -406,12 +382,42 @@ export default function TeaserPage() {
           position:absolute; inset:0;
           background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.3) 40%, rgba(0,0,0,0.65) 100%);
         }
-        .screen-wrap { position:relative; z-index:1; width:100%; height:100%; overflow:hidden; }
-        .logo-header {
-          position:absolute; top:20px; left:50%; transform:translateX(-50%); z-index:10;
+        .page-scroll {
+          position: relative;
+          z-index: 1;
         }
-        .logo-img { opacity:0.9; cursor:pointer; transition:opacity 0.3s; }
-        .logo-img:hover { opacity:0.6; }
+
+        /* ── Hero Section: full viewport ── */
+        .hero-section {
+          position: relative;
+          min-height: 100vh;
+          min-height: 100dvh;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 80px 24px 60px;
+          text-align: center;
+        }
+        .logo-header {
+          position: absolute;
+          top: 20px;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 10;
+        }
+        .logo-img { opacity: 0.9; }
+
+        /* ── Hero Content ── */
+        .hero-content {
+          max-width: 520px;
+          width: 100%;
+          animation: heroFadeIn 0.6s ease-out;
+        }
+        @keyframes heroFadeIn {
+          from { opacity: 0; transform: translateY(16px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
 
         /* ── Launch Badge ── */
         .launch-badge {
@@ -423,156 +429,276 @@ export default function TeaserPage() {
           color: var(--accent);
           border: 1px solid rgba(191,255,0,0.3);
           border-radius: 20px;
-          padding: 4px 12px;
-          margin-bottom: 16px;
+          padding: 4px 14px;
+          margin-bottom: 20px;
+        }
+
+        /* ── Headline ── */
+        .hero-h1 {
+          font-family: var(--font);
+          font-size: clamp(30px, 7vw, 52px);
+          font-weight: 700;
+          line-height: 1.12;
+          letter-spacing: -0.02em;
+          margin-bottom: 14px;
+        }
+        .hero-desc {
+          font-size: 15px;
+          line-height: 1.6;
+          color: var(--secondary);
+          margin-bottom: 6px;
+        }
+        .hero-proof {
+          font-size: 12px;
+          color: var(--muted);
+          letter-spacing: 0.04em;
         }
 
         /* ── Offer Box ── */
         .offer-box {
-          margin: 16px auto 0;
+          margin: 20px auto 0;
           max-width: 420px;
           background: rgba(191,255,0,0.06);
           border: 1px solid rgba(191,255,0,0.2);
           border-radius: 12px;
-          padding: 14px 18px;
+          padding: 16px 20px;
         }
-        /* 제출 후 오퍼 — 살짝 더 밝게 강조 */
         .offer-confirmed {
           background: rgba(191,255,0,0.1);
           animation: fadeIn 400ms ease forwards;
         }
-        .offer-main { font-size:15px; color:#fff; margin:0 0 6px; }
-        .offer-main strong { color: var(--accent); font-size: 18px; }
-        .offer-sub { font-size:12px; color:var(--muted); margin:0; line-height:1.6; }
+        .offer-price-row {
+          display: flex;
+          align-items: baseline;
+          justify-content: center;
+          gap: 10px;
+          margin-bottom: 6px;
+        }
+        .offer-price {
+          font-size: 28px;
+          font-weight: 800;
+          color: var(--accent);
+          letter-spacing: -0.02em;
+        }
+        .offer-detail {
+          font-size: 14px;
+          color: var(--secondary);
+          font-weight: 500;
+        }
+        .offer-sub {
+          font-size: 12px;
+          color: var(--muted);
+          margin: 0;
+          line-height: 1.5;
+        }
 
-        /* ── Why sub ── */
+        /* ── Spot Counter ── */
+        .spot-counter {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          margin-top: 14px;
+          font-size: 12px;
+          color: var(--accent);
+          opacity: 0.85;
+          animation: fadeIn 1s ease 0.3s both;
+        }
+        .spot-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: var(--accent);
+          animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50%      { opacity: 0.3; }
+        }
+
+        /* ── Email Form ── */
+        .email-wrap, .cta-wrap {
+          margin-top: 20px;
+          max-width: 460px;
+          margin-left: auto;
+          margin-right: auto;
+        }
+        .email-module { width: 100%; }
+        .email-form-row { display: flex; flex-direction: column; gap: 8px; }
+        .email-input {
+          width: 100%;
+          height: 48px;
+          padding: 0 16px;
+          background: var(--input-bg);
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          color: #fff;
+          font-family: var(--font);
+          font-size: 15px;
+          outline: none;
+          transition: border-color 0.2s;
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+        }
+        .email-input::placeholder { color: var(--muted); }
+        .email-input:focus { border-color: var(--accent); }
+        .email-input:disabled { opacity: 0.4; cursor: not-allowed; }
+        .email-btn {
+          width: 100%;
+          height: 48px;
+          background: var(--accent);
+          color: #000;
+          border: none;
+          border-radius: 10px;
+          font-family: var(--font);
+          font-size: 15px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+          box-shadow: 0 0 20px rgba(191,255,0,0.3);
+        }
+        .email-btn:hover {
+          background: var(--accent-hover);
+          box-shadow: 0 0 30px rgba(191,255,0,0.5);
+        }
+        .email-btn:active { transform: scale(0.98); }
+        .email-btn:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+        .email-trust {
+          margin-top: 10px;
+          font-size: 11px;
+          color: var(--muted);
+          text-align: center;
+        }
+        .email-success {
+          font-size: 15px;
+          color: var(--success);
+          font-weight: 600;
+          text-align: center;
+          animation: fadeIn 300ms ease forwards;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* ── Learn More Cue (optional, bottom of hero) ── */
+        .learn-more-cue {
+          position: absolute;
+          bottom: 24px;
+          left: 50%;
+          transform: translateX(-50%);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 6px;
+          background: none;
+          border: none;
+          cursor: pointer;
+          opacity: 0.35;
+          transition: opacity 0.3s;
+          padding: 8px;
+        }
+        .learn-more-cue:hover { opacity: 0.7; }
+        .learn-more-cue span {
+          font-size: 11px;
+          color: var(--muted);
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          font-family: var(--font);
+        }
+        .learn-more-cue .arrow {
+          width: 14px;
+          height: 14px;
+          border-right: 1.5px solid var(--muted);
+          border-bottom: 1.5px solid var(--muted);
+          transform: rotate(45deg);
+          animation: bounce 2s ease-in-out infinite;
+        }
+        @keyframes bounce {
+          0%, 100% { transform: rotate(45deg) translateY(0); }
+          50%      { transform: rotate(45deg) translateY(4px); }
+        }
+
+        /* ── Why Section (below fold, optional) ── */
+        .why-section {
+          position: relative;
+          min-height: 80vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+          padding: 80px 24px 60px;
+          animation: sectionFadeIn 0.5s ease-out;
+        }
+        @keyframes sectionFadeIn {
+          from { opacity: 0; transform: translateY(24px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .why-inner { max-width: 520px; width: 100%; }
+        .why-title {
+          font-family: var(--font);
+          font-size: clamp(26px, 6vw, 44px);
+          font-weight: 700;
+          line-height: 1.15;
+          letter-spacing: -0.01em;
+          margin-bottom: 16px;
+        }
+        .why-body {
+          font-size: 16px;
+          line-height: 1.6;
+          color: var(--secondary);
+        }
+        .why-body p + p { margin-top: 6px; }
+        .why-body em { font-style: italic; color: #fff; }
         .why-sub {
-          margin-top: 12px;
+          margin-top: 14px;
           font-size: 13px;
           color: var(--accent);
           font-weight: 500;
           letter-spacing: 0.03em;
         }
 
-        /* ── Slides ── */
-        .slide {
-          position: absolute; inset: 0;
-          display: flex; align-items: center; justify-content: center;
-          text-align: center;
-          padding: 80px 24px 40px;
-          transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1),
-                      opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1);
-          will-change: transform, opacity;
-        }
-        .slide--center { transform: translateY(0); opacity: 1; pointer-events: auto; }
-        .slide--above  { transform: translateY(-100vh); opacity: 0; pointer-events: none; }
-        .slide--below  { transform: translateY(100vh); opacity: 0; pointer-events: none; }
-        .slide-inner { max-width: 680px; width: 100%; }
-        .hero-h1 {
-          font-family: var(--font);
-          font-size: clamp(28px, 7vw, 52px);
-          font-weight: 700; line-height: 1.15; letter-spacing: -0.01em;
-        }
-        .hero-desc { margin-top:16px; font-size:15px; line-height:1.6; color:var(--secondary); }
-        .hero-proof { margin-top:8px; font-size:12px; color:var(--muted); letter-spacing:0.04em; }
-        .why-title {
-          font-family: var(--font);
-          font-size: clamp(26px, 6vw, 46px);
-          font-weight: 700; line-height: 1.15; letter-spacing: -0.01em; margin-bottom: 16px;
-        }
-        .why-body { font-size:15px; line-height:1.5; color:var(--secondary); }
-        .why-body p + p { margin-top:6px; }
-        .email-wrap, .cta-wrap {
-          margin-top: 20px; max-width: 460px; margin-left: auto; margin-right: auto;
-        }
-
-        /* ── Scroll cue ── */
-        .scroll-cue-bottom {
-          position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%);
-          display: flex; flex-direction: column; align-items: center; gap: 8px; opacity: 0.4;
-        }
-        .scroll-cue-bottom span { font-size:12px; color:var(--muted); letter-spacing:0.06em; text-transform:uppercase; }
-        .scroll-cue-bottom .arrow {
-          width:16px; height:16px;
-          border-right:1.5px solid var(--muted); border-bottom:1.5px solid var(--muted);
-          transform:rotate(45deg); animation:bounce 2s ease-in-out infinite;
-        }
-        @keyframes bounce {
-          0%,100% { transform:rotate(45deg) translateY(0); }
-          50%     { transform:rotate(45deg) translateY(5px); }
-        }
-
         /* ── Footer ── */
-        .footer-area { margin-top:40px; }
-        .footer-brand { font-size:9px; letter-spacing:0.25em; color:var(--muted); text-transform:uppercase; font-weight:500; }
-        .footer-sub { font-size:9px; letter-spacing:0.15em; color:var(--muted); margin-top:4px; font-weight:500; }
+        .footer-area { margin-top: 48px; }
+        .footer-brand {
+          font-size: 9px;
+          letter-spacing: 0.25em;
+          color: var(--muted);
+          text-transform: uppercase;
+          font-weight: 500;
+        }
+        .footer-sub {
+          font-size: 9px;
+          letter-spacing: 0.15em;
+          color: var(--muted);
+          margin-top: 4px;
+          font-weight: 500;
+        }
 
-        /* ── Email ── */
-        .email-module { width:100%; }
-        .email-form-row { display:flex; flex-direction:column; gap:8px; }
-        .email-input {
-          width:100%; height:44px; padding:0 14px;
-          background:var(--input-bg); border:1px solid var(--border); border-radius:10px;
-          color:#fff; font-family:var(--font); font-size:15px;
-          outline:none; transition:border-color 0.2s;
-          backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
-        }
-        .email-input::placeholder { color:var(--muted); }
-        .email-input:focus { border-color:var(--accent); }
-        .email-input:disabled { opacity:0.4; cursor:not-allowed; }
-        .email-btn {
-          width:100%; height:44px; background:var(--accent); color:#000; border:none;
-          border-radius:10px; font-family:var(--font); font-size:15px; font-weight:600;
-          cursor:pointer; transition:background 0.2s, transform 0.1s, box-shadow 0.2s;
-          box-shadow:0 0 16px rgba(191,255,0,0.25);
-        }
-        .email-btn:hover { background:var(--accent-hover); box-shadow:0 0 24px rgba(191,255,0,0.4); }
-        .email-btn:active { transform:scale(0.98); }
-        .email-btn:disabled { opacity:0.4; cursor:not-allowed; box-shadow:none; }
-        .email-trust { margin-top:8px; font-size:11px; color:var(--muted); text-align:center; }
-        .email-success { font-size:14px; color:var(--success); font-weight:500; text-align:center; animation:fadeIn 300ms ease forwards; }
-        @keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
-
-        /* ── Dots ── */
-        .dots {
-          position:absolute; right:20px; top:50%; transform:translateY(-50%);
-          display:flex; flex-direction:column; gap:12px; z-index:10;
-        }
-        .dot {
-          width:8px; height:8px; border-radius:50%;
-          border:1px solid rgba(255,255,255,0.3);
-          background:transparent; cursor:pointer; padding:0; transition:all 0.3s;
-        }
-        .dot.active { background:var(--accent); border-color:var(--accent); transform:scale(1.3); }
-        .dot:hover { border-color:rgba(255,255,255,0.6); }
-
-        @media (min-width:768px) {
-          .email-form-row { flex-direction:row; }
-          .email-form-row .email-input { flex:1; min-width:0; }
-          .email-form-row .email-btn { width:auto; min-width:160px; flex-shrink:0; }
+        /* ── Desktop ── */
+        @media (min-width: 768px) {
+          .email-form-row { flex-direction: row; }
+          .email-form-row .email-input { flex: 1; min-width: 0; }
+          .email-form-row .email-btn { width: auto; min-width: 180px; flex-shrink: 0; }
         }
 
         /* ── Mobile ── */
-        @media (max-width:767px) {
-          .slide { padding: 60px 20px 30px; }
-          .hero-h1 { font-size: clamp(24px, 8vw, 36px); }
-          .hero-desc { font-size: 13px; margin-top: 10px; }
-          .hero-proof { font-size: 11px; margin-top: 6px; }
-          .why-title { font-size: clamp(22px, 7vw, 32px); }
-          .why-body { font-size: 14px; }
-          .offer-box { margin-top: 12px; padding: 11px 14px; }
-          .offer-main { font-size: 13px; }
-          .offer-main strong { font-size: 15px; }
+        @media (max-width: 767px) {
+          .hero-section { padding: 60px 20px 50px; }
+          .hero-h1 { font-size: clamp(26px, 8vw, 38px); }
+          .hero-desc { font-size: 14px; }
+          .hero-proof { font-size: 11px; }
+          .offer-box { margin-top: 16px; padding: 12px 16px; }
+          .offer-price { font-size: 24px; }
+          .offer-detail { font-size: 13px; }
           .offer-sub { font-size: 11px; }
-          .email-wrap, .cta-wrap { margin-top: 14px; max-width: 320px; padding: 0 8px; }
-          .email-input { height: 42px; font-size: 14px; border-radius: 8px; }
-          .email-btn { height: 42px; font-size: 14px; border-radius: 8px; }
-          .scroll-cue-bottom { bottom: 20px; }
+          .email-wrap, .cta-wrap { margin-top: 16px; max-width: 340px; padding: 0; }
+          .email-input { height: 44px; font-size: 14px; border-radius: 8px; }
+          .email-btn { height: 44px; font-size: 14px; border-radius: 8px; }
           .logo-header { top: 14px; }
           .logo-img { width: 60px !important; height: auto !important; }
-          .dots { right: 12px; }
-          .dot { width: 6px; height: 6px; }
           .launch-badge { font-size: 10px; padding: 3px 10px; }
+          .spot-counter { font-size: 11px; }
+          .why-section { padding: 60px 20px 50px; min-height: 60vh; }
+          .why-title { font-size: clamp(22px, 7vw, 32px); }
+          .why-body { font-size: 14px; }
         }
       `}</style>
     </main>
