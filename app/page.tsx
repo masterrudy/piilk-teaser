@@ -226,7 +226,7 @@ export default function TeaserPage() {
 
           <div className="hero-content">
             {/* Launch Badge */}
-            <p className="launch-badge">Launching Mid-March in NYC</p>
+            <p className="launch-badge">Launching Mid-March</p>
 
             {/* ✅ CHANGED: Value-prop headline replaces question */}
             <h1 className="hero-h1">
