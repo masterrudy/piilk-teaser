@@ -2,7 +2,8 @@
 // 📁 lib/ga4.ts
 // GA4 + Supabase + Meta Pixel + TikTok Pixel 이벤트 트래킹
 // variant: "type" (모든 이벤트에 자동 포함)
-// ✅ v2: pageView 이벤트 추가
+// ✅ v3: quizStep에 fbq 추가 — 모든 pixel 호출을 ga4.ts에서 일괄 관리
+//        page.tsx에서 fbq 직접 호출 완전 제거됨
 // ═══════════════════════════════════════════
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -167,7 +168,7 @@ function send(event: string, params: Params = {}) {
 // Public track API
 // ═══════════════════════════════════════════
 export const track = {
-  // ✅ v2: 페이지 로드 시 자동 호출 — 모든 방문자 카운트
+  // 페이지 로드 시 자동 호출 — 모든 방문자 카운트
   pageView: () => {
     send("page_view");
   },
@@ -180,8 +181,11 @@ export const track = {
 
   // 퀴즈 단계별 답변 추적
   // GA4 DebugView: quiz_step_1, quiz_step_2, quiz_step_3
-  quizStep: (step: number, answer: string) =>
-    send(`quiz_step_${step}`, { step, answer }),
+  // ✅ v3: fbq 추가 — page.tsx에서 직접 호출하던 것을 여기로 통합
+  quizStep: (step: number, answer: string) => {
+    send(`quiz_step_${step}`, { step, answer });
+    fbq("trackCustom", "QuizStep", { step, answer });
+  },
 
   // 퀴즈 완료 (타입 결정)
   quizComplete: (type: string) => {
@@ -210,7 +214,7 @@ export const track = {
   emailSubmit: (type: string) => {
     send("email_submit", { afterfeel_type: type });
 
-    // ✅ Meta Pixel — Lead (이메일 수집) + CompleteRegistration (가입 완료)
+    // Meta Pixel — Lead (이메일 수집) + CompleteRegistration (가입 완료)
     fbq("track", "Lead", {
       content_name: "piilk_quiz_type",
       content_category: "quiz_signup",
@@ -221,7 +225,7 @@ export const track = {
       currency: "USD",
     });
 
-    // ✅ TikTok Pixel
+    // TikTok Pixel
     ttqTrack("SubmitForm", { content_name: "piilk_quiz_type" });
     ttqTrack("CompleteRegistration", {
       content_name: "piilk_quiz_type",
