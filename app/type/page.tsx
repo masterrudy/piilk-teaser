@@ -1,18 +1,12 @@
 // ═══════════════════════════════════════════════════════════
 // 📁 파일 위치: app/type/page.tsx
-// 📌 역할: /type 메인 페이지 (V10 Fixed)
+// 📌 역할: /type 메인 페이지 (V11)
 // 📌 플로우: Hero → Quiz 3문항 → Result (Share #1 → Email #2 → Referral → Declaration)
 // 📌 모든 API 호출은 /api/type-* 경로 사용 (A안 완전 분리)
 //
-// ✅ 수정사항 (V9 → V10):
-//   1. useEffect dependency [] 로 변경 (불필요한 declarations re-fetch 방지)
-//   2. Progress bar 퀴즈 단계별 업데이트 (10% → 30% → 60% → 90% → 100%)
-//   3. Clipboard HTTPS fallback 추가 (HTTP 환경에서도 복사 작동)
-//   4. 이메일 에러 메시지 분리 ("입력하세요" vs "형식이 틀렸어요")
-//   5. safeUUID() — crypto.randomUUID 미지원 환경 fallback
-//   6. GA4 quiz_start 재시작 시에도 track (hasStarted ref 제거)
-//   7. answers[qi] → answers[answers.length-1] 참조 안전성 개선
-//   8. Meta Pixel fbq() 연동 — QuizStart / QuizStep / QuizComplete / Lead / CompleteRegistration
+// ✅ 수정사항 (V10 → V11):
+//   1. 페이지 로드 시 track.pageView() 호출 — 모든 방문자 카운트
+//      (기존에는 quiz_start 버튼 클릭한 사람만 카운트됨)
 // ═══════════════════════════════════════════════════════════
 
 "use client";
@@ -590,8 +584,10 @@ export default function TeaserType() {
   const [resultType, setResultType] = useState<AfterfeelType>("brick");
   const [progress, setProgress] = useState(0);
 
-  // ✅ FIX 6: hasStarted ref 제거 — 재시작 시에도 quizStart track 허용
-  // (의도적으로 재시작할 때도 측정이 필요함)
+  // ✅ V11: 페이지 로드 시 page_view 이벤트 자동 전송
+  useEffect(() => {
+    track.pageView();
+  }, []);
 
   const handleProgressUpdate = useCallback((p: number) => {
     setProgress(p);
