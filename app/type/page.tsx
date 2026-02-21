@@ -520,7 +520,7 @@ function Result({ type }: { type: AfterfeelType }) {
               <div className="offer-reveal anim-up">
                 <div className="offer-reveal-label">🎁 Member offer — unlocked for you</div>
                 <div className="offer-reveal-price">$2.99</div>
-                <div className="offer-reveal-desc">3 bottles · Free shipping · Usually $13.47</div>
+                <div className="offer-reveal-desc">3 packs · Free shipping · Usually $13.47</div>
                 <div className="offer-reveal-fine">
                   Love it? We&apos;ll credit your $2.99 on your first order of 6+.
                 </div>
