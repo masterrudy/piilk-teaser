@@ -1,12 +1,26 @@
 // ═══════════════════════════════════════════════════════════
 // 📁 파일 위치: app/type/page.tsx
-// 📌 역할: /type 메인 페이지 (V11)
+// 📌 역할: /type 메인 페이지 (V12 — Final)
 // 📌 플로우: Hero → Quiz 3문항 → Result (Share #1 → Email #2 → Referral → Declaration)
 // 📌 모든 API 호출은 /api/type-* 경로 사용 (A안 완전 분리)
 //
-// ✅ 수정사항 (V10 → V11):
-//   1. 페이지 로드 시 track.pageView() 호출 — 모든 방문자 카운트
-//      (기존에는 quiz_start 버튼 클릭한 사람만 카운트됨)
+// ✅ V11 → V12 변경사항:
+//   1. 히어로 카피 전면 교체
+//      - "It's not the protein" → "You've been ignoring it."
+//      - 4타입 이모지 미리보기 추가
+//      - CTA: "Find my type — 30 sec" → "What's yours? →"
+//   2. Result 브릿지 라인 추가: "What if nothing stayed?"
+//   3. Share 라벨 개인화: 타입명 포함
+//   4. Email 카피 개선: "Your type is real. The fix is coming."
+//   5. Declaration 헤더 톤 변경: "Sound familiar? / Tap the ones that hit."
+//   6. Referral에 SMS 버튼 추가
+//   7. doShare("ig") → doShare("save") 채널명 수정
+//
+// 🐛 V12 버그 수정:
+//   8. fbq 중복 호출 4건 제거 — ga4.ts에서 일괄 관리
+//      삭제: QuizStart, QuizComplete, TypeResult, EmailFocus
+//      유지: QuizStep (ga4.ts에 없으므로 page.tsx에서 유일하게 호출)
+//   9. Referral refShare()에 sms 분기 추가
 // ═══════════════════════════════════════════════════════════
 
 "use client";
@@ -28,7 +42,6 @@ import { track } from "@/lib/ga4";
 // Utils
 // ─────────────────────────────────────────────────────────────
 
-// ✅ FIX 5: crypto.randomUUID 미지원 브라우저 fallback
 function safeUUID(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return (crypto as Crypto).randomUUID();
@@ -65,14 +78,12 @@ function getTrackingData() {
   };
 }
 
-// ✅ FIX 3: Clipboard HTTPS fallback
 async function safeCopy(text: string): Promise<boolean> {
   try {
     if (navigator.clipboard && window.isSecureContext) {
       await navigator.clipboard.writeText(text);
       return true;
     }
-    // HTTP 또는 구형 브라우저 fallback
     const el = document.createElement("textarea");
     el.value = text;
     el.style.position = "fixed";
@@ -89,7 +100,7 @@ async function safeCopy(text: string): Promise<boolean> {
   }
 }
 
-// ✅ Meta Pixel safe helper — fbq 미로드 시 조용히 무시
+// ✅ page.tsx 전용 fbq — QuizStep 전용 (ga4.ts에 QuizStep fbq가 없으므로)
 function fbq(event: string, name: string, params?: Record<string, unknown>) {
   if (typeof window === "undefined") return;
   const w = window as unknown as { fbq?: (...args: unknown[]) => void };
@@ -99,35 +110,44 @@ function fbq(event: string, name: string, params?: Record<string, unknown>) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Progress 단계 계산
-// Hero=0, Quiz q1=25, q2=50, q3=75, Result=100
+// Progress
 // ─────────────────────────────────────────────────────────────
 function calcQuizProgress(qi: number, total: number): number {
-  // 퀴즈 진행 중: 25% ~ 75% 구간에 균등 배치
   return Math.round(25 + (qi / total) * 50);
 }
 
 // ═══════════════════════════════════════════
-// HERO
+// HERO — V12
 // ═══════════════════════════════════════════
 function Hero({ onStart }: { onStart: () => void }) {
   return (
     <section className="phase hero-phase">
       <div className="hero-inner">
         <h1 className="h1 anim-up">
-          It&apos;s not the protein.
-          <br />
-          It&apos;s the <em>after.</em>
+          You&apos;ve been ignoring it.
         </h1>
 
         <p className="body anim-up d1">
-          That heavy feeling after. The film that lingers.
+          That chalk taste. That heavy gut.
           <br />
-          You&apos;ve felt it. You just never had a name for it.
+          That film you can&apos;t explain.
+          <br />
+          After every protein shake — something stays.
         </p>
 
-        <button className="btn-primary anim-up d2" onClick={onStart}>
-          Find my type — 30 sec
+        <div className="hero-types anim-up d2">
+          <span className="hero-type-icon">🪨</span>
+          <span className="hero-type-icon">😶‍🌫️</span>
+          <span className="hero-type-icon">😴</span>
+          <span className="hero-type-icon">💨</span>
+        </div>
+
+        <p className="body-sm anim-up d2">
+          4 types. Everyone has one.
+        </p>
+
+        <button className="btn-primary anim-up d3" onClick={onStart}>
+          What&apos;s yours? →
         </button>
       </div>
     </section>
@@ -151,7 +171,6 @@ function Quiz({
   const q = QUIZ_QUESTIONS[qi];
   const total = QUIZ_QUESTIONS.length;
 
-  // ✅ FIX 2: 퀴즈 단계별 progress 업데이트
   useEffect(() => {
     onProgressUpdate(calcQuizProgress(qi, total));
   }, [qi, total, onProgressUpdate]);
@@ -161,7 +180,7 @@ function Quiz({
     setPicked(true);
 
     track.quizStep(qi + 1, group);
-    // ✅ Meta Pixel: 퀴즈 단계별 이벤트
+    // ✅ QuizStep fbq는 여기서만 호출 (ga4.ts quizStep에 fbq 없음)
     fbq("trackCustom", "QuizStep", { step: qi + 1, answer: group });
 
     const next = [...answers, group];
@@ -178,13 +197,11 @@ function Quiz({
 
       const result = calcAfterfeelType(next);
       track.quizComplete(result);
-      // ✅ Meta Pixel: 퀴즈 완료
-      fbq("trackCustom", "QuizComplete", { afterfeel_type: result });
+      // 🐛 FIX: fbq QuizComplete 제거 — ga4.ts quizComplete() 내부에서 호출됨
       onComplete(result);
     }, 300);
   };
 
-  // ✅ FIX 7: answers[qi] → pickedAnswer로 안전하게 참조
   const pickedAnswer = answers[answers.length - 1];
 
   return (
@@ -226,7 +243,7 @@ function Quiz({
 }
 
 // ═══════════════════════════════════════════
-// RESULT
+// RESULT — V12
 // ═══════════════════════════════════════════
 function Result({ type }: { type: AfterfeelType }) {
   const t = AFTERFEEL_TYPES[type];
@@ -247,12 +264,10 @@ function Result({ type }: { type: AfterfeelType }) {
   const referredBy = useRef<string | null>(null);
   const emailFocusTracked = useRef(false);
 
-  // ✅ FIX 1: dependency [] — type은 바뀌지 않으므로 한 번만 fetch
   useEffect(() => {
     referredBy.current = getReferralFromURL();
     track.typeResult(type);
-    // ✅ Meta Pixel: 결과 페이지 진입
-    fbq("trackCustom", "TypeResult", { afterfeel_type: type });
+    // 🐛 FIX: fbq TypeResult 제거 — ga4.ts typeResult() 내부에서 호출됨
 
     fetch("/api/type-declarations")
       .then((r) => r.json())
@@ -288,7 +303,7 @@ function Result({ type }: { type: AfterfeelType }) {
         return;
       }
 
-      // ig / link: safeCopy fallback 적용
+      // save / link: clipboard copy
       const ok = await safeCopy(fullUrl);
       if (ok) {
         setCopied(true);
@@ -303,7 +318,6 @@ function Result({ type }: { type: AfterfeelType }) {
     const raw = emailRef.current?.value ?? "";
     const email = raw.trim();
 
-    // ✅ FIX 4: 에러 메시지 구분
     if (!email) {
       setEmailError("Please enter your email.");
       return;
@@ -335,7 +349,7 @@ function Result({ type }: { type: AfterfeelType }) {
         setQueuePosition(data.queue_position);
         setEmailSent(true);
         track.emailSubmit(type);
-        // ga4.ts의 emailSubmit 내부에서 fbq Lead + CompleteRegistration 이미 호출됨
+        // fbq Lead + CompleteRegistration + ttq 모두 ga4.ts emailSubmit() 내부에서 처리
         return;
       }
 
@@ -373,11 +387,11 @@ function Result({ type }: { type: AfterfeelType }) {
         setDeclCounts((prev) => ({ ...prev, [key]: data.vote_count }));
       }
     } catch {
-      // optimistic UI 그대로 유지
+      // optimistic UI
     }
   };
 
-  // ─── Referral Share (이메일 후) ───
+  // ─── Referral Share ───
   const refShare = async (channel: string) => {
     track.referralShare(channel);
     const refUrl = `${SHARE_URL}?ref=${referralCode}`;
@@ -391,7 +405,12 @@ function Result({ type }: { type: AfterfeelType }) {
       return;
     }
 
-    // ✅ FIX 3 적용: safeCopy
+    if (channel === "sms") {
+      window.open(`sms:?&body=${encodeURIComponent(txt + " " + refUrl)}`);
+      return;
+    }
+
+    // copy
     const ok = await safeCopy(refUrl);
     if (ok) {
       setRefCopied(true);
@@ -413,12 +432,21 @@ function Result({ type }: { type: AfterfeelType }) {
           </div>
         </div>
 
+        {/* V12: 브릿지 라인 — 불편함 → 해결책 연결 */}
+        <div className="bridge-line">
+          What if nothing stayed?
+        </div>
+
         {/* SHARE = #1 CTA */}
         <div className="share-zone">
-          <div className="share-label">Tell them what you are</div>
+          {/* V12: 타입명 포함 개인화 */}
+          <div className="share-label">
+            &ldquo;I&apos;m a {t.name}.&rdquo; — share your result
+          </div>
 
           <div className="share-grid">
-            <button className="share-btn" onClick={() => doShare("ig")}>
+            {/* 🐛 FIX: "ig" → "save" — 실제 동작은 clipboard copy */}
+            <button className="share-btn" onClick={() => doShare("save")}>
               📋 Save link
             </button>
             <button className="share-btn" onClick={() => doShare("sms")}>
@@ -449,10 +477,13 @@ function Result({ type }: { type: AfterfeelType }) {
         <div className="email-section">
           {!emailSent ? (
             <div>
-              {/* 오퍼 없음 — 이메일은 무료 얼리액세스로만 제시 */}
               <div className="email-hook">
-                <div className="email-hook-head">Be first to try it.</div>
-                <div className="email-hook-sub">Early access · First 1,000 members only</div>
+                <div className="email-hook-head">Your type is real. The fix is coming.</div>
+                <div className="email-hook-sub">
+                  The protein shake with nothing after.
+                  <br />
+                  Something unlocks when you join.
+                </div>
               </div>
 
               <div className="email-row">
@@ -468,25 +499,24 @@ function Result({ type }: { type: AfterfeelType }) {
                     if (!emailFocusTracked.current) {
                       emailFocusTracked.current = true;
                       track.emailFocus(type);
-                      fbq("trackCustom", "EmailFocus", { afterfeel_type: type });
+                      // 🐛 FIX: fbq EmailFocus 제거 — ga4.ts emailFocus() 내부에서 호출됨
                     }
                   }}
                 />
                 <button className="email-btn" onClick={submitEmail} disabled={emailLoading}>
-                  {emailLoading ? "..." : "Get early access →"}
+                  {emailLoading ? "..." : "Join — it's free →"}
                 </button>
               </div>
 
               {emailError && <div className="email-error">{emailError}</div>}
 
-              <div className="email-note">Launching Mid-March · No spam, ever.</div>
+              <div className="email-note">No spam, ever.</div>
             </div>
           ) : (
             <div className="email-ok anim-up">
               <div className="email-ok-icon">✓</div>
               <div className="email-ok-head">You&apos;re on the list.</div>
 
-              {/* 오퍼는 이메일 제출 후 보상으로 공개 */}
               <div className="offer-reveal anim-up">
                 <div className="offer-reveal-label">🎁 Member offer — unlocked for you</div>
                 <div className="offer-reveal-price">$2.99</div>
@@ -499,7 +529,7 @@ function Result({ type }: { type: AfterfeelType }) {
           )}
         </div>
 
-        {/* REFERRAL (이메일 후) */}
+        {/* REFERRAL — V12: SMS 버튼 추가 */}
         {emailSent && (
           <div className="referral anim-up">
             <div className="ref-rank">#{queuePosition.toLocaleString()}</div>
@@ -525,6 +555,9 @@ function Result({ type }: { type: AfterfeelType }) {
               <button className="ref-btn primary" onClick={() => refShare("x")}>
                 Share on 𝕏
               </button>
+              <button className="ref-btn primary" onClick={() => refShare("sms")}>
+                💬 Text a friend
+              </button>
               <button className="ref-btn ghost" onClick={() => refShare("copy")}>
                 {refCopied ? "Copied!" : "Copy your link"}
               </button>
@@ -532,7 +565,7 @@ function Result({ type }: { type: AfterfeelType }) {
           </div>
         )}
 
-        {/* PROOF (이메일 후) */}
+        {/* PROOF */}
         {emailSent && (
           <div className="proof-mini anim-up">
             <span className="ptag">30g protein</span>
@@ -548,9 +581,9 @@ function Result({ type }: { type: AfterfeelType }) {
         <div className="declarations">
           <div className="decl-header">
             <div className="label" style={{ marginBottom: 8 }}>
-              Do you agree?
+              Sound familiar?
             </div>
-            <div className="h3">Tap the ones that feel true.</div>
+            <div className="h3">Tap the ones that hit.</div>
           </div>
 
           <div className="decl-list">
@@ -584,7 +617,6 @@ export default function TeaserType() {
   const [resultType, setResultType] = useState<AfterfeelType>("brick");
   const [progress, setProgress] = useState(0);
 
-  // ✅ V11: 페이지 로드 시 page_view 이벤트 자동 전송
   useEffect(() => {
     track.pageView();
   }, []);
@@ -595,8 +627,7 @@ export default function TeaserType() {
 
   const startQuiz = () => {
     track.quizStart();
-    // ✅ Meta Pixel: 퀴즈 시작
-    fbq("trackCustom", "QuizStart");
+    // 🐛 FIX: fbq QuizStart 제거 — ga4.ts quizStart() 내부에서 호출됨
     setPhase("quiz");
   };
 
