@@ -312,3 +312,25 @@ body { font-family: var(--sans); background: var(--bg); color: var(--t1); overfl
   .ref-btns { flex-direction: column; }
   .offer-reveal-price { font-size: 44px; }
 }
+/* ═══ V12 추가 ═══ */
+.hero-types {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.hero-type-icon {
+  font-size: 36px;
+}
+.body-sm {
+  font-size: 14px;
+  color: var(--t2);
+  margin-bottom: 8px;
+}
+.bridge-line {
+  font-size: 15px;
+  color: var(--t2);
+  text-align: center;
+  padding: 16px 0 8px;
+  letter-spacing: -0.01em;
+}
