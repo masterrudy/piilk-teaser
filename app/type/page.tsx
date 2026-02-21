@@ -123,7 +123,7 @@ function Hero({ onStart }: { onStart: () => void }) {
           <br />
           That film you can&apos;t explain.
           <br />
-          After every protein shake — something stays.
+          After every protein shake — and you know it.
         </p>
 
         <div className="hero-types anim-up d2">
