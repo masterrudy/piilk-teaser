@@ -2,6 +2,7 @@
 // 📁 lib/ga4.ts
 // GA4 + Supabase + Meta Pixel + TikTok Pixel 이벤트 트래킹
 // variant: "type" (모든 이벤트에 자동 포함)
+// ✅ v2: pageView 이벤트 추가
 // ═══════════════════════════════════════════
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -166,6 +167,11 @@ function send(event: string, params: Params = {}) {
 // Public track API
 // ═══════════════════════════════════════════
 export const track = {
+  // ✅ v2: 페이지 로드 시 자동 호출 — 모든 방문자 카운트
+  pageView: () => {
+    send("page_view");
+  },
+
   // 퀴즈 시작
   quizStart: () => {
     send("quiz_start");
