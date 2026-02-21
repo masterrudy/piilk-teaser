@@ -494,7 +494,7 @@ function Result({ type }: { type: AfterfeelType }) {
                   }}
                 />
                 <button className="email-btn" onClick={submitEmail} disabled={emailLoading}>
-                  {emailLoading ? "..." : "Join — it's free →"}
+                  {emailLoading ? "..." : "Join the list →"}
                 </button>
               </div>
 
