@@ -1,11 +1,15 @@
 // ═══════════════════════════════════════════════════════════
 // 📁 파일 위치: app/api/dashboard/analytics/route.ts
 // 📌 역할: 대시보드 퍼널 분석 API (variant 필터 지원)
-// 📌 v7 수정:
-//   - v6의 모든 수정 포함
-//   - Quiz Type: page_view가 없는 세션에만 synthetic page_view 주입
-//     (기존: hasRealPageView 체크로 전체 스킵 → 일부 세션 누락)
-//     (수정: 세션별로 page_view 유무 확인 후 없는 세션에만 주입)
+// 📌 v8 수정:
+//   - v7의 모든 수정 포함
+//   - ✅ FIX: Quiz Type에서 quiz_start → page_view로 매핑 변경
+//     (quiz_start가 사실상 page landing 이벤트이므로)
+//   - ✅ FIX: buildVisitorStats에서 Quiz Type은 세션의 첫 이벤트로
+//     visitor/session 카운트 (page_view 의존 제거)
+//   - ✅ FIX: buildUtmSourceStats도 동일하게 수정
+//   - ✅ FIX: synthetic page_view 로직 제거 (quiz_start가 page_view로
+//     직접 매핑되므로 더 이상 불필요)
 // ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -86,10 +90,10 @@ function getTodayNYC(): string {
   return nycDateFmt.format(new Date());
 }
 
-/* ─── Quiz Type → 정규화 이벤트명 매핑 ─── */
+/* ─── ✅ v8: Quiz Type → 정규화 이벤트명 매핑 (quiz_start → page_view) ─── */
 const TYPE_EVENT_MAP: Record<string, string> = {
   page_view: 'page_view',
-  quiz_start: 'step1_cta_click',
+  quiz_start: 'page_view',        // ✅ v8: quiz_start = 실질적 page landing
   quiz_step_1: 'step1_cta_click',
   quiz_step_2: 'step2_answer',
   quiz_step_3: 'step2_answer',
@@ -103,7 +107,7 @@ const TYPE_EVENT_MAP: Record<string, string> = {
   referral_share: 'referral_share',
 };
 
-/* ─── ✅ v6: Main Teaser → 정규화 이벤트명 매핑 (신구 모두 지원) ─── */
+/* ─── Main Teaser → 정규화 이벤트명 매핑 (신구 모두 지원) ─── */
 const MAIN_EVENT_MAP: Record<string, string> = {
   // 새 page.tsx (v2) 이벤트
   page_view: 'page_view',
@@ -123,7 +127,7 @@ function normalizeEventName(eventName: string, isTypeVariant: boolean): string {
   return MAIN_EVENT_MAP[eventName] || eventName;
 }
 
-/* ─── ✅ v6: 페이지네이션 헬퍼 — variant='a' 지원 ─── */
+/* ─── 페이지네이션 헬퍼 — variant='a' 지원 ─── */
 async function fetchAllEvents(variant?: string) {
   const allEvents: any[] = [];
   let from = 0;
@@ -136,8 +140,6 @@ async function fetchAllEvents(variant?: string) {
     if (variant === 'type') {
       query = query.eq('variant', 'type');
     } else if (variant === 'main') {
-      // ✅ v6: DB에 variant='a'로 저장된 Main Teaser 이벤트 포함
-      // 'type'이 아닌 모든 것: NULL, 빈문자열, 'a', 'main' 등
       query = query.or('variant.is.null,variant.neq.type');
     }
 
@@ -154,7 +156,7 @@ async function fetchAllEvents(variant?: string) {
   return allEvents;
 }
 
-/* ─── ✅ v6: 안전한 ID 추출 — 빈 문자열 방어 ─── */
+/* ─── 안전한 ID 추출 — 빈 문자열 방어 ─── */
 function getSid(ev: any): string | null {
   const sid = ev.session_id || ev.visitor_id || null;
   return (sid && typeof sid === 'string' && sid.trim()) ? sid.trim() : null;
@@ -165,15 +167,18 @@ function getVid(ev: any): string | null {
   return (vid && typeof vid === 'string' && vid.trim()) ? vid.trim() : null;
 }
 
-/* ─── ✅ v6: UTM 소스별 상세 통계 ─── */
-function buildUtmSourceStats(events: any[], normalizedEvents: any[], todayStr: string) {
+/* ─── ✅ v8: UTM 소스별 상세 통계 — visitor/session을 page_view OR 세션 첫 이벤트로 카운트 ─── */
+function buildUtmSourceStats(normalizedEvents: any[], todayStr: string) {
   const utmTotal: Record<string, { visitors: Set<string>; sessions: Set<string>; events: number; page_views: number; submits: Set<string> }> = {};
   const utmToday: Record<string, { visitors: Set<string>; sessions: Set<string>; events: number; page_views: number; submits: Set<string> }> = {};
 
+  // ✅ v8: 세션별 첫 이벤트의 UTM을 기준으로 visitor/session 카운트
+  const sessionCounted = new Set<string>();
+
   const initUtm = () => ({ visitors: new Set<string>(), sessions: new Set<string>(), events: 0, page_views: 0, submits: new Set<string>() });
 
-  normalizedEvents.forEach((ev, idx) => {
-    const source = events[idx]?.utm_source || ev.utm_source || 'Direct';
+  normalizedEvents.forEach(ev => {
+    const source = ev.utm_source || 'Direct';
     const vid = getVid(ev);
     const sid = getSid(ev);
     const day = toNYCDateStr(ev.created_at);
@@ -181,11 +186,18 @@ function buildUtmSourceStats(events: any[], normalizedEvents: any[], todayStr: s
     // ─── Total ───
     if (!utmTotal[source]) utmTotal[source] = initUtm();
     utmTotal[source].events++;
-    if (ev.event_name === 'page_view') {
+
+    // ✅ v8: page_view이거나, 아직 카운트되지 않은 세션의 첫 이벤트
+    const isEntryEvent = ev.event_name === 'page_view' || (sid && !sessionCounted.has(sid));
+    if (isEntryEvent) {
+      if (sid) {
+        sessionCounted.add(sid);
+        utmTotal[source].sessions.add(sid);
+      }
       if (vid) utmTotal[source].visitors.add(vid);
-      if (sid) utmTotal[source].sessions.add(sid);
       utmTotal[source].page_views++;
     }
+
     if (ev.event_name === 'step4_submit' && sid) utmTotal[source].submits.add(sid);
 
     // ─── Today ───
@@ -198,6 +210,27 @@ function buildUtmSourceStats(events: any[], normalizedEvents: any[], todayStr: s
         utmToday[source].page_views++;
       }
       if (ev.event_name === 'step4_submit' && sid) utmToday[source].submits.add(sid);
+    }
+  });
+
+  // ✅ v8: Today도 세션 기반으로 재계산
+  const todaySessionCounted = new Set<string>();
+  normalizedEvents.forEach(ev => {
+    const day = toNYCDateStr(ev.created_at);
+    if (day !== todayStr) return;
+    const source = ev.utm_source || 'Direct';
+    const vid = getVid(ev);
+    const sid = getSid(ev);
+    if (!utmToday[source]) utmToday[source] = initUtm();
+
+    const isEntry = ev.event_name === 'page_view' || (sid && !todaySessionCounted.has(sid));
+    if (isEntry) {
+      if (sid) {
+        todaySessionCounted.add(sid);
+        utmToday[source].sessions.add(sid);
+      }
+      if (vid) utmToday[source].visitors.add(vid);
+      if (ev.event_name === 'page_view') utmToday[source].page_views++;
     }
   });
 
@@ -217,7 +250,7 @@ function buildUtmSourceStats(events: any[], normalizedEvents: any[], todayStr: s
   return { total: formatUtmMap(utmTotal), today: formatUtmMap(utmToday) };
 }
 
-/* ─── ✅ v6: 방문자 통계 — normalizedEvents에서 page_view 기준 ─── */
+/* ─── ✅ v8: 방문자 통계 — page_view 또는 세션 첫 이벤트 기준 ─── */
 function buildVisitorStats(normalizedEvents: any[], todayStr: string) {
   const totalVisitors = new Set<string>();
   const totalSessions = new Set<string>();
@@ -225,6 +258,10 @@ function buildVisitorStats(normalizedEvents: any[], todayStr: string) {
   const todaySessions = new Set<string>();
   let totalEvents = 0;
   let todayEvents = 0;
+
+  // ✅ v8: 세션별로 첫 이벤트에서 visitor/session 카운트
+  const sessionCounted = new Set<string>();
+  const todaySessionCounted = new Set<string>();
 
   normalizedEvents.forEach(ev => {
     const vid = getVid(ev);
@@ -234,14 +271,25 @@ function buildVisitorStats(normalizedEvents: any[], todayStr: string) {
     totalEvents++;
     if (day === todayStr) todayEvents++;
 
-    // ✅ v6: visitor/session은 page_view에서만 카운트
-    if (ev.event_name === 'page_view') {
+    // ✅ v8: page_view이거나 아직 카운트 안 된 세션의 첫 이벤트
+    const isEntryEvent = ev.event_name === 'page_view' || (sid && !sessionCounted.has(sid));
+
+    if (isEntryEvent) {
       if (vid) totalVisitors.add(vid);
-      if (sid) totalSessions.add(sid);
+      if (sid) {
+        totalSessions.add(sid);
+        sessionCounted.add(sid);
+      }
 
       if (day === todayStr) {
-        if (vid) todayVisitors.add(vid);
-        if (sid) todaySessions.add(sid);
+        const isTodayEntry = ev.event_name === 'page_view' || (sid && !todaySessionCounted.has(sid));
+        if (isTodayEntry) {
+          if (vid) todayVisitors.add(vid);
+          if (sid) {
+            todaySessions.add(sid);
+            todaySessionCounted.add(sid);
+          }
+        }
       }
     }
   });
@@ -250,40 +298,6 @@ function buildVisitorStats(normalizedEvents: any[], todayStr: string) {
     total: { visitors: totalVisitors.size, sessions: totalSessions.size, events: totalEvents },
     today: { visitors: todayVisitors.size, sessions: todaySessions.size, events: todayEvents },
   };
-}
-
-/* ─── ✅ v7: Quiz Type: page_view가 없는 세션에만 synthetic page_view 주입 ─── */
-function buildSyntheticPageViews(events: any[], normalizedEvents: any[]) {
-  // 이미 page_view가 있는 세션 수집
-  const sessionsWithPageView = new Set<string>();
-  normalizedEvents.forEach(ev => {
-    if (ev.event_name === 'page_view') {
-      const sid = getSid(ev);
-      if (sid) sessionsWithPageView.add(sid);
-    }
-  });
-
-  // page_view가 없는 세션의 첫 이벤트로 synthetic page_view 생성
-  const sessionFirstEvent = new Map<string, any>();
-  events.forEach(ev => {
-    const sid = getSid(ev);
-    if (!sid) return;
-    if (sessionsWithPageView.has(sid)) return; // 이미 page_view 있음
-    if (!sessionFirstEvent.has(sid)) {
-      sessionFirstEvent.set(sid, ev);
-    }
-  });
-
-  const synthetics: any[] = [];
-  sessionFirstEvent.forEach((ev) => {
-    synthetics.push({
-      ...ev,
-      event_name: 'page_view',
-      _synthetic: true,
-    });
-  });
-
-  return synthetics;
 }
 
 export async function GET(request: NextRequest) {
@@ -309,25 +323,16 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // ✅ 이벤트 정규화 (Main + Type 모두 매핑)
+    // ✅ v8: 이벤트 정규화 (quiz_start → page_view 포함)
     const normalizedEvents = events.map(ev => ({
       ...ev,
       event_name: normalizeEventName(ev.event_name, isTypeVariant),
     }));
 
-    // ✅ v7: Quiz Type: page_view가 없는 세션에 synthetic page_view 주입
-    let allNormalizedEvents = [...normalizedEvents];
-    let allEvents = [...events];
-
-    if (isTypeVariant) {
-      const synthetics = buildSyntheticPageViews(events, normalizedEvents);
-      if (synthetics.length > 0) {
-        synthetics.forEach(spv => {
-          allEvents.push(spv);
-          allNormalizedEvents.push({ ...spv, event_name: 'page_view' });
-        });
-      }
-    }
+    // ✅ v8: synthetic page_view 더 이상 불필요
+    // quiz_start가 page_view로 직접 매핑되므로 제거
+    const allNormalizedEvents = normalizedEvents;
+    const allEvents = events;
 
     // ─── Funnel ───
     const sessionsByEvent: Record<string, Set<string>> = {};
@@ -381,8 +386,8 @@ export async function GET(request: NextRequest) {
       .map(([source, data]) => ({ source, views: data.views.size, submits: data.submits.size, cvr: data.views.size > 0 ? ((data.submits.size / data.views.size) * 100).toFixed(1) : '0' }))
       .sort((a, b) => b.views - a.views);
 
-    // ✅ v6: normalizedEvents 전달
-    const utmSourceStats = buildUtmSourceStats(allEvents, allNormalizedEvents, todayStr);
+    // ✅ v8: normalizedEvents 전달 (synthetic 불필요)
+    const utmSourceStats = buildUtmSourceStats(allNormalizedEvents, todayStr);
     const visitorStats = buildVisitorStats(allNormalizedEvents, todayStr);
 
     // ─── Segment distribution ───
