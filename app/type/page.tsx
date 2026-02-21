@@ -100,15 +100,6 @@ async function safeCopy(text: string): Promise<boolean> {
   }
 }
 
-// ✅ page.tsx 전용 fbq — QuizStep 전용 (ga4.ts에 QuizStep fbq가 없으므로)
-function fbq(event: string, name: string, params?: Record<string, unknown>) {
-  if (typeof window === "undefined") return;
-  const w = window as unknown as { fbq?: (...args: unknown[]) => void };
-  if (typeof w.fbq === "function") {
-    w.fbq(event, name, params);
-  }
-}
-
 // ─────────────────────────────────────────────────────────────
 // Progress
 // ─────────────────────────────────────────────────────────────
@@ -180,8 +171,7 @@ function Quiz({
     setPicked(true);
 
     track.quizStep(qi + 1, group);
-    // ✅ QuizStep fbq는 여기서만 호출 (ga4.ts quizStep에 fbq 없음)
-    fbq("trackCustom", "QuizStep", { step: qi + 1, answer: group });
+    // fbq QuizStep은 ga4.ts v3에서 일괄 호출
 
     const next = [...answers, group];
     setAnswers(next);
@@ -520,7 +510,7 @@ function Result({ type }: { type: AfterfeelType }) {
               <div className="offer-reveal anim-up">
                 <div className="offer-reveal-label">🎁 Member offer — unlocked for you</div>
                 <div className="offer-reveal-price">$2.99</div>
-                <div className="offer-reveal-desc">3 packs · Free shipping · Usually $13.47</div>
+                <div className="offer-reveal-desc">3 bottles · Free shipping · Usually $13.47</div>
                 <div className="offer-reveal-fine">
                   Love it? We&apos;ll credit your $2.99 on your first order of 6+.
                 </div>
