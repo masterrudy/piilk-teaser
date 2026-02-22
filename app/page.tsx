@@ -1,15 +1,21 @@
 // ═══════════════════════════════════════════════════════════
-// 📁 파일 위치: app/page.tsx — V2
-// 📌 역할: / 메인 티저 페이지 (3-Scroll: Empathy → Compare → Offer)
-// 📌 API: /api/subscribe (Supabase + Klaviyo 서버사이드)
-// 📌 트래킹: lib/ga4-main.ts (GA4 + Meta Pixel + TikTok + Supabase)
+// 📁 파일 위치: app/page.tsx — V3
+// 📌 역할: / 메인 티저 페이지 (1-Viewport: Declaration → Stats → Email CTA)
+// 📌 API: /api/subscribe (Supabase + Klaviyo 서버사이드) — 변경 없음
+// 📌 트래킹: lib/ga4-main.ts (GA4 + Meta Pixel + TikTok + Supabase) — 이벤트 추가
 //
-// ✅ V1 → V2 변경사항:
-//   1. Offer detail: "No commitment" → "Launching mid-March"
-//   2. CTA 버튼: "Try it" → "Get early access →"
-//   3. Cashback 유지: "Love it? $2.99 back on your first 6-pack."
-//   4. Fine print: "Cancel anytime. No strings." → "No charge until launch. Cancel anytime."
-//   5. Sticky bar detail: "Launching mid-March" 추가
+// ✅ V2 → V3 변경사항 (Audit V3 기반 전면 개편):
+//   1. 구조: 3-Scroll (공감→비교→오퍼) → 1.5-Viewport (선언+CTA → 비교 보조)
+//   2. Hero: 질문형 "Ever had..." → 선언형 "Same 30g protein. 7 ingredients."
+//   3. 감각 묘사 3줄 삭제 → 숫자 3개 stat row (7 / 30g / 8.5oz)
+//   4. Email CTA를 first viewport로 이동
+//   5. 가격 ($13.47, $2.99) 전체 삭제 — pre-launch에서 가격 혼란 방지
+//   6. "scroll" 텍스트 삭제
+//   7. "Cancel anytime" → "No spam. Unsubscribe anytime."
+//   8. "by Armored Fresh" → "NYC · Coming March 2026"
+//   9. Sticky bar: 가격 제거 → "Join the NYC waitlist"
+//  10. Below fold: "Flip your..." → "Why fewer ingredients?" 보조 섹션
+//  11. GA4 이벤트 추가: scroll_to_comparison, email_focus (기존), email_submit (기존)
 // ═══════════════════════════════════════════════════════════
 
 "use client";
@@ -19,7 +25,7 @@ import Image from "next/image";
 import { track } from "@/lib/ga4-main";
 
 // ─────────────────────────────────────────────────────────────
-// Utils
+// Utils (기존 유지)
 // ─────────────────────────────────────────────────────────────
 
 function getTrackingData() {
@@ -48,19 +54,20 @@ export default function MainTeaser() {
   const [emailError, setEmailError] = useState("");
   const [stickyVisible, setStickyVisible] = useState(false);
   const [stickyHidden, setStickyHidden] = useState(false);
-  const [scrollCueVisible, setScrollCueVisible] = useState(true);
 
   const emailRef = useRef<HTMLInputElement>(null);
-  const screen3Ref = useRef<HTMLElement>(null);
+  const emailSectionRef = useRef<HTMLDivElement>(null);
+  const compareSectionRef = useRef<HTMLElement>(null);
   const stickyShownRef = useRef(false);
   const emailFocusTracked = useRef(false);
+  const comparisonTracked = useRef(false);
 
-  // ─── Page View ───
+  // ─── Page View (기존 유지) ───
   useEffect(() => {
     track.pageView();
   }, []);
 
-  // ─── Scroll Reveal ───
+  // ─── Scroll Reveal (기존 유지) ───
   useEffect(() => {
     const reveals = document.querySelectorAll(".reveal");
     const obs = new IntersectionObserver(
@@ -78,45 +85,62 @@ export default function MainTeaser() {
     return () => obs.disconnect();
   }, []);
 
-  // ─── Sticky Bar: Screen 3 감지 ───
+  // ─── Comparison Section 진입 트래킹 (신규) ───
   useEffect(() => {
-    const el = screen3Ref.current;
+    const el = compareSectionRef.current;
     if (!el) return;
     const obs = new IntersectionObserver(
       (entries) => {
         entries.forEach((e) => {
-          if (e.isIntersecting) {
-            setStickyVisible(false);
-            setStickyHidden(true);
-          } else if (stickyShownRef.current) {
-            setStickyVisible(true);
-            setStickyHidden(false);
+          if (e.isIntersecting && !comparisonTracked.current) {
+            comparisonTracked.current = true;
+            track.scrollDepth("comparison");
           }
         });
       },
-      { threshold: 0.2 }
+      { threshold: 0.3 }
     );
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
 
-  // ─── Sticky Bar: 50vh 스크롤 후 표시 + scroll cue 숨김 ───
+  // ─── Sticky Bar: email section 벗어나면 표시 ───
+  useEffect(() => {
+    const el = emailSectionRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            // email section이 보이면 sticky 숨김
+            setStickyVisible(false);
+            setStickyHidden(true);
+          } else if (stickyShownRef.current) {
+            // email section이 안 보이면 sticky 표시
+            setStickyVisible(true);
+            setStickyHidden(false);
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  // ─── Sticky Bar: 스크롤 후 표시 ───
   useEffect(() => {
     const onScroll = () => {
-      if (!stickyShownRef.current && window.scrollY > window.innerHeight * 0.5) {
+      if (!stickyShownRef.current && window.scrollY > window.innerHeight * 0.8) {
         stickyShownRef.current = true;
         setStickyVisible(true);
-        track.scrollDepth("50vh");
-      }
-      if (scrollCueVisible && window.scrollY > 100) {
-        setScrollCueVisible(false);
       }
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, [scrollCueVisible]);
+  }, []);
 
-  // ─── Email Submit ───
+  // ─── Email Submit (API 경로 + body 구조 100% 유지) ───
   const submitEmail = useCallback(async () => {
     const raw = emailRef.current?.value ?? "";
     const email = raw.trim();
@@ -134,6 +158,9 @@ export default function MainTeaser() {
     setEmailError("");
 
     try {
+      // ✅ API 경로 유지: /api/subscribe
+      // ✅ body 구조 유지: { email, source, tracking }
+      // ✅ Supabase + Klaviyo 서버사이드 처리 유지
       const res = await fetch("/api/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -148,12 +175,14 @@ export default function MainTeaser() {
 
       if (data?.success) {
         setEmailSent(true);
+        // ✅ 기존 track.emailSubmit() 호출 유지
         track.emailSubmit();
         setStickyVisible(false);
         setStickyHidden(true);
         return;
       }
 
+      // ✅ 기존 에러 핸들링 유지
       setEmailError(
         data?.error === "invalid_email"
           ? "Please enter a valid email address."
@@ -168,16 +197,16 @@ export default function MainTeaser() {
     }
   }, []);
 
-  const scrollToOffer = () => {
+  const scrollToEmail = () => {
     track.stickyClick();
-    screen3Ref.current?.scrollIntoView({ behavior: "smooth" });
+    emailSectionRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   return (
     <>
       <style>{CSS}</style>
 
-      {/* ── NAV ── */}
+      {/* ── NAV (V3: "by Armored Fresh" → "NYC · March 2026") ── */}
       <nav className="nav">
         <a
           className="nav-logo"
@@ -185,7 +214,8 @@ export default function MainTeaser() {
           role="button"
           tabIndex={0}
           onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") window.scrollTo({ top: 0, behavior: "smooth" });
+            if (e.key === "Enter" || e.key === " ")
+              window.scrollTo({ top: 0, behavior: "smooth" });
           }}
           style={{ cursor: "pointer" }}
         >
@@ -198,67 +228,59 @@ export default function MainTeaser() {
             priority
           />
         </a>
-        <span className="nav-right">by Armored Fresh</span>
+        <span className="nav-right">NYC · March 2026</span>
       </nav>
 
-      {/* ── SCREEN 1: EMPATHY ── */}
-      <section className="section" id="screen1">
+      {/* ══════════════════════════════════════════════════════
+          SCREEN 1: FIRST VIEWPORT — 선언 + 숫자 + Email CTA
+          V3 핵심 변경: 질문 삭제, 선언형, 이메일 first viewport
+          ══════════════════════════════════════════════════════ */}
+      <section className="section section--hero" id="screen1">
+        {/* ── Hero Headline: 선언형 ── */}
         <h1 className="hero-headline reveal">
-          Ever had a protein drink
+          Same 30g protein.
           <br />
-          that felt off right after?
+          <span className="hero-accent">7 ingredients instead of 15+.</span>
         </h1>
-        <p className="hero-sensory reveal" style={{ transitionDelay: "0.15s" }}>
-          That chalky taste.
-          <br />
-          That heavy gut feeling.
-          <br />
-          Something off you can&apos;t quite name.
-        </p>
-        <p className="hero-confirm reveal" style={{ transitionDelay: "0.3s" }}>
-          You&apos;re not imagining it.
-        </p>
+
+        {/* ── Stat Row: 숫자 3개 ── */}
+        <div className="stat-row reveal" style={{ transitionDelay: "0.12s" }}>
+          <div className="stat">
+            <div className="stat-num accent">7</div>
+            <div className="stat-label">ingredients</div>
+          </div>
+          <div className="stat-divider" />
+          <div className="stat">
+            <div className="stat-num">30g</div>
+            <div className="stat-label">protein</div>
+          </div>
+          <div className="stat-divider" />
+          <div className="stat">
+            <div className="stat-num accent">8.5<span className="stat-unit">oz</span></div>
+            <div className="stat-label">smaller bottle</div>
+          </div>
+        </div>
+
+        {/* ── Clean Tags ── */}
+        <div className="clean-tags reveal" style={{ transitionDelay: "0.2s" }}>
+          <span className="ctag">No artificial sweeteners</span>
+          <span className="ctag-dot">·</span>
+          <span className="ctag">No carrageenan</span>
+          <span className="ctag-dot">·</span>
+          <span className="ctag">Dairy free</span>
+        </div>
+
+        {/* ── Email CTA (First Viewport) ── */}
         <div
-          className="scroll-cue"
-          style={{ opacity: scrollCueVisible ? 0.4 : 0 }}
+          className="email-section reveal"
+          style={{ transitionDelay: "0.3s" }}
+          ref={emailSectionRef}
         >
-          <span>scroll</span>
-          <div className="arrow" />
-        </div>
-      </section>
-
-      {/* ── SCREEN 2: FLIP THE BOTTLE ── */}
-      <section className="section" id="screen2">
-        <p className="compare-prompt reveal">
-          Flip your protein shake over.
-          <br />
-          Count the ingredients.
-        </p>
-        <div className="compare-stats reveal" style={{ transitionDelay: "0.15s" }}>
-          <p className="compare-most">Most have 15+.</p>
-          <p className="compare-seven">This one has 7.</p>
-        </div>
-        <div className="compare-details reveal" style={{ transitionDelay: "0.3s" }}>
-          Same 30g protein. Smaller bottle.
-          <br />
-          No artificial sweeteners. Dairy free.
-        </div>
-      </section>
-
-      {/* ── SCREEN 3: EARLY ACCESS ── */}
-      <section
-        className="section section--offer"
-        id="screen3"
-        ref={screen3Ref}
-      >
-        <div className="offer-box reveal">
-          <p className="offer-was">$13.47</p>
-          <p className="offer-price">$2.99</p>
-          <p className="offer-detail">3 packs · Free shipping · Launching mid-March</p>
-          <p className="offer-cashback">Love it? $2.99 back on your first 6-pack.</p>
-
           {!emailSent ? (
-            <div className="form-area">
+            <div className="email-box">
+              <p className="email-prompt">
+                Get early access · 3 bottles · Free shipping
+              </p>
               <div className="email-row">
                 <input
                   ref={emailRef}
@@ -276,6 +298,7 @@ export default function MainTeaser() {
                   onFocus={() => {
                     if (!emailFocusTracked.current) {
                       emailFocusTracked.current = true;
+                      // ✅ 기존 track.emailFocus() 호출 유지
                       track.emailFocus();
                     }
                   }}
@@ -285,11 +308,13 @@ export default function MainTeaser() {
                   onClick={submitEmail}
                   disabled={emailLoading}
                 >
-                  {emailLoading ? "..." : "Get early access →"}
+                  {emailLoading ? "..." : "I'm in →"}
                 </button>
               </div>
               {emailError && <p className="email-error">{emailError}</p>}
-              <p className="offer-fine">No charge until launch. Cancel anytime.</p>
+              <p className="email-fine">
+                No spam. Unsubscribe anytime.
+              </p>
             </div>
           ) : (
             <div className="success-msg">
@@ -297,26 +322,67 @@ export default function MainTeaser() {
               <p>
                 <strong>You&apos;re in.</strong>
               </p>
-              <p>$2.99 locked. We&apos;ll email you when it&apos;s time.</p>
+              <p>We&apos;ll reach out when it&apos;s ready.</p>
             </div>
           )}
         </div>
       </section>
 
-      {/* ── STICKY BOTTOM CTA BAR ── */}
+      {/* ══════════════════════════════════════════════════════
+          BELOW FOLD: 보조 비교 섹션
+          V3: "Flip your protein shake" → "Why fewer ingredients?"
+          스크롤한 사람 = 추가 정보 필요 = 비교 데이터 제공
+          ══════════════════════════════════════════════════════ */}
+      <section
+        className="section section--compare"
+        id="screen2"
+        ref={compareSectionRef}
+      >
+        <p className="compare-lead reveal">Why fewer ingredients?</p>
+
+        <div className="compare-block reveal" style={{ transitionDelay: "0.1s" }}>
+          <div className="compare-item">
+            <span className="compare-label dim">Most protein shakes</span>
+            <span className="compare-val dim">15+ ingredients · 11.5 oz</span>
+          </div>
+          <div className="compare-item highlight">
+            <span className="compare-label">PIILK™</span>
+            <span className="compare-val">7 ingredients · 8.5 oz · 30g protein</span>
+          </div>
+        </div>
+
+        <p className="compare-body reveal" style={{ transitionDelay: "0.2s" }}>
+          We kept the protein and removed what you don&apos;t need.
+          <br />
+          No artificial sweeteners. No emulsifiers. No preservatives.
+          <br />
+          35% less liquid. Same protein.
+        </p>
+
+        <button
+          className="compare-cta reveal"
+          style={{ transitionDelay: "0.3s" }}
+          onClick={() => {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+        >
+          ↑ Join the waitlist
+        </button>
+      </section>
+
+      {/* ── STICKY BOTTOM CTA BAR (V3: 가격 삭제, waitlist 유도) ── */}
       <div
         className={`sticky-bar${stickyVisible ? " visible" : ""}${stickyHidden ? " hide" : ""}`}
       >
         <div className="sticky-info">
-          <span className="sticky-price">$2.99</span>
-          <span className="sticky-detail">3 packs · Launching mid-March</span>
+          <span className="sticky-text">Join the NYC waitlist</span>
         </div>
-        <button className="sticky-btn" onClick={scrollToOffer}>
-          Get early access →
+        <button className="sticky-btn" onClick={scrollToEmail}>
+          I&apos;m in →
         </button>
       </div>
 
-      {/* ── FOOTER ── */}
+      {/* ── FOOTER (기존 유지) ── */}
       <footer className="site-footer">
         <div className="footer-logo">
           <Image
@@ -336,11 +402,14 @@ export default function MainTeaser() {
 }
 
 // ═══════════════════════════════════════════
-// CSS
+// CSS — V3
 // ═══════════════════════════════════════════
 
 const CSS = `
-/* ── Nav ── */
+/* ── Reset ── */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* ── Nav (기존 구조 유지) ── */
 .nav {
   position: fixed;
   top: 0; left: 0; right: 0;
@@ -349,20 +418,23 @@ const CSS = `
   align-items: center;
   justify-content: space-between;
   padding: 12px 20px;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 .nav-logo {
   display: flex;
   align-items: center;
 }
 .nav-right {
-  font-size: 12px;
+  font-size: 11px;
   color: #71717a;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 /* ===== SECTIONS ===== */
 .section {
-  min-height: 100vh;
-  min-height: 100svh;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -371,136 +443,111 @@ const CSS = `
   text-align: center;
   position: relative;
 }
-.section--offer {
-  min-height: auto;
-  padding: 48px 24px 120px;
+
+/* ── Screen 1: Hero (V3 — 1 viewport 완결) ── */
+.section--hero {
+  min-height: 100vh;
+  min-height: 100svh;
+  padding-top: 80px;
+  padding-bottom: 40px;
+  gap: 0;
 }
 
-/* ── Screen 1: Empathy ── */
 .hero-headline {
-  font-size: clamp(26px, 7vw, 42px);
+  font-size: clamp(24px, 6.5vw, 40px);
   font-weight: 700;
-  line-height: 1.15;
+  line-height: 1.2;
   letter-spacing: -0.02em;
   color: #fff;
-  margin-bottom: 24px;
-}
-.hero-sensory {
-  font-size: clamp(15px, 4vw, 18px);
-  color: #a1a1aa;
-  line-height: 1.7;
-  max-width: 340px;
   margin-bottom: 28px;
 }
-.hero-confirm {
-  font-size: clamp(16px, 4.2vw, 20px);
-  font-weight: 600;
-  color: #fff;
+.hero-accent {
+  color: #D4FF2B;
 }
-.scroll-cue {
-  position: absolute;
-  bottom: 32px;
-  left: 50%;
-  transform: translateX(-50%);
+
+/* ── Stat Row ── */
+.stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+.stat {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  transition: opacity 0.5s;
+  gap: 4px;
 }
-.scroll-cue span {
-  font-size: 11px;
-  color: #71717a;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.scroll-cue .arrow {
-  width: 20px; height: 20px;
-  border-right: 1.5px solid #71717a;
-  border-bottom: 1.5px solid #71717a;
-  transform: rotate(45deg);
-  animation: bounce 2s infinite;
-}
-@keyframes bounce {
-  0%, 100% { transform: rotate(45deg) translateY(0); }
-  50% { transform: rotate(45deg) translateY(6px); }
-}
-
-/* ── Screen 2: Compare ── */
-.compare-prompt {
-  font-size: clamp(18px, 5vw, 26px);
-  font-weight: 600;
+.stat-num {
+  font-size: clamp(32px, 8vw, 48px);
+  font-weight: 800;
   color: #fff;
-  line-height: 1.3;
-  margin-bottom: 32px;
-}
-.compare-stats { margin-bottom: 28px; }
-.compare-most {
-  font-size: clamp(14px, 3.8vw, 17px);
-  color: #a1a1aa;
-  margin-bottom: 8px;
-}
-.compare-seven {
-  font-size: clamp(32px, 9vw, 52px);
-  font-weight: 800;
-  color: #D4FF2B;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
-}
-.compare-details {
-  font-size: clamp(14px, 3.6vw, 16px);
-  color: #a1a1aa;
-  line-height: 1.8;
-}
-
-/* ── Screen 3: Offer ── */
-.offer-box {
-  width: 100%;
-  max-width: 420px;
-  background: #111113;
-  border: 1px solid rgba(212,255,43,0.15);
-  border-radius: 16px;
-  padding: 32px 28px 28px;
-  text-align: center;
-  margin: 0 auto 20px;
-}
-.offer-was {
-  font-size: 14px;
-  color: #71717a;
-  text-decoration: line-through;
-  margin-bottom: 4px;
-}
-.offer-price {
-  font-size: clamp(36px, 10vw, 52px);
-  font-weight: 800;
-  color: #D4FF2B;
   letter-spacing: -0.03em;
   line-height: 1;
-  margin-bottom: 6px;
 }
-.offer-detail {
-  font-size: 15px;
-  color: #a1a1aa;
-  margin-bottom: 8px;
+.stat-num.accent {
+  color: #D4FF2B;
 }
-.offer-cashback {
-  font-size: 13px;
+.stat-unit {
+  font-size: 0.5em;
+  font-weight: 600;
+}
+.stat-label {
+  font-size: 12px;
   color: #71717a;
-  margin-bottom: 24px;
+  letter-spacing: 0.04em;
+}
+.stat-divider {
+  width: 1px;
+  height: 40px;
+  background: rgba(255,255,255,0.08);
 }
 
-/* Email form */
+/* ── Clean Tags ── */
+.clean-tags {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 32px;
+}
+.ctag {
+  font-size: 13px;
+  color: #a1a1aa;
+}
+.ctag-dot {
+  font-size: 13px;
+  color: #3f3f46;
+}
+
+/* ── Email Section (First Viewport) ── */
+.email-section {
+  width: 100%;
+  max-width: 440px;
+}
+.email-box {
+  text-align: center;
+}
+.email-prompt {
+  font-size: 14px;
+  color: #a1a1aa;
+  margin-bottom: 14px;
+  font-weight: 500;
+}
+
 .email-row {
   display: flex;
   gap: 8px;
   max-width: 100%;
-  margin: 0 auto 12px;
+  margin: 0 auto 10px;
 }
 .email-input {
   flex: 1;
   min-width: 0;
-  background: #0a0a0b;
-  border: 1px solid rgba(255,255,255,0.06);
+  background: #111113;
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: 12px;
   padding: 14px 16px;
   font-size: 15px;
@@ -510,10 +557,10 @@ const CSS = `
   transition: border-color 0.2s;
 }
 .email-input::placeholder { color: #3f3f46; }
-.email-input:focus { border-color: rgba(212,255,43,0.3); }
+.email-input:focus { border-color: rgba(212,255,43,0.4); }
 
 .email-btn {
-  padding: 14px 20px;
+  padding: 14px 24px;
   background: #D4FF2B;
   color: #000;
   border: none;
@@ -536,14 +583,14 @@ const CSS = `
   margin: 4px auto 8px;
   max-width: 340px;
 }
-.offer-fine {
+.email-fine {
   font-size: 12px;
   color: #3f3f46;
   max-width: 300px;
   margin: 0 auto;
 }
 
-/* Success */
+/* ── Success (기존 스타일 유지) ── */
 .success-msg {
   display: flex;
   flex-direction: column;
@@ -563,7 +610,84 @@ const CSS = `
 .success-msg p { font-size: 15px; color: #a1a1aa; }
 .success-msg strong { color: #D4FF2B; font-weight: 700; }
 
-/* ── Sticky Bottom CTA Bar ── */
+/* ── Screen 2: Compare (Below Fold — 보조 섹션) ── */
+.section--compare {
+  min-height: auto;
+  padding: 64px 24px 80px;
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+
+.compare-lead {
+  font-size: clamp(18px, 5vw, 24px);
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 28px;
+}
+
+.compare-block {
+  width: 100%;
+  max-width: 420px;
+  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.compare-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  border-radius: 10px;
+  background: #111113;
+  border: 1px solid rgba(255,255,255,0.04);
+}
+.compare-item.highlight {
+  border-color: rgba(212,255,43,0.2);
+  background: rgba(212,255,43,0.04);
+}
+.compare-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+}
+.compare-label.dim {
+  color: #71717a;
+  font-weight: 400;
+}
+.compare-val {
+  font-size: 12px;
+  color: #D4FF2B;
+  font-weight: 500;
+}
+.compare-val.dim {
+  color: #52525b;
+}
+
+.compare-body {
+  font-size: 14px;
+  color: #71717a;
+  line-height: 1.8;
+  max-width: 380px;
+  margin-bottom: 28px;
+}
+
+.compare-cta {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 12px 24px;
+  color: #a1a1aa;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+.compare-cta:hover {
+  border-color: rgba(212,255,43,0.3);
+  color: #D4FF2B;
+}
+
+/* ── Sticky Bottom CTA Bar (V3: 가격 삭제) ── */
 .sticky-bar {
   position: fixed;
   bottom: 0; left: 0; right: 0;
@@ -585,18 +709,13 @@ const CSS = `
 
 .sticky-info {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
 }
-.sticky-price {
-  font-size: 20px;
-  font-weight: 800;
-  color: #D4FF2B;
-  letter-spacing: -0.02em;
-}
-.sticky-detail {
-  font-size: 12px;
-  color: #71717a;
+.sticky-text {
+  font-size: 14px;
+  color: #a1a1aa;
+  font-weight: 500;
 }
 .sticky-btn {
   padding: 10px 20px;
@@ -614,7 +733,7 @@ const CSS = `
 .sticky-btn:hover { opacity: 0.9; }
 .sticky-btn:active { transform: scale(0.97); }
 
-/* ── Fade-in ── */
+/* ── Fade-in (기존 유지) ── */
 .reveal {
   opacity: 0;
   transform: translateY(20px);
@@ -625,7 +744,7 @@ const CSS = `
   transform: translateY(0);
 }
 
-/* ── Footer ── */
+/* ── Footer (기존 유지) ── */
 .site-footer {
   text-align: center;
   padding: 32px 16px;
@@ -653,11 +772,41 @@ const CSS = `
 
 /* ── Mobile ── */
 @media (max-width: 480px) {
-  .sticky-bar { padding: 10px 16px; gap: 10px; }
-  .sticky-price { font-size: 18px; }
-  .sticky-detail { font-size: 11px; }
-  .sticky-btn { padding: 10px 16px; font-size: 13px; }
-  .email-row { flex-direction: column; }
-  .email-btn { width: 100%; }
+  .section--hero {
+    padding-top: 72px;
+    padding-bottom: 32px;
+  }
+  .stat-row {
+    gap: 14px;
+  }
+  .stat-num {
+    font-size: clamp(28px, 7vw, 36px);
+  }
+  .stat-divider {
+    height: 32px;
+  }
+  .clean-tags {
+    gap: 4px;
+  }
+  .ctag {
+    font-size: 12px;
+  }
+  .email-row {
+    flex-direction: column;
+  }
+  .email-btn {
+    width: 100%;
+  }
+  .sticky-bar {
+    padding: 10px 16px;
+    gap: 10px;
+  }
+  .sticky-text {
+    font-size: 13px;
+  }
+  .sticky-btn {
+    padding: 10px 16px;
+    font-size: 13px;
+  }
 }
 `;
