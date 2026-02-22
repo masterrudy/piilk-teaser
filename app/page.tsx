@@ -1,18 +1,15 @@
 // ═══════════════════════════════════════════════════════════
-// 📁 파일 위치: app/page.tsx
+// 📁 파일 위치: app/page.tsx — V2
 // 📌 역할: / 메인 티저 페이지 (3-Scroll: Empathy → Compare → Offer)
 // 📌 API: /api/subscribe (Supabase + Klaviyo 서버사이드)
 // 📌 트래킹: lib/ga4-main.ts (GA4 + Meta Pixel + TikTok + Supabase)
 //
-// ✅ 최종 변경사항 (기존 HTML 대비):
-//   1. Screen 1 카피: "Ever had a protein drink that felt off right after?"
-//   2. Lime (#D4FF2B) 컬러: 버튼, 가격, 핵심 숫자, border
-//   3. Sticky bottom CTA bar 추가 (50vh 후 표시, Screen 3 + 제출 후 숨김)
-//   4. Cashback 문구 포함 ("Love it? $2.99 back on your first 6-pack.")
-//   5. /api/subscribe 서버사이드 연결 (Klaviyo API key 보안)
-//   6. ga4-main.ts 통합 트래킹 (GA4+Meta+TikTok+Supabase)
-//   7. Enter key 제출 지원
-//   8. 100svh fallback (100vh)
+// ✅ V1 → V2 변경사항:
+//   1. Offer detail: "No commitment" → "Launching mid-March"
+//   2. CTA 버튼: "Try it" → "Get early access →"
+//   3. Cashback 유지: "Love it? $2.99 back on your first 6-pack."
+//   4. Fine print: "Cancel anytime. No strings." → "No charge until launch. Cancel anytime."
+//   5. Sticky bar detail: "Launching mid-March" 추가
 // ═══════════════════════════════════════════════════════════
 
 "use client";
@@ -257,7 +254,8 @@ export default function MainTeaser() {
         <div className="offer-box reveal">
           <p className="offer-was">$13.47</p>
           <p className="offer-price">$2.99</p>
-          <p className="offer-detail">3 packs · Free shipping · Launching March</p>
+          <p className="offer-detail">3 packs · Free shipping · Launching mid-March</p>
+          <p className="offer-cashback">Love it? $2.99 back on your first 6-pack.</p>
 
           {!emailSent ? (
             <div className="form-area">
@@ -287,11 +285,11 @@ export default function MainTeaser() {
                   onClick={submitEmail}
                   disabled={emailLoading}
                 >
-                  {emailLoading ? "..." : "Lock in $2.99 →"}
+                  {emailLoading ? "..." : "Get early access →"}
                 </button>
               </div>
               {emailError && <p className="email-error">{emailError}</p>}
-              <p className="offer-fine">No charge until launch. We&apos;ll email you first.</p>
+              <p className="offer-fine">No charge until launch. Cancel anytime.</p>
             </div>
           ) : (
             <div className="success-msg">
@@ -311,10 +309,10 @@ export default function MainTeaser() {
       >
         <div className="sticky-info">
           <span className="sticky-price">$2.99</span>
-          <span className="sticky-detail">3 packs · Free shipping</span>
+          <span className="sticky-detail">3 packs · Launching mid-March</span>
         </div>
         <button className="sticky-btn" onClick={scrollToOffer}>
-          Lock in $2.99 →
+          Get early access →
         </button>
       </div>
 
@@ -458,11 +456,11 @@ const CSS = `
 /* ── Screen 3: Offer ── */
 .offer-box {
   width: 100%;
-  max-width: 380px;
+  max-width: 420px;
   background: #111113;
   border: 1px solid rgba(212,255,43,0.15);
   border-radius: 16px;
-  padding: 32px 24px 28px;
+  padding: 32px 28px 28px;
   text-align: center;
   margin: 0 auto 20px;
 }
@@ -483,6 +481,11 @@ const CSS = `
 .offer-detail {
   font-size: 15px;
   color: #a1a1aa;
+  margin-bottom: 8px;
+}
+.offer-cashback {
+  font-size: 13px;
+  color: #71717a;
   margin-bottom: 24px;
 }
 
@@ -490,11 +493,12 @@ const CSS = `
 .email-row {
   display: flex;
   gap: 8px;
-  max-width: 340px;
+  max-width: 100%;
   margin: 0 auto 12px;
 }
 .email-input {
   flex: 1;
+  min-width: 0;
   background: #0a0a0b;
   border: 1px solid rgba(255,255,255,0.06);
   border-radius: 12px;
@@ -519,6 +523,7 @@ const CSS = `
   font-family: inherit;
   cursor: pointer;
   white-space: nowrap;
+  flex-shrink: 0;
   transition: transform 0.15s, opacity 0.15s;
 }
 .email-btn:hover { opacity: 0.9; }
@@ -652,5 +657,7 @@ const CSS = `
   .sticky-price { font-size: 18px; }
   .sticky-detail { font-size: 11px; }
   .sticky-btn { padding: 10px 16px; font-size: 13px; }
+  .email-row { flex-direction: column; }
+  .email-btn { width: 100%; }
 }
 `;
