@@ -232,24 +232,39 @@ export default function MainTeaser() {
       </nav>
 
       {/* ══════════════════════════════════════════════════════
-          SCREEN 1: FIRST VIEWPORT — 공감 1줄 → 답 즉시 → Email CTA
-          V3.1: 공감 bridge + 선언 + 이메일 first viewport
+          SCREEN 1: FIRST VIEWPORT — 행동 유도 → 깨달음 → 대안 → Email
+          V3.2: "Flip. Count." → "That's what you're feeling" → "We made one with 7" → CTA
           ══════════════════════════════════════════════════════ */}
       <section className="section section--hero" id="screen1">
-        {/* ── Empathy Bridge: 광고 → 랜딩 연결 1줄 ── */}
-        <p className="hero-bridge reveal">You felt it. Here&apos;s why.</p>
+        {/* ── Bridge: 광고 감정 연결 ── */}
+        <p className="hero-bridge reveal">You felt it. There&apos;s a reason.</p>
 
-        {/* ── Problem → Answer: 즉시 전환 ── */}
+        {/* ── 행동 유도 헤드라인 ── */}
         <h1 className="hero-headline reveal" style={{ transitionDelay: "0.08s" }}>
-          Your shake has 15+ ingredients.
+          Flip your protein shake over.
           <br />
-          <span className="hero-accent">PIILK has 7.</span>
-          <br />
-          <span className="hero-sub-line">Same 30g protein.</span>
+          <span className="hero-accent">Count the ingredients.</span>
         </h1>
 
-        {/* ── Stat Row: 숫자 3개 ── */}
-        <div className="stat-row reveal" style={{ transitionDelay: "0.12s" }}>
+        {/* ── 원인 연결 ── */}
+        <p className="hero-cause reveal" style={{ transitionDelay: "0.14s" }}>
+          Most have 15+. Things you can&apos;t pronounce.
+          <br />
+          That&apos;s what you&apos;re feeling.
+        </p>
+
+        {/* ── 대안 전환 ── */}
+        <div className="hero-answer reveal" style={{ transitionDelay: "0.2s" }}>
+          <p className="answer-intro">We made one with 7.</p>
+          <p className="answer-headline">
+            Same 30g protein. 7 ingredients.
+            <br />
+            <span className="hero-accent">Nothing extra.</span>
+          </p>
+        </div>
+
+        {/* ── Stat Row ── */}
+        <div className="stat-row reveal" style={{ transitionDelay: "0.26s" }}>
           <div className="stat">
             <div className="stat-num accent">7</div>
             <div className="stat-label">ingredients</div>
@@ -334,16 +349,15 @@ export default function MainTeaser() {
       </section>
 
       {/* ══════════════════════════════════════════════════════
-          BELOW FOLD: 보조 비교 섹션
-          V3: "Flip your protein shake" → "Why fewer ingredients?"
-          스크롤한 사람 = 추가 정보 필요 = 비교 데이터 제공
+          BELOW FOLD: 소비자 관점 비교
+          V3.2: "What's actually in your shake?" — 소비자 호기심 자극
           ══════════════════════════════════════════════════════ */}
       <section
         className="section section--compare"
         id="screen2"
         ref={compareSectionRef}
       >
-        <p className="compare-lead reveal">Why fewer ingredients?</p>
+        <p className="compare-lead reveal">What&apos;s actually in your shake?</p>
 
         <div className="compare-block reveal" style={{ transitionDelay: "0.1s" }}>
           <div className="compare-item">
@@ -357,11 +371,11 @@ export default function MainTeaser() {
         </div>
 
         <p className="compare-body reveal" style={{ transitionDelay: "0.2s" }}>
-          We kept the protein and removed what you don&apos;t need.
+          Emulsifiers, artificial sweeteners, and ingredients
           <br />
-          No artificial sweeteners. No emulsifiers. No preservatives.
+          you can&apos;t pronounce — they add up.
           <br />
-          35% less liquid. Same protein.
+          We kept the protein and removed the rest.
         </p>
 
         <button
@@ -476,7 +490,7 @@ const CSS = `
   line-height: 1.25;
   letter-spacing: -0.02em;
   color: #fff;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 .hero-accent {
   color: #D4FF2B;
@@ -486,6 +500,28 @@ const CSS = `
   color: #a1a1aa;
   margin-bottom: 16px;
   letter-spacing: 0.01em;
+}
+.hero-cause {
+  font-size: 15px;
+  color: #a1a1aa;
+  line-height: 1.7;
+  margin-bottom: 24px;
+  max-width: 380px;
+}
+.hero-answer {
+  margin-bottom: 24px;
+  text-align: center;
+}
+.answer-intro {
+  font-size: 13px;
+  color: #71717a;
+  margin-bottom: 6px;
+}
+.answer-headline {
+  font-size: clamp(17px, 4.5vw, 22px);
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.35;
 }
 .hero-sub-line {
   font-size: clamp(16px, 4vw, 22px);
