@@ -21,6 +21,9 @@
 //      삭제: QuizStart, QuizComplete, TypeResult, EmailFocus
 //      유지: QuizStep (ga4.ts에 없으므로 page.tsx에서 유일하게 호출)
 //   9. Referral refShare()에 sms 분기 추가
+//
+// ✅ V12.1 — Cashback 제거:
+//  10. offer-reveal-fine "Love it? $2.99 credit" 문구 제거 (정책 변경)
 // ═══════════════════════════════════════════════════════════
 
 "use client";
@@ -510,10 +513,8 @@ function Result({ type }: { type: AfterfeelType }) {
               <div className="offer-reveal anim-up">
                 <div className="offer-reveal-label">🎁 Member offer — unlocked for you</div>
                 <div className="offer-reveal-price">$2.99</div>
-                <div className="offer-reveal-desc">3 bottles · Free shipping · Usually $13.47</div>
-                <div className="offer-reveal-fine">
-                  Love it? We&apos;ll credit your $2.99 on your first order of 6+.
-                </div>
+                <div className="offer-reveal-desc">3 packs · Free shipping · Usually $13.47</div>
+                {/* Cashback 문구 제거 완료 (정책 변경) */}
               </div>
             </div>
           )}
@@ -667,7 +668,19 @@ export default function TeaserType() {
       {phase === "result" && <Result type={resultType} />}
 
       <footer className="footer">
-        <div>PIILK™ by Armored Fresh</div>
+        <Image
+          src="/pillk-logo.png"
+          alt="PIILK"
+          width={64}
+          height={24}
+          style={{ display: "block", margin: "0 auto 12px", opacity: 0.4 }}
+        />
+        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--t3, #71717a)", letterSpacing: "0.12em", marginBottom: 4 }}>
+          PIILK™ BY ARMORED FRESH
+        </div>
+        <div style={{ fontSize: 13, color: "var(--t3, #71717a)", marginBottom: 16 }}>
+          RTD High Protein Shake.
+        </div>
         <div>© 2026 Armoredfresh Inc.</div>
       </footer>
     </>
