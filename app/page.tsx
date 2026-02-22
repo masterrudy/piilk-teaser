@@ -8,7 +8,7 @@
 //   1. Screen 1 카피: "Ever had a protein drink that felt off right after?"
 //   2. Lime (#D4FF2B) 컬러: 버튼, 가격, 핵심 숫자, border
 //   3. Sticky bottom CTA bar 추가 (50vh 후 표시, Screen 3 + 제출 후 숨김)
-//   4. Cashback 문구 제거 ("Love it? $2.99 back…" 삭제)
+//   4. Cashback 문구 포함 ("Love it? $2.99 back on your first 6-pack.")
 //   5. /api/subscribe 서버사이드 연결 (Klaviyo API key 보안)
 //   6. ga4-main.ts 통합 트래킹 (GA4+Meta+TikTok+Supabase)
 //   7. Enter key 제출 지원
@@ -231,6 +231,7 @@ export default function MainTeaser() {
           <p className="offer-was">$13.47</p>
           <p className="offer-price">$2.99</p>
           <p className="offer-detail">3 packs · Free shipping · No commitment</p>
+          <p className="offer-cashback">Love it? $2.99 back on your first 6-pack.</p>
 
           {!emailSent ? (
             <div className="form-area">
@@ -427,6 +428,11 @@ const CSS = `
 .offer-detail {
   font-size: 15px;
   color: #a1a1aa;
+  margin-bottom: 4px;
+}
+.offer-cashback {
+  font-size: 13px;
+  color: #71717a;
   margin-bottom: 24px;
 }
 
