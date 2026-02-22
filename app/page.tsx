@@ -333,7 +333,7 @@ const CSS = `
 }
 .hero-sensory {
   font-size: clamp(15px, 4vw, 18px);
-  color: var(--t2);
+  color: #a1a1aa;
   line-height: 1.7;
   max-width: 340px;
   margin-bottom: 28px;
@@ -356,14 +356,14 @@ const CSS = `
 }
 .scroll-cue span {
   font-size: 11px;
-  color: var(--t3);
+  color: #71717a;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 .scroll-cue .arrow {
   width: 20px; height: 20px;
-  border-right: 1.5px solid var(--t3);
-  border-bottom: 1.5px solid var(--t3);
+  border-right: 1.5px solid #71717a;
+  border-bottom: 1.5px solid #71717a;
   transform: rotate(45deg);
   animation: bounce 2s infinite;
 }
@@ -383,19 +383,19 @@ const CSS = `
 .compare-stats { margin-bottom: 28px; }
 .compare-most {
   font-size: clamp(14px, 3.8vw, 17px);
-  color: var(--t2);
+  color: #a1a1aa;
   margin-bottom: 8px;
 }
 .compare-seven {
   font-size: clamp(32px, 9vw, 52px);
   font-weight: 800;
-  color: var(--lime);
+  color: #D4FF2B;
   letter-spacing: -0.03em;
   line-height: 1.1;
 }
 .compare-details {
   font-size: clamp(14px, 3.6vw, 16px);
-  color: var(--t2);
+  color: #a1a1aa;
   line-height: 1.8;
 }
 
@@ -403,7 +403,7 @@ const CSS = `
 .offer-box {
   width: 100%;
   max-width: 380px;
-  background: var(--card);
+  background: #111113;
   border: 1px solid rgba(212,255,43,0.15);
   border-radius: 16px;
   padding: 32px 24px 28px;
@@ -412,21 +412,21 @@ const CSS = `
 }
 .offer-was {
   font-size: 14px;
-  color: var(--t3);
+  color: #71717a;
   text-decoration: line-through;
   margin-bottom: 4px;
 }
 .offer-price {
   font-size: clamp(36px, 10vw, 52px);
   font-weight: 800;
-  color: var(--lime);
+  color: #D4FF2B;
   letter-spacing: -0.03em;
   line-height: 1;
   margin-bottom: 6px;
 }
 .offer-detail {
   font-size: 15px;
-  color: var(--t2);
+  color: #a1a1aa;
   margin-bottom: 24px;
 }
 
@@ -439,22 +439,22 @@ const CSS = `
 }
 .email-input {
   flex: 1;
-  background: var(--bg);
-  border: 1px solid var(--border);
+  background: #0a0a0b;
+  border: 1px solid rgba(255,255,255,0.06);
   border-radius: 12px;
   padding: 14px 16px;
   font-size: 15px;
-  color: var(--t1);
+  color: #f4f4f5;
   font-family: inherit;
   outline: none;
   transition: border-color 0.2s;
 }
-.email-input::placeholder { color: var(--t4); }
+.email-input::placeholder { color: #3f3f46; }
 .email-input:focus { border-color: rgba(212,255,43,0.3); }
 
 .email-btn {
   padding: 14px 20px;
-  background: var(--lime);
+  background: #D4FF2B;
   color: #000;
   border: none;
   border-radius: 12px;
@@ -477,7 +477,7 @@ const CSS = `
 }
 .offer-fine {
   font-size: 12px;
-  color: var(--t4);
+  color: #3f3f46;
   max-width: 300px;
   margin: 0 auto;
 }
@@ -499,8 +499,8 @@ const CSS = `
   justify-content: center;
   font-size: 24px;
 }
-.success-msg p { font-size: 15px; color: var(--t2); }
-.success-msg strong { color: var(--lime); font-weight: 700; }
+.success-msg p { font-size: 15px; color: #a1a1aa; }
+.success-msg strong { color: #D4FF2B; font-weight: 700; }
 
 /* ── Sticky Bottom CTA Bar ── */
 .sticky-bar {
@@ -510,7 +510,7 @@ const CSS = `
   background: rgba(10,10,11,0.92);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-top: 1px solid var(--border);
+  border-top: 1px solid rgba(255,255,255,0.06);
   padding: 12px 20px;
   display: flex;
   align-items: center;
@@ -530,16 +530,16 @@ const CSS = `
 .sticky-price {
   font-size: 20px;
   font-weight: 800;
-  color: var(--lime);
+  color: #D4FF2B;
   letter-spacing: -0.02em;
 }
 .sticky-detail {
   font-size: 12px;
-  color: var(--t3);
+  color: #71717a;
 }
 .sticky-btn {
   padding: 10px 20px;
-  background: var(--lime);
+  background: #D4FF2B;
   color: #000;
   border: none;
   border-radius: 10px;
@@ -569,7 +569,7 @@ const CSS = `
   text-align: center;
   padding: 24px 16px;
   font-size: 12px;
-  color: var(--t4);
+  color: #3f3f46;
   display: flex;
   flex-direction: column;
   gap: 4px;
