@@ -428,17 +428,14 @@ function Result({ type }: { type: AfterfeelType }) {
           </div>
         </div>
 
-        {/* ── 3. EMAIL — #1 CTA (감정 피크에서 바로) ── */}
+        {/* ── 3. EMAIL — #1 CTA ── */}
         <div className="email-section">
           {!emailSent ? (
             <div>
               <div className="offer-box-quiz">
                 <div className="offer-was-quiz">$13.47</div>
                 <div className="offer-price-quiz">$2.99</div>
-                <div className="offer-detail-quiz">3 packs · Free shipping · No commitment</div>
-                <div className="offer-cashback-quiz">
-                  Love it? $2.99 back on your first 6-pack.
-                </div>
+                <div className="offer-detail-quiz">3 packs · Free shipping · Launching March</div>
 
                 <div className="email-row">
                   <input
@@ -457,27 +454,21 @@ function Result({ type }: { type: AfterfeelType }) {
                     }}
                   />
                   <button className="email-btn" onClick={submitEmail} disabled={emailLoading}>
-                    {emailLoading ? "..." : "Try it"}
+                    {emailLoading ? "..." : "Lock in $2.99 →"}
                   </button>
                 </div>
 
                 {emailError && <div className="email-error">{emailError}</div>}
 
-                <div className="email-note">Cancel anytime. No strings.</div>
+                <div className="email-note">No charge until launch. We&apos;ll email you first.</div>
               </div>
             </div>
           ) : (
             <div className="email-ok anim-up">
               <div className="email-ok-icon">✓</div>
-              <div className="email-ok-head">You&apos;re on the list.</div>
-
-              <div className="offer-reveal anim-up">
-                <div className="offer-reveal-label">🎁 Member offer — unlocked for you</div>
-                <div className="offer-reveal-price">$2.99</div>
-                <div className="offer-reveal-desc">3 packs · Free shipping · Usually $13.47</div>
-                <div className="offer-reveal-fine">
-                  Love it? We&apos;ll credit your $2.99 on your first order of 6+.
-                </div>
+              <div className="email-ok-head">You&apos;re in.</div>
+              <div className="email-ok-sub">
+                $2.99 locked. We&apos;ll email you when it&apos;s time.
               </div>
             </div>
           )}
