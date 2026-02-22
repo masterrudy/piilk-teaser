@@ -103,9 +103,7 @@ function Hero({ onStart }: { onStart: () => void }) {
     <section className="phase hero-phase">
       <div className="hero-inner">
         <h1 className="h1 anim-up">
-          What happens after
-          <br />
-          your protein shake?
+          What happens after your protein shake?
         </h1>
 
         <p className="body anim-up d1">
