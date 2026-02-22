@@ -294,8 +294,9 @@ export default function MainTeaser() {
 
       {/* ── FOOTER ── */}
       <footer className="site-footer">
-        <div>PIILK™ by Armored Fresh</div>
-        <div>© 2026 Armoredfresh Inc.</div>
+        <div className="footer-brand">PIILK™ BY ARMORED FRESH</div>
+        <div className="footer-desc">RTD High Protein Shake.</div>
+        <div className="footer-copy">© 2026 Armoredfresh Inc.</div>
       </footer>
     </>
   );
@@ -573,12 +574,27 @@ const CSS = `
 /* ── Footer ── */
 .site-footer {
   text-align: center;
-  padding: 24px 16px;
+  padding: 32px 16px;
   font-size: 12px;
-  color: #3f3f46;
+  color: #71717a;
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+.footer-brand {
+  font-size: 13px;
+  font-weight: 700;
+  color: #a1a1aa;
+  letter-spacing: 0.06em;
+}
+.footer-desc {
+  font-size: 12px;
+  color: #71717a;
+}
+.footer-copy {
+  font-size: 11px;
+  color: #3f3f46;
+  margin-top: 4px;
 }
 
 /* ── Mobile ── */
