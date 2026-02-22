@@ -1,695 +1,689 @@
-'use client';
-import { useState, useEffect, useRef, useCallback } from 'react';
-import Image from 'next/image';
+// ═══════════════════════════════════════════════════════════
+// 📁 파일 위치: app/page.tsx
+// 📌 역할: / 메인 티저 페이지 (3-Scroll Empathy → Compare → Offer)
+// 📌 플로우: Screen 1 (감각 공감) → Screen 2 (성분 비교) → Screen 3 (이메일 수집)
+// 📌 API: /api/subscribe (Supabase + Klaviyo 서버사이드)
+//
+// ✅ HTML → Next.js 전환사항:
+//   1. HTML piilk-main-teaser.html 디자인 100% 재현
+//   2. /api/subscribe 서버사이드 Klaviyo 연결 (API key 보안)
+//   3. ga4-main.ts 통합 트래킹 (GA4 + Meta Pixel + TikTok Pixel)
+//   4. Supabase 내부 대시보드 이벤트 전송
+//   5. 세션 관리 (visitor_id + session_id)
+//   6. UTM 파라미터 수집
+//   7. Sticky bottom CTA bar (50vh scroll 후 표시, Screen 3 + 제출 후 숨김)
+//   8. Cashback 문구 제거 완료
+// ═══════════════════════════════════════════════════════════
 
-/* ─── EmailForm ─── */
-interface EmailFormProps {
-  email: string;
-  isSubmitted: boolean;
-  isSubmitting: boolean;
-  source: string;
-  onEmailChange: (v: string) => void;
-  onFocus: () => void;
-  onSubmit: (source: string) => void;
-}
-function EmailForm({
-  email, isSubmitted, isSubmitting, source,
-  onEmailChange, onFocus, onSubmit,
-}: EmailFormProps) {
-  if (isSubmitted) {
-    return <p className="email-success">You&apos;re in. Watch for the first note.</p>;
-  }
-  return (
-    <div className="email-module">
-      <div className="email-form-row">
-        <input
-          type="email"
-          className="email-input"
-          value={email}
-          onChange={(e) => onEmailChange(e.target.value.replace(/[^a-zA-Z0-9@._+\-]/g, ''))}
-          onCompositionStart={(e) => e.preventDefault()}
-          onFocus={onFocus}
-          onKeyDown={(e) => { if (e.key === 'Enter') onSubmit(source); }}
-          placeholder="you@email.com"
-          autoComplete="email"
-          inputMode="email"
-          disabled={isSubmitting}
-          style={{ imeMode: 'disabled' } as React.CSSProperties}
-        />
-        <button
-          type="button"
-          className="email-btn"
-          onClick={() => onSubmit(source)}
-          disabled={isSubmitting || !email}
-        >
-          {isSubmitting ? 'Submitting...' : 'Get Early Access →'}
-        </button>
-      </div>
-      <p className="email-trust">No purchase required · No spam · Unsubscribe anytime</p>
-    </div>
-  );
-}
+"use client";
 
-/* ─── Helpers ─── */
-function getDeviceType(): string {
-  if (typeof window === 'undefined') return 'unknown';
-  const ua = navigator.userAgent;
-  if (/tablet|ipad|playbook|silk/i.test(ua)) return 'tablet';
-  if (/mobile|iphone|ipod|android.*mobile|windows phone|blackberry/i.test(ua)) return 'mobile';
-  return 'desktop';
-}
-function getUTMParams(): Record<string, string> {
-  if (typeof window === 'undefined') return {};
+import { useState, useEffect, useRef, useCallback } from "react";
+import Image from "next/image";
+import { track } from "@/lib/ga4-main";
+
+// ─────────────────────────────────────────────────────────────
+// Utils
+// ─────────────────────────────────────────────────────────────
+
+function getTrackingData() {
+  if (typeof window === "undefined") return {};
   const params = new URLSearchParams(window.location.search);
-  const utm: Record<string, string> = {};
-  ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'].forEach((key) => {
-    const val = params.get(key);
-    if (val) utm[key] = val;
-  });
-  return utm;
-}
-function getOrCreateId(key: string, storage: 'session' | 'local'): string {
-  if (typeof window === 'undefined') return '';
-  const store = storage === 'session' ? sessionStorage : localStorage;
-  let id = store.getItem(key);
-  if (!id) {
-    id = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    store.setItem(key, id);
-  }
-  return id;
+  return {
+    device_type: /Mobile|Android|iPhone/i.test(navigator.userAgent)
+      ? "mobile"
+      : "desktop",
+    language: navigator.language || null,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
+    referrer: document.referrer || null,
+    utm_source: params.get("utm_source") || null,
+    utm_medium: params.get("utm_medium") || null,
+    utm_campaign: params.get("utm_campaign") || null,
+  };
 }
 
-/* ─── Main Page ─── */
-export default function TeaserPage() {
-  const [email, setEmail] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [showMore, setShowMore] = useState(false);
-  const trackingData = useRef<Record<string, string>>({});
-  const sessionId = useRef('');
-  const visitorId = useRef('');
-  const leadStartFired = useRef(false);
+// ═══════════════════════════════════════════
+// MAIN PAGE COMPONENT
+// ═══════════════════════════════════════════
 
+export default function MainTeaser() {
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailError, setEmailError] = useState("");
+  const [stickyVisible, setStickyVisible] = useState(false);
+  const [stickyHidden, setStickyHidden] = useState(false);
+  const [scrollCueVisible, setScrollCueVisible] = useState(true);
+
+  const emailRef = useRef<HTMLInputElement>(null);
+  const screen3Ref = useRef<HTMLDivElement>(null);
+  const stickyShownRef = useRef(false);
+  const emailFocusTracked = useRef(false);
+
+  // ─── Page View Tracking ───
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const utmParams = getUTMParams();
-    trackingData.current = {
-      device_type: getDeviceType(),
-      language: navigator.language || '',
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
-      referrer: document.referrer || '',
-      ...utmParams,
+    track.pageView();
+  }, []);
+
+  // ─── Scroll Reveal (IntersectionObserver) ───
+  useEffect(() => {
+    const reveals = document.querySelectorAll(".reveal");
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add("visible");
+            obs.unobserve(e.target);
+          }
+        });
+      },
+      { threshold: 0.15 }
+    );
+    reveals.forEach((el) => obs.observe(el));
+    return () => obs.disconnect();
+  }, []);
+
+  // ─── Sticky Bar: hide when Screen 3 visible ───
+  useEffect(() => {
+    const screen3 = screen3Ref.current;
+    if (!screen3) return;
+
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            setStickyVisible(false);
+            setStickyHidden(true);
+          } else if (stickyShownRef.current) {
+            setStickyVisible(true);
+            setStickyHidden(false);
+          }
+        });
+      },
+      { threshold: 0.2 }
+    );
+    obs.observe(screen3);
+    return () => obs.disconnect();
+  }, []);
+
+  // ─── Sticky Bar: show after 50vh scroll + hide scroll cue ───
+  useEffect(() => {
+    const handleScroll = () => {
+      if (
+        !stickyShownRef.current &&
+        window.scrollY > window.innerHeight * 0.5
+      ) {
+        stickyShownRef.current = true;
+        setStickyVisible(true);
+        track.scrollDepth("50vh");
+      }
+      if (scrollCueVisible && window.scrollY > 100) {
+        setScrollCueVisible(false);
+      }
     };
-    sessionId.current = getOrCreateId('piilk_session', 'session');
-    visitorId.current = getOrCreateId('piilk_visitor', 'local');
-    trackEvent('page_view');
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [scrollCueVisible]);
 
-  const trackEvent = useCallback((eventName: string, eventData?: Record<string, unknown>) => {
-    const td = trackingData.current;
-    fetch('/api/track', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        event_name: eventName,
-        event_data: eventData || null,
-        session_id: sessionId.current,
-        visitor_id: visitorId.current,
-        device_type: td.device_type || null,
-        referrer: td.referrer || null,
-        utm_source: td.utm_source || null,
-        utm_medium: td.utm_medium || null,
-        utm_campaign: td.utm_campaign || null,
-      }),
-    }).catch(() => {});
-    const w = window as unknown as { gtag?: (...a: unknown[]) => void };
-    if (typeof window !== 'undefined' && w.gtag) {
-      w.gtag('event', eventName, { variant: 'main', ...eventData });
+  // ─── Email Submit ───
+  const submitEmail = useCallback(async () => {
+    const raw = emailRef.current?.value ?? "";
+    const email = raw.trim();
+
+    if (!email) {
+      setEmailError("Please enter your email.");
+      return;
     }
-  }, []);
-
-  const handleEmailFocus = useCallback(() => {
-    if (!leadStartFired.current) {
-      leadStartFired.current = true;
-      trackEvent('lead_start');
+    if (!email.includes("@") || !email.includes(".")) {
+      setEmailError("Please enter a valid email address.");
+      return;
     }
-  }, [trackEvent]);
 
-  const handleSubmit = useCallback(async (source: string) => {
-    if (!email || !email.includes('@') || !email.includes('.') || isSubmitting || isSubmitted) return;
-    setIsSubmitting(true);
+    setEmailLoading(true);
+    setEmailError("");
+
     try {
-      const response = await fetch('/api/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
-          segment: 'direct',
-          answers: { sub_reason: '' },
-          tracking: trackingData.current,
+          source: "main_teaser",
+          tracking: getTrackingData(),
         }),
       });
-      const data = await response.json();
-      if (data.success) {
-        trackEvent('lead_submit', {
-          segment: 'direct',
-          sub_reason: '',
-          email_domain: email.split('@')[1] || '',
-          source,
-        });
-        const w = window as unknown as {
-          gtag?: (...a: unknown[]) => void;
-          fbq?: (...a: unknown[]) => void;
-          ttq?: { track: (...a: unknown[]) => void };
-        };
-        if (typeof window !== 'undefined') {
-          if (w.gtag) {
-            w.gtag('event', 'generate_lead', { method: 'email_signup', signup_source: source });
-          }
-          if (w.fbq) {
-            w.fbq('track', 'Lead', { content_name: 'piilk_main_teaser', content_category: 'teaser_signup' });
-            w.fbq('track', 'CompleteRegistration', { content_name: 'piilk_main_teaser', value: 1, currency: 'USD' });
-          }
-          if (w.ttq) {
-            w.ttq.track('SubmitForm', { content_name: 'piilk_main_teaser' });
-            w.ttq.track('CompleteRegistration', { content_name: 'piilk_main_teaser', value: 1, currency: 'USD' });
-          }
-        }
-        setIsSubmitted(true);
-      } else {
-        alert(data.error || 'Something went wrong. Please try again.');
-      }
-    } catch {
-      alert('Something went wrong. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [email, isSubmitting, isSubmitted, trackEvent]);
 
-  // Track "learn more" scroll
-  useEffect(() => {
-    if (showMore) trackEvent('section_why_view');
-  }, [showMore, trackEvent]);
+      const data = await res.json();
+
+      if (data?.success) {
+        setEmailSent(true);
+        track.emailSubmit();
+        // Sticky bar 숨김
+        setStickyVisible(false);
+        setStickyHidden(true);
+        return;
+      }
+
+      setEmailError(
+        data?.error === "invalid_email"
+          ? "Please enter a valid email address."
+          : data?.error === "already_exists"
+          ? "You're already on the list! 🎉"
+          : "Something went wrong. Please try again."
+      );
+    } catch {
+      setEmailError("Connection error. Please try again.");
+    } finally {
+      setEmailLoading(false);
+    }
+  }, []);
+
+  const scrollToOffer = () => {
+    screen3Ref.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   return (
-    <main className="piilk-page">
-      {/* ═══ Fixed Background ═══ */}
-      <div className="hero-bg">
-        <Image
-          src="/hero-bg.png"
-          alt="Background"
-          fill
-          className="hero-bg-img"
-          style={{ objectPosition: 'center 35%' }}
-          priority
-          sizes="100vw"
-        />
-        <div className="hero-bg-overlay" />
-      </div>
+    <>
+      {/* ===== CSS ===== */}
+      <style>{mainTeaserCSS}</style>
 
-      <div className="page-scroll">
-        {/* ═══ HERO SECTION — Everything above the fold ═══ */}
-        <section className="hero-section">
-          {/* Logo — links to home */}
-          <header className="logo-header">
-            <a href="/" aria-label="PIILK Home">
-              <Image
-                src="/pillk-logo.png"
-                alt="Piilk"
-                width={80}
-                height={32}
-                className="logo-img"
-              />
-            </a>
-          </header>
+      {/* ── NAV BAR WITH LOGO ── */}
+      <nav className="nav">
+        <a className="nav-logo" href="/">
+          <Image
+            src="/pillk-logo.png"
+            alt="PIILK"
+            width={72}
+            height={28}
+            style={{ display: "block" }}
+            priority
+          />
+        </a>
+        <span className="nav-right">by Armored Fresh</span>
+      </nav>
 
-          <div className="hero-content">
-            {/* Launch Badge */}
-            <p className="launch-badge">Launching Mid-March</p>
-
-            {/* ✅ CHANGED: Value-prop headline replaces question */}
-            <h1 className="hero-h1">
-              30g Protein.<br />
-              Nothing After. Period.
-            </h1>
-
-            <p className="hero-desc">
-              No film. No aftertaste. No regret.<br />
-              The clean protein shake you&apos;ve been waiting for.
-            </p>
-
-            <p className="hero-proof">Dairy-free · 7 ingredients · No artificial sweeteners</p>
-
-            {/* ✅ CHANGED: $2.99 offer box — immediately visible */}
-            {!isSubmitted && (
-              <div className="offer-box">
-                <div className="offer-price-row">
-                  <span className="offer-price">$2.99</span>
-                  <span className="offer-detail">3 packs · Free shipping</span>
-                </div>
-                <p className="offer-sub">
-                  Worth $13.47 — Love it? $2.99 back on your first 6-pack.
-                </p>
-              </div>
-            )}
-
-            {/* ✅ Submitted confirmation */}
-            {isSubmitted && (
-              <div className="offer-box offer-confirmed">
-                <div className="offer-price-row">
-                  <span className="offer-price">$2.99</span>
-                  <span className="offer-detail">3 packs · Free shipping</span>
-                </div>
-                <p className="offer-sub">
-                  You&apos;re locked in. We&apos;ll reach out before launch.
-                </p>
-              </div>
-            )}
-
-            {/* ✅ CHANGED: Email form immediately in hero */}
-            <div className="email-wrap">
-              <EmailForm
-                email={email}
-                isSubmitted={isSubmitted}
-                isSubmitting={isSubmitting}
-                source="hero"
-                onEmailChange={setEmail}
-                onFocus={handleEmailFocus}
-                onSubmit={handleSubmit}
-              />
-            </div>
-
-            {/* ✅ Scarcity — honest, no fake numbers */}
-            {!isSubmitted && (
-              <p className="spot-counter">
-                <span className="spot-dot" />
-                Limited to first 1,000 members
-              </p>
-            )}
+      <div className="page-content">
+        {/* ── SCREEN 1: EMPATHY ── */}
+        <section className="section" id="screen1">
+          <h1 className="hero-headline reveal">
+            Ever had a protein drink
+            <br />
+            that felt off right after?
+          </h1>
+          <p
+            className="hero-sensory reveal"
+            style={{ transitionDelay: "0.15s" }}
+          >
+            That chalky taste. That heavy gut feeling.
+            <br />
+            Something off you can&apos;t quite name.
+          </p>
+          <p
+            className="hero-confirm reveal"
+            style={{ transitionDelay: "0.3s" }}
+          >
+            You&apos;re not imagining it.
+          </p>
+          <div
+            className="scroll-cue"
+            style={{ opacity: scrollCueVisible ? 0.4 : 0 }}
+          >
+            <span>scroll</span>
+            <div className="arrow" />
           </div>
-
-          {/* ✅ CHANGED: "Learn more" replaces mandatory scroll */}
-          {!isSubmitted && (
-            <button
-              className="learn-more-cue"
-              onClick={() => {
-                setShowMore(true);
-                setTimeout(() => {
-                  document.getElementById('why-section')?.scrollIntoView({ behavior: 'smooth' });
-                }, 50);
-              }}
-            >
-              <span>Learn more</span>
-              <div className="arrow" />
-            </button>
-          )}
         </section>
 
-        {/* ═══ SECTION 2 — Optional "Why" (below fold) ═══ */}
-        {showMore && (
-          <section className="why-section" id="why-section">
-            <div className="why-inner">
-              <h2 className="why-title">Why we built PIILK</h2>
-              <div className="why-body">
-                <p>Most shakes obsess over macros.</p>
-                <p>We obsessed over what happens <em>after</em> you drink it.</p>
-              </div>
-              <p className="why-sub">Launching Mid-March. Your sample is on us.</p>
+        {/* ── SCREEN 2: FLIP THE BOTTLE ── */}
+        <section className="section" id="screen2">
+          <p className="compare-prompt reveal">
+            Flip your protein shake over.
+            <br />
+            Count the ingredients.
+          </p>
+          <div
+            className="compare-stats reveal"
+            style={{ transitionDelay: "0.15s" }}
+          >
+            <p className="compare-most">Most have 15+.</p>
+            <p className="compare-seven">This one has 7.</p>
+          </div>
+          <div
+            className="compare-details reveal"
+            style={{ transitionDelay: "0.3s" }}
+          >
+            Same 30g protein. Smaller bottle.
+            <br />
+            No artificial sweeteners. Dairy free.
+          </div>
+        </section>
 
-              {/* Second CTA */}
-              <div className="cta-wrap">
-                <EmailForm
-                  email={email}
-                  isSubmitted={isSubmitted}
-                  isSubmitting={isSubmitting}
-                  source="cta"
-                  onEmailChange={setEmail}
-                  onFocus={handleEmailFocus}
-                  onSubmit={handleSubmit}
+        {/* ── SCREEN 3: OFFER ── */}
+        <section className="section section--offer" id="screen3" ref={screen3Ref}>
+          <div className="offer-box reveal">
+            <p className="offer-was">$13.47</p>
+            <p className="offer-price">$2.99</p>
+            <p className="offer-detail">
+              3 packs · Free shipping · No commitment
+            </p>
+            <div className={`form-area ${emailSent ? "submitted" : ""}`}>
+              <div className="email-row">
+                <input
+                  ref={emailRef}
+                  className="email-input"
+                  type="email"
+                  placeholder="your@email.com"
+                  autoComplete="email"
+                  inputMode="email"
+                  required
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      submitEmail();
+                    }
+                  }}
+                  onFocus={() => {
+                    if (!emailFocusTracked.current) {
+                      emailFocusTracked.current = true;
+                      track.emailFocus();
+                    }
+                  }}
                 />
+                <button
+                  className="email-btn"
+                  onClick={submitEmail}
+                  disabled={emailLoading}
+                >
+                  {emailLoading ? "..." : "Try it"}
+                </button>
               </div>
-
-              <div className="footer-area">
-                <p className="footer-brand">PIILK™ by ARMORED FRESH</p>
-                <p className="footer-sub">RTD High Protein Shake.</p>
+              {emailError && (
+                <div className="email-error">{emailError}</div>
+              )}
+              <p className="offer-fine">Cancel anytime. No strings.</p>
+              <div className="success-msg show">
+                <div className="check">✓</div>
+                <p>
+                  <strong>You&apos;re in.</strong>
+                </p>
+                <p>We&apos;ll reach out when it&apos;s ready.</p>
               </div>
             </div>
-          </section>
-        )}
+          </div>
+        </section>
       </div>
 
-      <style jsx global>{`
-        :root {
-          --accent:       #BFFF00;
-          --accent-hover: #D4FF33;
-          --success:      #00FF88;
-          --muted:        #888888;
-          --secondary:    #CCCCCC;
-          --input-bg:     rgba(17,17,17,0.7);
-          --border:       rgba(255,255,255,0.1);
-          --radius:       12px;
-          --tap:          52px;
-          --font:         'DM Sans', system-ui, sans-serif;
-        }
-        html, body { margin:0; padding:0; height:100%; }
-        
-        /* ── Page: normal scroll, no snap ── */
-        .piilk-page {
-          position: relative;
-          min-height: 100vh;
-          background: #000;
-          color: #fff;
-          font-family: var(--font);
-          -webkit-font-smoothing: antialiased;
-        }
-        .hero-bg { position:fixed; inset:0; z-index:0; }
-        .hero-bg-img { object-fit:cover; transform:scale(1.1); }
-        .hero-bg-overlay {
-          position:absolute; inset:0;
-          background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.3) 40%, rgba(0,0,0,0.65) 100%);
-        }
-        .page-scroll {
-          position: relative;
-          z-index: 1;
-        }
+      {/* ── STICKY BOTTOM CTA BAR ── */}
+      <div
+        className={`sticky-bar ${stickyVisible ? "visible" : ""} ${stickyHidden ? "hide" : ""}`}
+      >
+        <div className="sticky-info">
+          <span className="sticky-price">$2.99</span>
+          <span className="sticky-detail">3 packs · Free shipping</span>
+        </div>
+        <button className="sticky-btn" onClick={scrollToOffer}>
+          Try it →
+        </button>
+      </div>
 
-        /* ── Hero Section: full viewport ── */
-        .hero-section {
-          position: relative;
-          min-height: 100vh;
-          min-height: 100dvh;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 80px 24px 60px;
-          text-align: center;
-        }
-        .logo-header {
-          position: absolute;
-          top: 20px;
-          left: 50%;
-          transform: translateX(-50%);
-          z-index: 10;
-        }
-        .logo-img { opacity: 0.9; cursor: pointer; transition: opacity 0.3s; }
-        .logo-img:hover { opacity: 0.6; }
-        .logo-header a { display: inline-block; line-height: 0; }
-
-        /* ── Hero Content ── */
-        .hero-content {
-          max-width: 520px;
-          width: 100%;
-          animation: heroFadeIn 0.8s ease-out 0.15s both;
-        }
-        @keyframes heroFadeIn {
-          from { opacity: 0; transform: translateY(16px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-
-        /* ── Launch Badge ── */
-        .launch-badge {
-          display: inline-block;
-          font-size: 11px;
-          font-weight: 600;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          color: var(--accent);
-          border: 1px solid rgba(191,255,0,0.3);
-          border-radius: 20px;
-          padding: 4px 14px;
-          margin-bottom: 20px;
-        }
-
-        /* ── Headline ── */
-        .hero-h1 {
-          font-family: var(--font);
-          font-size: clamp(30px, 7vw, 52px);
-          font-weight: 700;
-          line-height: 1.12;
-          letter-spacing: -0.02em;
-          margin-bottom: 14px;
-        }
-        .hero-desc {
-          font-size: 15px;
-          line-height: 1.6;
-          color: var(--secondary);
-          margin-bottom: 6px;
-        }
-        .hero-proof {
-          font-size: 12px;
-          color: var(--muted);
-          letter-spacing: 0.04em;
-        }
-
-        /* ── Offer Box ── */
-        .offer-box {
-          margin: 20px auto 0;
-          max-width: 420px;
-          background: rgba(191,255,0,0.06);
-          border: 1px solid rgba(191,255,0,0.2);
-          border-radius: 12px;
-          padding: 16px 20px;
-        }
-        .offer-confirmed {
-          background: rgba(191,255,0,0.1);
-          animation: fadeIn 400ms ease forwards;
-        }
-        .offer-price-row {
-          display: flex;
-          align-items: baseline;
-          justify-content: center;
-          gap: 10px;
-          margin-bottom: 6px;
-        }
-        .offer-price {
-          font-size: 28px;
-          font-weight: 800;
-          color: var(--accent);
-          letter-spacing: -0.02em;
-        }
-        .offer-detail {
-          font-size: 14px;
-          color: var(--secondary);
-          font-weight: 500;
-        }
-        .offer-sub {
-          font-size: 12px;
-          color: var(--muted);
-          margin: 0;
-          line-height: 1.5;
-        }
-
-        /* ── Spot Counter ── */
-        .spot-counter {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          margin-top: 14px;
-          font-size: 12px;
-          color: var(--accent);
-          opacity: 0.85;
-          animation: fadeIn 1s ease 0.3s both;
-        }
-        .spot-dot {
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: var(--accent);
-          animation: pulse 2s ease-in-out infinite;
-        }
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50%      { opacity: 0.3; }
-        }
-
-        /* ── Email Form ── */
-        .email-wrap, .cta-wrap {
-          margin-top: 20px;
-          max-width: 460px;
-          margin-left: auto;
-          margin-right: auto;
-        }
-        .email-module { width: 100%; }
-        .email-form-row { display: flex; flex-direction: column; gap: 8px; }
-        .email-input {
-          width: 100%;
-          height: 48px;
-          padding: 0 16px;
-          background: var(--input-bg);
-          border: 1px solid var(--border);
-          border-radius: 10px;
-          color: #fff;
-          font-family: var(--font);
-          font-size: 15px;
-          outline: none;
-          transition: border-color 0.2s;
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-        }
-        .email-input::placeholder { color: var(--muted); }
-        .email-input:focus { border-color: var(--accent); }
-        .email-input:disabled { opacity: 0.4; cursor: not-allowed; }
-        .email-btn {
-          width: 100%;
-          height: 48px;
-          background: var(--accent);
-          color: #000;
-          border: none;
-          border-radius: 10px;
-          font-family: var(--font);
-          font-size: 15px;
-          font-weight: 700;
-          cursor: pointer;
-          transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
-          box-shadow: 0 0 20px rgba(191,255,0,0.3);
-        }
-        .email-btn:hover {
-          background: var(--accent-hover);
-          box-shadow: 0 0 30px rgba(191,255,0,0.5);
-        }
-        .email-btn:active { transform: scale(0.98); }
-        .email-btn:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
-        .email-trust {
-          margin-top: 10px;
-          font-size: 11px;
-          color: var(--muted);
-          text-align: center;
-        }
-        .email-success {
-          font-size: 15px;
-          color: var(--success);
-          font-weight: 600;
-          text-align: center;
-          animation: fadeIn 300ms ease forwards;
-        }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-        /* ── Learn More Cue (optional, bottom of hero) ── */
-        .learn-more-cue {
-          position: absolute;
-          bottom: 24px;
-          left: 50%;
-          transform: translateX(-50%);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 6px;
-          background: none;
-          border: none;
-          cursor: pointer;
-          opacity: 0.35;
-          transition: opacity 0.3s;
-          padding: 8px;
-        }
-        .learn-more-cue:hover { opacity: 0.7; }
-        .learn-more-cue span {
-          font-size: 11px;
-          color: var(--muted);
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          font-family: var(--font);
-        }
-        .learn-more-cue .arrow {
-          width: 14px;
-          height: 14px;
-          border-right: 1.5px solid var(--muted);
-          border-bottom: 1.5px solid var(--muted);
-          transform: rotate(45deg);
-          animation: bounce 2s ease-in-out infinite;
-        }
-        @keyframes bounce {
-          0%, 100% { transform: rotate(45deg) translateY(0); }
-          50%      { transform: rotate(45deg) translateY(4px); }
-        }
-
-        /* ── Why Section (below fold, optional) ── */
-        .why-section {
-          position: relative;
-          min-height: 80vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
-          padding: 80px 24px 60px;
-          animation: sectionFadeIn 0.5s ease-out;
-        }
-        @keyframes sectionFadeIn {
-          from { opacity: 0; transform: translateY(24px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        .why-inner { max-width: 520px; width: 100%; }
-        .why-title {
-          font-family: var(--font);
-          font-size: clamp(26px, 6vw, 44px);
-          font-weight: 700;
-          line-height: 1.15;
-          letter-spacing: -0.01em;
-          margin-bottom: 16px;
-        }
-        .why-body {
-          font-size: 16px;
-          line-height: 1.6;
-          color: var(--secondary);
-        }
-        .why-body p + p { margin-top: 6px; }
-        .why-body em { font-style: italic; color: #fff; }
-        .why-sub {
-          margin-top: 14px;
-          font-size: 13px;
-          color: var(--accent);
-          font-weight: 500;
-          letter-spacing: 0.03em;
-        }
-
-        /* ── Footer ── */
-        .footer-area { margin-top: 48px; }
-        .footer-brand {
-          font-size: 9px;
-          letter-spacing: 0.25em;
-          color: var(--muted);
-          text-transform: uppercase;
-          font-weight: 500;
-        }
-        .footer-sub {
-          font-size: 9px;
-          letter-spacing: 0.15em;
-          color: var(--muted);
-          margin-top: 4px;
-          font-weight: 500;
-        }
-
-        /* ── Desktop ── */
-        @media (min-width: 768px) {
-          .email-form-row { flex-direction: row; }
-          .email-form-row .email-input { flex: 1; min-width: 0; }
-          .email-form-row .email-btn { width: auto; min-width: 180px; flex-shrink: 0; }
-        }
-
-        /* ── Mobile ── */
-        @media (max-width: 767px) {
-          .hero-section { padding: 60px 20px 50px; }
-          .hero-h1 { font-size: clamp(26px, 8vw, 38px); }
-          .hero-desc { font-size: 14px; }
-          .hero-proof { font-size: 11px; }
-          .offer-box { margin-top: 16px; padding: 12px 16px; }
-          .offer-price { font-size: 24px; }
-          .offer-detail { font-size: 13px; }
-          .offer-sub { font-size: 11px; }
-          .email-wrap, .cta-wrap { margin-top: 16px; max-width: 340px; padding: 0; }
-          .email-input { height: 44px; font-size: 14px; border-radius: 8px; }
-          .email-btn { height: 44px; font-size: 14px; border-radius: 8px; }
-          .logo-header { top: 14px; }
-          .logo-img { width: 60px !important; height: auto !important; }
-          .launch-badge { font-size: 10px; padding: 3px 10px; }
-          .spot-counter { font-size: 11px; }
-          .why-section { padding: 60px 20px 50px; min-height: 60vh; }
-          .why-title { font-size: clamp(22px, 7vw, 32px); }
-          .why-body { font-size: 14px; }
-        }
-      `}</style>
-    </main>
+      <footer className="main-footer">
+        <Image
+          src="/pillk-logo.png"
+          alt="PIILK"
+          width={64}
+          height={24}
+          style={{ display: "block", margin: "0 auto 12px", opacity: 0.4 }}
+        />
+        <div className="footer-brand">PIILK™ BY ARMORED FRESH</div>
+        <div className="footer-tagline">RTD High Protein Shake.</div>
+        <div className="footer-copy">© 2026 Armoredfresh Inc.</div>
+      </footer>
+    </>
   );
 }
+
+// ═══════════════════════════════════════════
+// CSS (Inline — mirrors piilk-main-teaser.html exactly)
+// ═══════════════════════════════════════════
+
+const mainTeaserCSS = `
+/* ===== NAV BAR ===== */
+.nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: transparent;
+}
+.nav-logo {
+  cursor: pointer;
+  text-decoration: none;
+}
+.nav-right {
+  font-size: 11px;
+  color: var(--t3);
+  letter-spacing: 0.04em;
+}
+
+/* ===== SECTIONS ===== */
+.section {
+  min-height: 100vh;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 60px 24px;
+  text-align: center;
+  position: relative;
+}
+.section--offer {
+  min-height: auto;
+  padding: 48px 24px 120px;
+}
+
+/* ===== SCREEN 1: EMPATHY + SENSORY ===== */
+.hero-headline {
+  font-size: clamp(26px, 7vw, 42px);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: #fff;
+  margin-bottom: 24px;
+}
+.hero-sensory {
+  font-size: clamp(15px, 4vw, 18px);
+  color: var(--t2);
+  line-height: 1.7;
+  max-width: 340px;
+  margin-bottom: 28px;
+}
+.hero-confirm {
+  font-size: clamp(16px, 4.2vw, 20px);
+  font-weight: 600;
+  color: #fff;
+}
+
+.scroll-cue {
+  position: absolute;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  transition: opacity 0.5s;
+}
+.scroll-cue span {
+  font-size: 11px;
+  color: var(--t3);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.scroll-cue .arrow {
+  width: 20px;
+  height: 20px;
+  border-right: 1.5px solid var(--t3);
+  border-bottom: 1.5px solid var(--t3);
+  transform: rotate(45deg);
+  animation: bounce 2s infinite;
+}
+@keyframes bounce {
+  0%, 100% { transform: rotate(45deg) translateY(0); }
+  50% { transform: rotate(45deg) translateY(6px); }
+}
+
+/* ===== SCREEN 2: FLIP THE BOTTLE ===== */
+.compare-prompt {
+  font-size: clamp(18px, 5vw, 26px);
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.3;
+  margin-bottom: 32px;
+}
+.compare-stats { margin-bottom: 28px; }
+.compare-most {
+  font-size: clamp(14px, 3.8vw, 17px);
+  color: var(--t2);
+  margin-bottom: 8px;
+}
+.compare-seven {
+  font-size: clamp(32px, 9vw, 52px);
+  font-weight: 800;
+  color: var(--lime);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+.compare-details {
+  font-size: clamp(14px, 3.6vw, 16px);
+  color: var(--t2);
+  line-height: 1.8;
+}
+
+/* ===== SCREEN 3: OFFER ===== */
+.offer-box {
+  width: 100%;
+  max-width: 380px;
+  background: var(--card);
+  border: 1px solid rgba(212,255,43,0.15);
+  border-radius: 16px;
+  padding: 32px 24px 28px;
+  text-align: center;
+  margin: 0 auto 20px;
+}
+.offer-was {
+  font-size: 14px;
+  color: var(--t3);
+  text-decoration: line-through;
+  margin-bottom: 4px;
+}
+.offer-price {
+  font-size: clamp(36px, 10vw, 52px);
+  font-weight: 800;
+  color: var(--lime);
+  letter-spacing: -0.03em;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.offer-detail {
+  font-size: 15px;
+  color: var(--t2);
+  margin-bottom: 20px;
+}
+
+/* Email form */
+.email-row {
+  display: flex;
+  gap: 8px;
+  max-width: 340px;
+  margin: 0 auto 12px;
+}
+.email-input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 15px;
+  color: var(--t1);
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.email-input::placeholder { color: var(--t4); }
+.email-input:focus { border-color: rgba(212,255,43,0.3); }
+
+.email-btn {
+  padding: 14px 20px;
+  background: var(--lime);
+  color: #000;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.15s, opacity 0.15s;
+}
+.email-btn:hover { opacity: 0.9; }
+.email-btn:active { transform: scale(0.97); }
+.email-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.email-error {
+  font-size: 13px;
+  color: #ef4444;
+  margin: 4px auto 8px;
+  max-width: 340px;
+}
+
+.offer-fine {
+  font-size: 12px;
+  color: var(--t4);
+  max-width: 300px;
+  margin: 0 auto;
+}
+
+/* ===== SUCCESS STATE ===== */
+.success-msg {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+}
+.success-msg.show { display: flex; }
+.success-msg .check {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  background: rgba(212,255,43,0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+.success-msg p {
+  font-size: 15px;
+  color: var(--t2);
+}
+.success-msg strong {
+  color: var(--lime);
+  font-weight: 700;
+}
+
+.form-area .success-msg { display: none; }
+.form-area.submitted .email-row { display: none; }
+.form-area.submitted .offer-fine { display: none; }
+.form-area.submitted .email-error { display: none; }
+.form-area.submitted .success-msg { display: flex; }
+
+/* ===== STICKY BOTTOM CTA BAR ===== */
+.sticky-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: rgba(10,10,11,0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid var(--border);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  transform: translateY(100%);
+  transition: transform 0.4s ease;
+}
+.sticky-bar.visible {
+  transform: translateY(0);
+}
+.sticky-bar.hide {
+  transform: translateY(100%);
+}
+.sticky-info {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.sticky-price {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--lime);
+  letter-spacing: -0.02em;
+}
+.sticky-detail {
+  font-size: 12px;
+  color: var(--t3);
+}
+.sticky-btn {
+  padding: 10px 20px;
+  background: var(--lime);
+  color: #000;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.15s, opacity 0.15s;
+}
+.sticky-btn:hover { opacity: 0.9; }
+.sticky-btn:active { transform: scale(0.97); }
+
+/* ===== FADE-IN ANIMATION ===== */
+.reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ===== FOOTER ===== */
+.main-footer {
+  text-align: center;
+  padding: 48px 16px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+.footer-brand {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--t3);
+  letter-spacing: 0.12em;
+  margin-bottom: 4px;
+}
+.footer-tagline {
+  font-size: 13px;
+  color: var(--t3);
+  margin-bottom: 16px;
+}
+.footer-copy {
+  font-size: 11px;
+  color: var(--t4);
+}
+
+/* ===== PAGE CONTENT ===== */
+.page-content {
+  position: relative;
+  z-index: 1;
+}
+
+/* ===== MOBILE ===== */
+@media (max-width: 480px) {
+  .sticky-bar { padding: 10px 16px; gap: 10px; }
+  .sticky-price { font-size: 18px; }
+  .sticky-detail { font-size: 11px; }
+  .sticky-btn { padding: 10px 16px; font-size: 13px; }
+}
+`;
