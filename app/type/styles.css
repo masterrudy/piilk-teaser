@@ -327,9 +327,9 @@ body { font-family: var(--sans); background: var(--bg); color: var(--t1); overfl
   color: var(--t2);
   margin-bottom: 8px;
 }
+
 /* ═══════════════════════════════════════════
    V13 Quiz Page — CSS Additions
-   styles.css 맨 끝의 V13 섹션을 이걸로 교체
    ═══════════════════════════════════════════ */
 
 /* ── Bridge Section ── */
