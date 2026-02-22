@@ -1,17 +1,11 @@
 // ═══════════════════════════════════════════════════════════
-// 📁 app/type/page.tsx — V13
+// 📁 app/type/page.tsx — V13.1
 // 📌 Hero → Quiz 3문항 → Result (Email #1 → Share #2 → Referral → Declaration)
 // 📌 API: /api/type-subscribe, /api/type-declarations
 // 📌 Tracking: lib/ga4.ts
 //
-// ✅ V12 → V13 변경사항:
-//   1. Hero: "You've been ignoring it." → "What happens after your protein shake?"
-//   2. Result 순서: Card → Bridge + PIILK specs → Email → Share → Referral → Decl
-//      (Email을 Share 위로 — 감정 피크에서 바로 전환)
-//   3. Bridge에 PIILK 장점 삽입: 7 ingredients, 30g, dairy free
-//   4. Email hook: 직접적이고 간결하게
-//   5. quiz-data.ts V13: Q1 선택지 뉴요커 말투, zombie 태그라인 개선
-//   6. Cashback: 퀴즈 완료자 전용 유지
+// ✅ V13 → V13.1 변경사항:
+//   1. Offer detail: "Launching March" → "Launching mid-March"
 // ═══════════════════════════════════════════════════════════
 
 "use client";
@@ -219,7 +213,7 @@ function Quiz({
 }
 
 // ═══════════════════════════════════════════
-// RESULT — V13 (reordered: Email above Share)
+// RESULT — V13.1 (Launching mid-March)
 // ═══════════════════════════════════════════
 function Result({ type }: { type: AfterfeelType }) {
   const t = AFTERFEEL_TYPES[type];
@@ -391,8 +385,7 @@ function Result({ type }: { type: AfterfeelType }) {
   };
 
   // ═════════════════════════════════════════
-  // RESULT JSX — V13 순서:
-  // Card → Bridge (PIILK specs) → Email → Share → Referral → Proof → Declaration
+  // RESULT JSX — V13.1
   // ═════════════════════════════════════════
   return (
     <section className="phase result-phase">
@@ -433,7 +426,7 @@ function Result({ type }: { type: AfterfeelType }) {
               <div className="offer-box-quiz">
                 <div className="offer-was-quiz">$13.47</div>
                 <div className="offer-price-quiz">$2.99</div>
-                <div className="offer-detail-quiz">3 packs · Free shipping · Launching March</div>
+                <div className="offer-detail-quiz">3 packs · Free shipping · Launching mid-March</div>
 
                 <div className="email-row">
                   <input
