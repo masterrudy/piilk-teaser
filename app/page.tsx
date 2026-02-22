@@ -18,6 +18,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import Image from "next/image";
 import { track } from "@/lib/ga4-main";
 
 // ─────────────────────────────────────────────────────────────
@@ -179,6 +180,21 @@ export default function MainTeaser() {
     <>
       <style>{CSS}</style>
 
+      {/* ── NAV ── */}
+      <nav className="nav">
+        <div className="nav-logo">
+          <Image
+            src="/pillk-logo.png"
+            alt="PIILK"
+            width={72}
+            height={28}
+            style={{ display: "block" }}
+            priority
+          />
+        </div>
+        <span className="nav-right">by Armored Fresh</span>
+      </nav>
+
       {/* ── SCREEN 1: EMPATHY ── */}
       <section className="section" id="screen1">
         <h1 className="hero-headline reveal">
@@ -187,7 +203,9 @@ export default function MainTeaser() {
           that felt off right after?
         </h1>
         <p className="hero-sensory reveal" style={{ transitionDelay: "0.15s" }}>
-          That chalky taste. That heavy gut feeling.
+          That chalky taste.
+          <br />
+          That heavy gut feeling.
           <br />
           Something off you can&apos;t quite name.
         </p>
@@ -294,6 +312,15 @@ export default function MainTeaser() {
 
       {/* ── FOOTER ── */}
       <footer className="site-footer">
+        <div className="footer-logo">
+          <Image
+            src="/pillk-logo.png"
+            alt="PIILK"
+            width={60}
+            height={24}
+            style={{ display: "block", margin: "0 auto 8px", opacity: 0.5 }}
+          />
+        </div>
         <div className="footer-brand">PIILK™ BY ARMORED FRESH</div>
         <div className="footer-desc">RTD High Protein Shake.</div>
         <div className="footer-copy">© 2026 Armoredfresh Inc.</div>
@@ -307,6 +334,25 @@ export default function MainTeaser() {
 // ═══════════════════════════════════════════
 
 const CSS = `
+/* ── Nav ── */
+.nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+}
+.nav-logo {
+  display: flex;
+  align-items: center;
+}
+.nav-right {
+  font-size: 12px;
+  color: #71717a;
+}
+
 /* ===== SECTIONS ===== */
 .section {
   min-height: 100vh;
