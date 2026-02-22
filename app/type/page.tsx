@@ -1,29 +1,17 @@
 // ═══════════════════════════════════════════════════════════
-// 📁 파일 위치: app/type/page.tsx
-// 📌 역할: /type 메인 페이지 (V12 — Final)
-// 📌 플로우: Hero → Quiz 3문항 → Result (Share #1 → Email #2 → Referral → Declaration)
-// 📌 모든 API 호출은 /api/type-* 경로 사용 (A안 완전 분리)
+// 📁 app/type/page.tsx — V13
+// 📌 Hero → Quiz 3문항 → Result (Email #1 → Share #2 → Referral → Declaration)
+// 📌 API: /api/type-subscribe, /api/type-declarations
+// 📌 Tracking: lib/ga4.ts
 //
-// ✅ V11 → V12 변경사항:
-//   1. 히어로 카피 전면 교체
-//      - "It's not the protein" → "You've been ignoring it."
-//      - 4타입 이모지 미리보기 추가
-//      - CTA: "Find my type — 30 sec" → "What's yours? →"
-//   2. Result 브릿지 라인 추가: "What if nothing stayed?"
-//   3. Share 라벨 개인화: 타입명 포함
-//   4. Email 카피 개선: "Your type is real. The fix is coming."
-//   5. Declaration 헤더 톤 변경: "Sound familiar? / Tap the ones that hit."
-//   6. Referral에 SMS 버튼 추가
-//   7. doShare("ig") → doShare("save") 채널명 수정
-//
-// 🐛 V12 버그 수정:
-//   8. fbq 중복 호출 4건 제거 — ga4.ts에서 일괄 관리
-//      삭제: QuizStart, QuizComplete, TypeResult, EmailFocus
-//      유지: QuizStep (ga4.ts에 없으므로 page.tsx에서 유일하게 호출)
-//   9. Referral refShare()에 sms 분기 추가
-//
-// ✅ V12.1 — Cashback 제거:
-//  10. offer-reveal-fine "Love it? $2.99 credit" 문구 제거 (정책 변경)
+// ✅ V12 → V13 변경사항:
+//   1. Hero: "You've been ignoring it." → "What happens after your protein shake?"
+//   2. Result 순서: Card → Bridge + PIILK specs → Email → Share → Referral → Decl
+//      (Email을 Share 위로 — 감정 피크에서 바로 전환)
+//   3. Bridge에 PIILK 장점 삽입: 7 ingredients, 30g, dairy free
+//   4. Email hook: 직접적이고 간결하게
+//   5. quiz-data.ts V13: Q1 선택지 뉴요커 말투, zombie 태그라인 개선
+//   6. Cashback: 퀴즈 완료자 전용 유지
 // ═══════════════════════════════════════════════════════════
 
 "use client";
@@ -103,30 +91,29 @@ async function safeCopy(text: string): Promise<boolean> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Progress
-// ─────────────────────────────────────────────────────────────
 function calcQuizProgress(qi: number, total: number): number {
   return Math.round(25 + (qi / total) * 50);
 }
 
 // ═══════════════════════════════════════════
-// HERO — V12
+// HERO — V13
 // ═══════════════════════════════════════════
 function Hero({ onStart }: { onStart: () => void }) {
   return (
     <section className="phase hero-phase">
       <div className="hero-inner">
         <h1 className="h1 anim-up">
-          You&apos;ve been ignoring it.
+          What happens after
+          <br />
+          your protein shake?
         </h1>
 
         <p className="body anim-up d1">
-          That chalk taste. That heavy gut.
+          That chalky taste.
           <br />
-          That film you can&apos;t explain.
+          That heavy gut feeling.
           <br />
-          After every protein shake — and you know it.
+          That thing you just ignore every time.
         </p>
 
         <div className="hero-types anim-up d2">
@@ -174,7 +161,6 @@ function Quiz({
     setPicked(true);
 
     track.quizStep(qi + 1, group);
-    // fbq QuizStep은 ga4.ts v3에서 일괄 호출
 
     const next = [...answers, group];
     setAnswers(next);
@@ -190,7 +176,6 @@ function Quiz({
 
       const result = calcAfterfeelType(next);
       track.quizComplete(result);
-      // 🐛 FIX: fbq QuizComplete 제거 — ga4.ts quizComplete() 내부에서 호출됨
       onComplete(result);
     }, 300);
   };
@@ -236,7 +221,7 @@ function Quiz({
 }
 
 // ═══════════════════════════════════════════
-// RESULT — V12
+// RESULT — V13 (reordered: Email above Share)
 // ═══════════════════════════════════════════
 function Result({ type }: { type: AfterfeelType }) {
   const t = AFTERFEEL_TYPES[type];
@@ -260,7 +245,6 @@ function Result({ type }: { type: AfterfeelType }) {
   useEffect(() => {
     referredBy.current = getReferralFromURL();
     track.typeResult(type);
-    // 🐛 FIX: fbq TypeResult 제거 — ga4.ts typeResult() 내부에서 호출됨
 
     fetch("/api/type-declarations")
       .then((r) => r.json())
@@ -276,7 +260,7 @@ function Result({ type }: { type: AfterfeelType }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ─── Share (#1) ───
+  // ─── Share ───
   const doShare = useCallback(
     async (channel: string) => {
       track.shareClick(channel, type);
@@ -296,7 +280,6 @@ function Result({ type }: { type: AfterfeelType }) {
         return;
       }
 
-      // save / link: clipboard copy
       const ok = await safeCopy(fullUrl);
       if (ok) {
         setCopied(true);
@@ -306,7 +289,7 @@ function Result({ type }: { type: AfterfeelType }) {
     [t.name, type]
   );
 
-  // ─── Email (#2) ───
+  // ─── Email ───
   const submitEmail = async () => {
     const raw = emailRef.current?.value ?? "";
     const email = raw.trim();
@@ -342,7 +325,6 @@ function Result({ type }: { type: AfterfeelType }) {
         setQueuePosition(data.queue_position);
         setEmailSent(true);
         track.emailSubmit(type);
-        // fbq Lead + CompleteRegistration + ttq 모두 ga4.ts emailSubmit() 내부에서 처리
         return;
       }
 
@@ -403,7 +385,6 @@ function Result({ type }: { type: AfterfeelType }) {
       return;
     }
 
-    // copy
     const ok = await safeCopy(refUrl);
     if (ok) {
       setRefCopied(true);
@@ -411,10 +392,15 @@ function Result({ type }: { type: AfterfeelType }) {
     }
   };
 
+  // ═════════════════════════════════════════
+  // RESULT JSX — V13 순서:
+  // Card → Bridge (PIILK specs) → Email → Share → Referral → Proof → Declaration
+  // ═════════════════════════════════════════
   return (
     <section className="phase result-phase">
       <div className="result-wrap">
-        {/* CARD */}
+
+        {/* ── 1. TYPE CARD ── */}
         <div className="card">
           <div className="card-inner">
             <div className="label">Your after-feel type</div>
@@ -425,85 +411,60 @@ function Result({ type }: { type: AfterfeelType }) {
           </div>
         </div>
 
-        {/* V12: 브릿지 라인 — 불편함 → 해결책 연결 */}
-        <div className="bridge-line">
-          What if nothing stayed?
-        </div>
-
-        {/* SHARE = #1 CTA */}
-        <div className="share-zone">
-          {/* V12: 타입명 포함 개인화 */}
-          <div className="share-label">
-            &ldquo;I&apos;m a {t.name}.&rdquo; — share your result
+        {/* ── 2. BRIDGE — 타입 → 제품 연결 ── */}
+        <div className="bridge-section">
+          <div className="bridge-line">What if nothing stayed?</div>
+          <div className="bridge-specs">
+            <span className="bridge-spec">7 ingredients</span>
+            <span className="bridge-dot">·</span>
+            <span className="bridge-spec">30g protein</span>
+            <span className="bridge-dot">·</span>
+            <span className="bridge-spec">Dairy free</span>
           </div>
-
-          <div className="share-grid">
-            {/* 🐛 FIX: "ig" → "save" — 실제 동작은 clipboard copy */}
-            <button className="share-btn" onClick={() => doShare("save")}>
-              📋 Save link
-            </button>
-            <button className="share-btn" onClick={() => doShare("sms")}>
-              💬 Text
-            </button>
-            <button className="share-btn" onClick={() => doShare("x")}>
-              𝕏 Post
-            </button>
-          </div>
-
-          <div
-            className="copy-row"
-            onClick={() => doShare("link")}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") doShare("link");
-            }}
-          >
-            <span>teaser.piilk.com/type</span>
-            <span className="copy-label">{copied ? "Copied!" : "Copy link"}</span>
+          <div className="bridge-sub">
+            Same protein. Smaller bottle. No artificial sweeteners.
+            <br />
+            No after-feel.
           </div>
         </div>
 
-        <div className="sep" />
-
-        {/* EMAIL = #2 CTA */}
+        {/* ── 3. EMAIL — #1 CTA (감정 피크에서 바로) ── */}
         <div className="email-section">
           {!emailSent ? (
             <div>
-              <div className="email-hook">
-                <div className="email-hook-head">Your type is real. The fix is coming.</div>
-                <div className="email-hook-sub">
-                  The protein shake with nothing after.
-                  <br />
-                  Something unlocks when you join.
+              <div className="offer-box-quiz">
+                <div className="offer-was-quiz">$13.47</div>
+                <div className="offer-price-quiz">$2.99</div>
+                <div className="offer-detail-quiz">3 packs · Free shipping · No commitment</div>
+                <div className="offer-cashback-quiz">
+                  Love it? $2.99 back on your first 6-pack.
                 </div>
+
+                <div className="email-row">
+                  <input
+                    ref={emailRef}
+                    type="email"
+                    className="email-input"
+                    placeholder="your@email.com"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") submitEmail();
+                    }}
+                    onFocus={() => {
+                      if (!emailFocusTracked.current) {
+                        emailFocusTracked.current = true;
+                        track.emailFocus(type);
+                      }
+                    }}
+                  />
+                  <button className="email-btn" onClick={submitEmail} disabled={emailLoading}>
+                    {emailLoading ? "..." : "Try it"}
+                  </button>
+                </div>
+
+                {emailError && <div className="email-error">{emailError}</div>}
+
+                <div className="email-note">Cancel anytime. No strings.</div>
               </div>
-
-              <div className="email-row">
-                <input
-                  ref={emailRef}
-                  type="email"
-                  className="email-input"
-                  placeholder="your@email.com"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") submitEmail();
-                  }}
-                  onFocus={() => {
-                    if (!emailFocusTracked.current) {
-                      emailFocusTracked.current = true;
-                      track.emailFocus(type);
-                      // 🐛 FIX: fbq EmailFocus 제거 — ga4.ts emailFocus() 내부에서 호출됨
-                    }
-                  }}
-                />
-                <button className="email-btn" onClick={submitEmail} disabled={emailLoading}>
-                  {emailLoading ? "..." : "Join the list →"}
-                </button>
-              </div>
-
-              {emailError && <div className="email-error">{emailError}</div>}
-
-              <div className="email-note">No spam, ever.</div>
             </div>
           ) : (
             <div className="email-ok anim-up">
@@ -514,13 +475,49 @@ function Result({ type }: { type: AfterfeelType }) {
                 <div className="offer-reveal-label">🎁 Member offer — unlocked for you</div>
                 <div className="offer-reveal-price">$2.99</div>
                 <div className="offer-reveal-desc">3 packs · Free shipping · Usually $13.47</div>
-                {/* Cashback 문구 제거 완료 (정책 변경) */}
+                <div className="offer-reveal-fine">
+                  Love it? We&apos;ll credit your $2.99 on your first order of 6+.
+                </div>
               </div>
             </div>
           )}
         </div>
 
-        {/* REFERRAL — V12: SMS 버튼 추가 */}
+        {/* ── 4. SHARE — 이메일 제출 후에만 표시 ── */}
+        {emailSent && (
+          <div className="share-zone anim-up">
+            <div className="share-label">
+              &ldquo;I&apos;m a {t.name}.&rdquo; — tell a friend
+            </div>
+
+            <div className="share-grid">
+              <button className="share-btn" onClick={() => doShare("save")}>
+                📋 Save link
+              </button>
+              <button className="share-btn" onClick={() => doShare("sms")}>
+                💬 Text
+              </button>
+              <button className="share-btn" onClick={() => doShare("x")}>
+                𝕏 Post
+              </button>
+            </div>
+
+            <div
+              className="copy-row"
+              onClick={() => doShare("link")}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") doShare("link");
+              }}
+            >
+              <span>teaser.piilk.com/type</span>
+              <span className="copy-label">{copied ? "Copied!" : "Copy link"}</span>
+            </div>
+          </div>
+        )}
+
+        {/* ── 5. REFERRAL — 이메일 제출 후에만 표시 ── */}
         {emailSent && (
           <div className="referral anim-up">
             <div className="ref-rank">#{queuePosition.toLocaleString()}</div>
@@ -556,19 +553,19 @@ function Result({ type }: { type: AfterfeelType }) {
           </div>
         )}
 
-        {/* PROOF */}
+        {/* ── 6. PROOF ── */}
         {emailSent && (
           <div className="proof-mini anim-up">
             <span className="ptag">30g protein</span>
             <span className="ptag">7 ingredients</span>
             <span className="ptag">Dairy-free</span>
-            <span className="ptag">Nothing after.</span>
+            <span className="ptag">No after-feel.</span>
           </div>
         )}
 
         <div className="sep" />
 
-        {/* DECLARATIONS */}
+        {/* ── 7. DECLARATIONS ── */}
         <div className="declarations">
           <div className="decl-header">
             <div className="label" style={{ marginBottom: 8 }}>
@@ -618,7 +615,6 @@ export default function TeaserType() {
 
   const startQuiz = () => {
     track.quizStart();
-    // 🐛 FIX: fbq QuizStart 제거 — ga4.ts quizStart() 내부에서 호출됨
     setPhase("quiz");
   };
 
@@ -675,10 +671,10 @@ export default function TeaserType() {
           height={24}
           style={{ display: "block", margin: "0 auto 12px", opacity: 0.4 }}
         />
-        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--t3, #71717a)", letterSpacing: "0.12em", marginBottom: 4 }}>
+        <div style={{ fontSize: 13, fontWeight: 500, color: "#71717a", letterSpacing: "0.12em", marginBottom: 4 }}>
           PIILK™ BY ARMORED FRESH
         </div>
-        <div style={{ fontSize: 13, color: "var(--t3, #71717a)", marginBottom: 16 }}>
+        <div style={{ fontSize: 13, color: "#71717a", marginBottom: 16 }}>
           RTD High Protein Shake.
         </div>
         <div>© 2026 Armoredfresh Inc.</div>
