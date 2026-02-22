@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
-// 📁 파일 위치: app/page.tsx — V3
-// 📌 역할: / 메인 티저 페이지 (1-Viewport: Declaration → Stats → Email CTA)
+// 📁 파일 위치: app/page.tsx — V3.1
+// 📌 역할: / 메인 티저 페이지 (1-Viewport: Bridge → Problem/Answer → Stats → Email CTA)
 // 📌 API: /api/subscribe (Supabase + Klaviyo 서버사이드) — 변경 없음
 // 📌 트래킹: lib/ga4-main.ts (GA4 + Meta Pixel + TikTok + Supabase) — 이벤트 추가
 //
@@ -232,15 +232,20 @@ export default function MainTeaser() {
       </nav>
 
       {/* ══════════════════════════════════════════════════════
-          SCREEN 1: FIRST VIEWPORT — 선언 + 숫자 + Email CTA
-          V3 핵심 변경: 질문 삭제, 선언형, 이메일 first viewport
+          SCREEN 1: FIRST VIEWPORT — 공감 1줄 → 답 즉시 → Email CTA
+          V3.1: 공감 bridge + 선언 + 이메일 first viewport
           ══════════════════════════════════════════════════════ */}
       <section className="section section--hero" id="screen1">
-        {/* ── Hero Headline: 선언형 ── */}
-        <h1 className="hero-headline reveal">
-          Same 30g protein.
+        {/* ── Empathy Bridge: 광고 → 랜딩 연결 1줄 ── */}
+        <p className="hero-bridge reveal">You felt it. Here&apos;s why.</p>
+
+        {/* ── Problem → Answer: 즉시 전환 ── */}
+        <h1 className="hero-headline reveal" style={{ transitionDelay: "0.08s" }}>
+          Your shake has 15+ ingredients.
           <br />
-          <span className="hero-accent">7 ingredients instead of 15+.</span>
+          <span className="hero-accent">PIILK has 7.</span>
+          <br />
+          <span className="hero-sub-line">Same 30g protein.</span>
         </h1>
 
         {/* ── Stat Row: 숫자 3개 ── */}
@@ -354,7 +359,7 @@ export default function MainTeaser() {
         <p className="compare-body reveal" style={{ transitionDelay: "0.2s" }}>
           We kept the protein and removed what you don&apos;t need.
           <br />
-          No artificial sweeteners. No emulsifiers. No preservatives.
+          No artificial sweeteners. No carrageenan. No preservatives.
           <br />
           35% less liquid. Same protein.
         </p>
@@ -444,25 +449,48 @@ const CSS = `
   position: relative;
 }
 
-/* ── Screen 1: Hero (V3 — 1 viewport 완결) ── */
+/* ── Screen 1: Hero (V3.1 — 1 viewport, content upper-center) ── */
 .section--hero {
   min-height: 100vh;
   min-height: 100svh;
   padding-top: 80px;
   padding-bottom: 40px;
   gap: 0;
+  justify-content: center;
+  /* 콘텐츠를 시각적 중앙보다 약간 위로 — 데스크톱에서 상단 공백 방지 */
+  padding-top: 12vh;
+  padding-bottom: 8vh;
+}
+
+@media (min-width: 768px) {
+  .section--hero {
+    /* 데스크톱: 더 위로 올림 */
+    justify-content: flex-start;
+    padding-top: 18vh;
+  }
 }
 
 .hero-headline {
-  font-size: clamp(24px, 6.5vw, 40px);
+  font-size: clamp(22px, 6vw, 36px);
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.25;
   letter-spacing: -0.02em;
   color: #fff;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
 }
 .hero-accent {
   color: #D4FF2B;
+}
+.hero-bridge {
+  font-size: 15px;
+  color: #a1a1aa;
+  margin-bottom: 16px;
+  letter-spacing: 0.01em;
+}
+.hero-sub-line {
+  font-size: clamp(16px, 4vw, 22px);
+  font-weight: 500;
+  color: #a1a1aa;
 }
 
 /* ── Stat Row ── */
@@ -613,7 +641,7 @@ const CSS = `
 /* ── Screen 2: Compare (Below Fold — 보조 섹션) ── */
 .section--compare {
   min-height: auto;
-  padding: 64px 24px 80px;
+  padding: 48px 24px 64px;
   border-top: 1px solid rgba(255,255,255,0.04);
 }
 
