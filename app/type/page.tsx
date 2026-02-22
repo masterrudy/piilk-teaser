@@ -1,11 +1,18 @@
-// ═══════════════════════════════════════════════════════════
-// 📁 app/type/page.tsx — V13.1
-// 📌 Hero → Quiz 3문항 → Result (Email #1 → Share #2 → Referral → Declaration)
-// 📌 API: /api/type-subscribe, /api/type-declarations
-// 📌 Tracking: lib/ga4.ts
+  // ═══════════════════════════════════════════════════════════
+// 📁 app/type/page.tsx — V14 (Audit V3 기반 전면 개편)
+// 📌 Hero → Quiz 3문항 → Result (Compare → Email → Share → Referral → Declaration)
+// 📌 API: /api/type-subscribe, /api/type-declarations — 변경 없음
+// 📌 Tracking: lib/ga4.ts — 변경 없음
 //
-// ✅ V13 → V13.1 변경사항:
-//   1. Offer detail: "Launching March" → "Launching mid-March"
+// ✅ V13.1 → V14 변경사항 (Audit V3 기반):
+//   1. Hero: 질문형 "What happens..." → 선언형 "Everyone reacts differently"
+//   2. Hero: 감각 묘사 3줄 삭제
+//   3. Hero: 이모지만 → 2x2 그리드 (이모지 + 타입 이름 동시 노출)
+//   4. Hero CTA: "What's yours? →" → "Find my type — takes 30 sec"
+//   5. Result: 비교 섹션을 Email CTA 위에 삽입 (V-Next에서 미구현된 부분)
+//   6. Result: 가격 ($13.47, $2.99) 삭제 — pre-launch 혼란 방지
+//   7. Result: Email CTA 문구: "Save your result + get NYC launch access"
+//   8. Nav: "by Armored Fresh" → "NYC · March 2026"
 // ═══════════════════════════════════════════════════════════
 
 "use client";
@@ -24,7 +31,7 @@ import {
 import { track } from "@/lib/ga4";
 
 // ─────────────────────────────────────────────────────────────
-// Utils
+// Utils (기존 100% 유지)
 // ─────────────────────────────────────────────────────────────
 
 function safeUUID(): string {
@@ -53,7 +60,9 @@ function getTrackingData() {
   if (typeof window === "undefined") return {};
   const params = new URLSearchParams(window.location.search);
   return {
-    device_type: /Mobile|Android|iPhone/i.test(navigator.userAgent) ? "mobile" : "desktop",
+    device_type: /Mobile|Android|iPhone/i.test(navigator.userAgent)
+      ? "mobile"
+      : "desktop",
     language: navigator.language || null,
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
     referrer: document.referrer || null,
@@ -90,37 +99,38 @@ function calcQuizProgress(qi: number, total: number): number {
 }
 
 // ═══════════════════════════════════════════
-// HERO — V13
+// HERO — V14 (선언형 + 타입명 노출 + 시간 CTA)
 // ═══════════════════════════════════════════
 function Hero({ onStart }: { onStart: () => void }) {
   return (
     <section className="phase hero-phase">
       <div className="hero-inner">
+        {/* V14: 질문 → 선언 */}
         <h1 className="h1 anim-up">
-          What happens after your protein shake?
+          Everyone reacts differently
+          <br />
+          to protein shakes.
         </h1>
 
         <p className="body anim-up d1">
-          That chalky taste.
-          <br />
-          That heavy gut feeling.
-          <br />
-          That thing you just ignore every time.
+          We found 4 types. Which one are you?
         </p>
 
-        <div className="hero-types anim-up d2">
-          <span className="hero-type-icon">🪨</span>
-          <span className="hero-type-icon">😶‍🌫️</span>
-          <span className="hero-type-icon">😴</span>
-          <span className="hero-type-icon">💨</span>
+        {/* V14: 이모지만 → 2x2 그리드 + 타입 이름 */}
+        <div className="hero-type-grid anim-up d2">
+          {(Object.entries(AFTERFEEL_TYPES) as [AfterfeelType, typeof AFTERFEEL_TYPES[AfterfeelType]][]).map(
+            ([key, t]) => (
+              <div className="hero-type-card" key={key}>
+                <span className="hero-type-emoji">{t.icon}</span>
+                <span className="hero-type-name">{t.name}</span>
+              </div>
+            )
+          )}
         </div>
 
-        <p className="body-sm anim-up d2">
-          4 types. Everyone has one.
-        </p>
-
+        {/* V14: CTA에 시간 명시 */}
         <button className="btn-primary anim-up d3" onClick={onStart}>
-          What&apos;s yours? →
+          Find my type — takes 30 sec
         </button>
       </div>
     </section>
@@ -128,7 +138,7 @@ function Hero({ onStart }: { onStart: () => void }) {
 }
 
 // ═══════════════════════════════════════════
-// QUIZ
+// QUIZ (기존 로직 100% 유지 — UI만 미세 조정)
 // ═══════════════════════════════════════════
 function Quiz({
   onComplete,
@@ -152,6 +162,7 @@ function Quiz({
     if (picked) return;
     setPicked(true);
 
+    // ✅ 기존 track 호출 유지
     track.quizStep(qi + 1, group);
 
     const next = [...answers, group];
@@ -166,6 +177,7 @@ function Quiz({
         return;
       }
 
+      // ✅ 기존 calcAfterfeelType 호출 유지
       const result = calcAfterfeelType(next);
       track.quizComplete(result);
       onComplete(result);
@@ -179,7 +191,10 @@ function Quiz({
       <div className="wrap">
         <div className="quiz-dots">
           {QUIZ_QUESTIONS.map((_, i) => (
-            <div key={i} className={`qdot ${i < qi ? "done" : i === qi ? "now" : ""}`} />
+            <div
+              key={i}
+              className={`qdot ${i < qi ? "done" : i === qi ? "now" : ""}`}
+            />
           ))}
         </div>
 
@@ -195,7 +210,9 @@ function Quiz({
               key={`${qi}-${j}`}
               className={`qo ${picked && pickedAnswer === o.group ? "pk" : ""}`}
               onClick={() => pick(o.group)}
-              style={{ animation: `up .35s cubic-bezier(.16,1,.3,1) ${j * 0.04}s both` }}
+              style={{
+                animation: `up .35s cubic-bezier(.16,1,.3,1) ${j * 0.04}s both`,
+              }}
               role="button"
               tabIndex={0}
               onKeyDown={(e) => {
@@ -213,7 +230,7 @@ function Quiz({
 }
 
 // ═══════════════════════════════════════════
-// RESULT — V13.1 (Launching mid-March)
+// RESULT — V14 (비교 섹션 추가, 가격 삭제)
 // ═══════════════════════════════════════════
 function Result({ type }: { type: AfterfeelType }) {
   const t = AFTERFEEL_TYPES[type];
@@ -236,23 +253,27 @@ function Result({ type }: { type: AfterfeelType }) {
 
   useEffect(() => {
     referredBy.current = getReferralFromURL();
+    // ✅ 기존 track.typeResult 호출 유지
     track.typeResult(type);
 
+    // ✅ 기존 declarations API 호출 유지
     fetch("/api/type-declarations")
       .then((r) => r.json())
       .then((data) => {
         if (!data?.declarations) return;
         const counts: Record<string, number> = {};
-        data.declarations.forEach((d: { statement_key: string; vote_count: number }) => {
-          counts[d.statement_key] = d.vote_count;
-        });
+        data.declarations.forEach(
+          (d: { statement_key: string; vote_count: number }) => {
+            counts[d.statement_key] = d.vote_count;
+          }
+        );
         setDeclCounts(counts);
       })
       .catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ─── Share ───
+  // ─── Share (기존 100% 유지) ───
   const doShare = useCallback(
     async (channel: string) => {
       track.shareClick(channel, type);
@@ -281,7 +302,7 @@ function Result({ type }: { type: AfterfeelType }) {
     [t.name, type]
   );
 
-  // ─── Email ───
+  // ─── Email Submit (API 경로 + body 구조 100% 유지) ───
   const submitEmail = async () => {
     const raw = emailRef.current?.value ?? "";
     const email = raw.trim();
@@ -299,6 +320,8 @@ function Result({ type }: { type: AfterfeelType }) {
     setEmailError("");
 
     try {
+      // ✅ API 경로 유지: /api/type-subscribe
+      // ✅ body 구조 유지: { email, afterfeel_type, referred_by, tracking }
       const res = await fetch("/api/type-subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -316,10 +339,12 @@ function Result({ type }: { type: AfterfeelType }) {
         setReferralCode(data.referral_code);
         setQueuePosition(data.queue_position);
         setEmailSent(true);
+        // ✅ 기존 track.emailSubmit 호출 유지
         track.emailSubmit(type);
         return;
       }
 
+      // ✅ 기존 에러 핸들링 유지
       setEmailError(
         data?.error === "invalid_email"
           ? "Please enter a valid email address."
@@ -334,7 +359,7 @@ function Result({ type }: { type: AfterfeelType }) {
     }
   };
 
-  // ─── Declaration Vote ───
+  // ─── Declaration Vote (기존 100% 유지) ───
   const voteDeclaration = async (key: string) => {
     if (votedDecls.has(key)) return;
 
@@ -344,10 +369,14 @@ function Result({ type }: { type: AfterfeelType }) {
     setVotedDecls((prev) => new Set(prev).add(key));
 
     try {
+      // ✅ API 경로 유지: /api/type-declarations
       const res = await fetch("/api/type-declarations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ statement_key: key, visitor_id: getVisitorId() }),
+        body: JSON.stringify({
+          statement_key: key,
+          visitor_id: getVisitorId(),
+        }),
       });
       const data = await res.json();
       if (data?.success) {
@@ -358,7 +387,7 @@ function Result({ type }: { type: AfterfeelType }) {
     }
   };
 
-  // ─── Referral Share ───
+  // ─── Referral Share (기존 100% 유지) ───
   const refShare = async (channel: string) => {
     track.referralShare(channel);
     const refUrl = `${SHARE_URL}?ref=${referralCode}`;
@@ -373,7 +402,9 @@ function Result({ type }: { type: AfterfeelType }) {
     }
 
     if (channel === "sms") {
-      window.open(`sms:?&body=${encodeURIComponent(txt + " " + refUrl)}`);
+      window.open(
+        `sms:?&body=${encodeURIComponent(txt + " " + refUrl)}`
+      );
       return;
     }
 
@@ -385,13 +416,12 @@ function Result({ type }: { type: AfterfeelType }) {
   };
 
   // ═════════════════════════════════════════
-  // RESULT JSX — V13.1
+  // RESULT JSX — V14
   // ═════════════════════════════════════════
   return (
     <section className="phase result-phase">
       <div className="result-wrap">
-
-        {/* ── 1. TYPE CARD ── */}
+        {/* ── 1. TYPE CARD (기존 구조 유지) ── */}
         <div className="card">
           <div className="card-inner">
             <div className="label">Your after-feel type</div>
@@ -402,56 +432,66 @@ function Result({ type }: { type: AfterfeelType }) {
           </div>
         </div>
 
-        {/* ── 2. BRIDGE — 타입 → 제품 연결 ── */}
-        <div className="bridge-section">
-          <div className="bridge-line">What if nothing stayed?</div>
-          <div className="bridge-specs">
-            <span className="bridge-spec">7 ingredients</span>
-            <span className="bridge-dot">·</span>
-            <span className="bridge-spec">30g protein</span>
-            <span className="bridge-dot">·</span>
-            <span className="bridge-spec">Dairy free</span>
+        {/* ── 2. COMPARISON SECTION (V14 신규 — Audit V3 핵심 추가) ── */}
+        <div className="compare-section">
+          <div className="compare-title">What makes PIILK different</div>
+          <div className="compare-rows">
+            <div className="compare-row-item dim">
+              <span className="compare-row-label">Your shake</span>
+              <span className="compare-row-val">15+ ingredients · 11.5 oz</span>
+            </div>
+            <div className="compare-row-item bright">
+              <span className="compare-row-label">PIILK™</span>
+              <span className="compare-row-val">
+                7 ingredients · 8.5 oz · same 30g
+              </span>
+            </div>
           </div>
-          <div className="bridge-sub">
+          <div className="compare-sub">
             Same protein. Smaller bottle. No artificial sweeteners.
-            <br />
-            No after-feel.
           </div>
         </div>
 
-        {/* ── 3. EMAIL — #1 CTA ── */}
+        {/* ── 3. EMAIL — V14: 가격 삭제, "Save result" CTA ── */}
         <div className="email-section">
           {!emailSent ? (
-            <div>
-              <div className="offer-box-quiz">
-                <div className="offer-was-quiz">$13.47</div>
-                <div className="offer-price-quiz">$2.99</div>
-                <div className="offer-detail-quiz">3 packs · Free shipping · Launching mid-March</div>
+            <div className="email-card">
+              <div className="email-prompt-type">
+                Save your result + get NYC launch access
+              </div>
 
-                <div className="email-row">
-                  <input
-                    ref={emailRef}
-                    type="email"
-                    className="email-input"
-                    placeholder="your@email.com"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") submitEmail();
-                    }}
-                    onFocus={() => {
-                      if (!emailFocusTracked.current) {
-                        emailFocusTracked.current = true;
-                        track.emailFocus(type);
-                      }
-                    }}
-                  />
-                  <button className="email-btn" onClick={submitEmail} disabled={emailLoading}>
-                    {emailLoading ? "..." : "Lock in $2.99 →"}
-                  </button>
-                </div>
+              <div className="email-row">
+                <input
+                  ref={emailRef}
+                  type="email"
+                  className="email-input"
+                  placeholder="your@email.com"
+                  autoComplete="email"
+                  inputMode="email"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") submitEmail();
+                  }}
+                  onFocus={() => {
+                    if (!emailFocusTracked.current) {
+                      emailFocusTracked.current = true;
+                      // ✅ 기존 track.emailFocus 호출 유지
+                      track.emailFocus(type);
+                    }
+                  }}
+                />
+                <button
+                  className="email-btn"
+                  onClick={submitEmail}
+                  disabled={emailLoading}
+                >
+                  {emailLoading ? "..." : "Save & join →"}
+                </button>
+              </div>
 
-                {emailError && <div className="email-error">{emailError}</div>}
+              {emailError && <div className="email-error">{emailError}</div>}
 
-                <div className="email-note">No charge until launch. We&apos;ll email you first.</div>
+              <div className="email-note">
+                No spam. Unsubscribe anytime.
               </div>
             </div>
           ) : (
@@ -459,13 +499,13 @@ function Result({ type }: { type: AfterfeelType }) {
               <div className="email-ok-icon">✓</div>
               <div className="email-ok-head">You&apos;re in.</div>
               <div className="email-ok-sub">
-                $2.99 locked. We&apos;ll email you when it&apos;s time.
+                We&apos;ll reach out when it&apos;s ready.
               </div>
             </div>
           )}
         </div>
 
-        {/* ── 4. SHARE — 이메일 제출 후에만 표시 ── */}
+        {/* ── 4. SHARE — 이메일 제출 후에만 표시 (기존 유지) ── */}
         {emailSent && (
           <div className="share-zone anim-up">
             <div className="share-label">
@@ -494,15 +534,19 @@ function Result({ type }: { type: AfterfeelType }) {
               }}
             >
               <span>teaser.piilk.com/type</span>
-              <span className="copy-label">{copied ? "Copied!" : "Copy link"}</span>
+              <span className="copy-label">
+                {copied ? "Copied!" : "Copy link"}
+              </span>
             </div>
           </div>
         )}
 
-        {/* ── 5. REFERRAL — 이메일 제출 후에만 표시 ── */}
+        {/* ── 5. REFERRAL — 이메일 제출 후에만 표시 (기존 유지) ── */}
         {emailSent && (
           <div className="referral anim-up">
-            <div className="ref-rank">#{queuePosition.toLocaleString()}</div>
+            <div className="ref-rank">
+              #{queuePosition.toLocaleString()}
+            </div>
             <div className="ref-rank-label">Your spot in line</div>
 
             <div className="ref-card">
@@ -522,20 +566,29 @@ function Result({ type }: { type: AfterfeelType }) {
             </div>
 
             <div className="ref-btns">
-              <button className="ref-btn primary" onClick={() => refShare("x")}>
+              <button
+                className="ref-btn primary"
+                onClick={() => refShare("x")}
+              >
                 Share on 𝕏
               </button>
-              <button className="ref-btn primary" onClick={() => refShare("sms")}>
+              <button
+                className="ref-btn primary"
+                onClick={() => refShare("sms")}
+              >
                 💬 Text a friend
               </button>
-              <button className="ref-btn ghost" onClick={() => refShare("copy")}>
+              <button
+                className="ref-btn ghost"
+                onClick={() => refShare("copy")}
+              >
                 {refCopied ? "Copied!" : "Copy your link"}
               </button>
             </div>
           </div>
         )}
 
-        {/* ── 6. PROOF ── */}
+        {/* ── 6. PROOF (기존 유지) ── */}
         {emailSent && (
           <div className="proof-mini anim-up">
             <span className="ptag">30g protein</span>
@@ -547,7 +600,7 @@ function Result({ type }: { type: AfterfeelType }) {
 
         <div className="sep" />
 
-        {/* ── 7. DECLARATIONS ── */}
+        {/* ── 7. DECLARATIONS (기존 100% 유지) ── */}
         <div className="declarations">
           <div className="decl-header">
             <div className="label" style={{ marginBottom: 8 }}>
@@ -565,11 +618,14 @@ function Result({ type }: { type: AfterfeelType }) {
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") voteDeclaration(d.key);
+                  if (e.key === "Enter" || e.key === " ")
+                    voteDeclaration(d.key);
                 }}
               >
                 <span className="decl-text">{d.text}</span>
-                <span className="decl-count">{(declCounts[d.key] || 0).toLocaleString()} ✊</span>
+                <span className="decl-count">
+                  {(declCounts[d.key] || 0).toLocaleString()} ✊
+                </span>
               </div>
             ))}
           </div>
@@ -580,7 +636,7 @@ function Result({ type }: { type: AfterfeelType }) {
 }
 
 // ═══════════════════════════════════════════
-// MAIN PAGE
+// MAIN PAGE (구조 기존 유지)
 // ═══════════════════════════════════════════
 export default function TeaserType() {
   const [phase, setPhase] = useState<"hero" | "quiz" | "result">("hero");
@@ -615,6 +671,7 @@ export default function TeaserType() {
 
   return (
     <>
+      {/* ── NAV (V14: "by Armored Fresh" → "NYC · March 2026") ── */}
       <nav className="nav">
         <a
           className="nav-logo"
@@ -634,14 +691,17 @@ export default function TeaserType() {
             priority
           />
         </a>
-        <span className="nav-right">by Armored Fresh</span>
+        <span className="nav-right">NYC · March 2026</span>
       </nav>
 
       <div className="progress-bar" style={{ width: `${progress}%` }} />
 
       {phase === "hero" && <Hero onStart={startQuiz} />}
       {phase === "quiz" && (
-        <Quiz onComplete={handleQuizComplete} onProgressUpdate={handleProgressUpdate} />
+        <Quiz
+          onComplete={handleQuizComplete}
+          onProgressUpdate={handleProgressUpdate}
+        />
       )}
       {phase === "result" && <Result type={resultType} />}
 
@@ -651,9 +711,21 @@ export default function TeaserType() {
           alt="PIILK"
           width={64}
           height={24}
-          style={{ display: "block", margin: "0 auto 12px", opacity: 0.4 }}
+          style={{
+            display: "block",
+            margin: "0 auto 12px",
+            opacity: 0.4,
+          }}
         />
-        <div style={{ fontSize: 13, fontWeight: 500, color: "#71717a", letterSpacing: "0.12em", marginBottom: 4 }}>
+        <div
+          style={{
+            fontSize: 13,
+            fontWeight: 500,
+            color: "#71717a",
+            letterSpacing: "0.12em",
+            marginBottom: 4,
+          }}
+        >
           PIILK™ BY ARMORED FRESH
         </div>
         <div style={{ fontSize: 13, color: "#71717a", marginBottom: 16 }}>
