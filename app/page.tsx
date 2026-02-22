@@ -1,24 +1,23 @@
 // ═══════════════════════════════════════════════════════════
 // 📁 파일 위치: app/page.tsx
-// 📌 역할: / 메인 티저 페이지 (3-Scroll Empathy → Compare → Offer)
-// 📌 플로우: Screen 1 (감각 공감) → Screen 2 (성분 비교) → Screen 3 (이메일 수집)
+// 📌 역할: / 메인 티저 페이지 (3-Scroll: Empathy → Compare → Offer)
 // 📌 API: /api/subscribe (Supabase + Klaviyo 서버사이드)
+// 📌 트래킹: lib/ga4-main.ts (GA4 + Meta Pixel + TikTok + Supabase)
 //
-// ✅ HTML → Next.js 전환사항:
-//   1. HTML piilk-main-teaser.html 디자인 100% 재현
-//   2. /api/subscribe 서버사이드 Klaviyo 연결 (API key 보안)
-//   3. ga4-main.ts 통합 트래킹 (GA4 + Meta Pixel + TikTok Pixel)
-//   4. Supabase 내부 대시보드 이벤트 전송
-//   5. 세션 관리 (visitor_id + session_id)
-//   6. UTM 파라미터 수집
-//   7. Sticky bottom CTA bar (50vh scroll 후 표시, Screen 3 + 제출 후 숨김)
-//   8. Cashback 문구 제거 완료
+// ✅ 최종 변경사항 (기존 HTML 대비):
+//   1. Screen 1 카피: "Ever had a protein drink that felt off right after?"
+//   2. Lime (#D4FF2B) 컬러: 버튼, 가격, 핵심 숫자, border
+//   3. Sticky bottom CTA bar 추가 (50vh 후 표시, Screen 3 + 제출 후 숨김)
+//   4. Cashback 문구 제거 ("Love it? $2.99 back…" 삭제)
+//   5. /api/subscribe 서버사이드 연결 (Klaviyo API key 보안)
+//   6. ga4-main.ts 통합 트래킹 (GA4+Meta+TikTok+Supabase)
+//   7. Enter key 제출 지원
+//   8. 100svh fallback (100vh)
 // ═══════════════════════════════════════════════════════════
 
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import Image from "next/image";
 import { track } from "@/lib/ga4-main";
 
 // ─────────────────────────────────────────────────────────────
@@ -42,7 +41,7 @@ function getTrackingData() {
 }
 
 // ═══════════════════════════════════════════
-// MAIN PAGE COMPONENT
+// MAIN COMPONENT
 // ═══════════════════════════════════════════
 
 export default function MainTeaser() {
@@ -54,16 +53,16 @@ export default function MainTeaser() {
   const [scrollCueVisible, setScrollCueVisible] = useState(true);
 
   const emailRef = useRef<HTMLInputElement>(null);
-  const screen3Ref = useRef<HTMLDivElement>(null);
+  const screen3Ref = useRef<HTMLElement>(null);
   const stickyShownRef = useRef(false);
   const emailFocusTracked = useRef(false);
 
-  // ─── Page View Tracking ───
+  // ─── Page View ───
   useEffect(() => {
     track.pageView();
   }, []);
 
-  // ─── Scroll Reveal (IntersectionObserver) ───
+  // ─── Scroll Reveal ───
   useEffect(() => {
     const reveals = document.querySelectorAll(".reveal");
     const obs = new IntersectionObserver(
@@ -81,11 +80,10 @@ export default function MainTeaser() {
     return () => obs.disconnect();
   }, []);
 
-  // ─── Sticky Bar: hide when Screen 3 visible ───
+  // ─── Sticky Bar: Screen 3 감지 ───
   useEffect(() => {
-    const screen3 = screen3Ref.current;
-    if (!screen3) return;
-
+    const el = screen3Ref.current;
+    if (!el) return;
     const obs = new IntersectionObserver(
       (entries) => {
         entries.forEach((e) => {
@@ -100,17 +98,14 @@ export default function MainTeaser() {
       },
       { threshold: 0.2 }
     );
-    obs.observe(screen3);
+    obs.observe(el);
     return () => obs.disconnect();
   }, []);
 
-  // ─── Sticky Bar: show after 50vh scroll + hide scroll cue ───
+  // ─── Sticky Bar: 50vh 스크롤 후 표시 + scroll cue 숨김 ───
   useEffect(() => {
-    const handleScroll = () => {
-      if (
-        !stickyShownRef.current &&
-        window.scrollY > window.innerHeight * 0.5
-      ) {
+    const onScroll = () => {
+      if (!stickyShownRef.current && window.scrollY > window.innerHeight * 0.5) {
         stickyShownRef.current = true;
         setStickyVisible(true);
         track.scrollDepth("50vh");
@@ -119,8 +114,8 @@ export default function MainTeaser() {
         setScrollCueVisible(false);
       }
     };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, [scrollCueVisible]);
 
   // ─── Email Submit ───
@@ -156,7 +151,6 @@ export default function MainTeaser() {
       if (data?.success) {
         setEmailSent(true);
         track.emailSubmit();
-        // Sticky bar 숨김
         setStickyVisible(false);
         setStickyHidden(true);
         return;
@@ -177,93 +171,69 @@ export default function MainTeaser() {
   }, []);
 
   const scrollToOffer = () => {
+    track.stickyClick();
     screen3Ref.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   return (
     <>
-      {/* ===== CSS ===== */}
-      <style>{mainTeaserCSS}</style>
+      <style>{CSS}</style>
 
-      {/* ── NAV BAR WITH LOGO ── */}
-      <nav className="nav">
-        <a className="nav-logo" href="/">
-          <Image
-            src="/pillk-logo.png"
-            alt="PIILK"
-            width={72}
-            height={28}
-            style={{ display: "block" }}
-            priority
-          />
-        </a>
-        <span className="nav-right">by Armored Fresh</span>
-      </nav>
+      {/* ── SCREEN 1: EMPATHY ── */}
+      <section className="section" id="screen1">
+        <h1 className="hero-headline reveal">
+          Ever had a protein drink
+          <br />
+          that felt off right after?
+        </h1>
+        <p className="hero-sensory reveal" style={{ transitionDelay: "0.15s" }}>
+          That chalky taste. That heavy gut feeling.
+          <br />
+          Something off you can&apos;t quite name.
+        </p>
+        <p className="hero-confirm reveal" style={{ transitionDelay: "0.3s" }}>
+          You&apos;re not imagining it.
+        </p>
+        <div
+          className="scroll-cue"
+          style={{ opacity: scrollCueVisible ? 0.4 : 0 }}
+        >
+          <span>scroll</span>
+          <div className="arrow" />
+        </div>
+      </section>
 
-      <div className="page-content">
-        {/* ── SCREEN 1: EMPATHY ── */}
-        <section className="section" id="screen1">
-          <div className="hero-stat reveal">
-            <span className="hero-stat-num">15+</span>
-            <span className="hero-stat-label">ingredients in your protein shake</span>
-          </div>
-          <h1 className="hero-headline reveal" style={{ transitionDelay: "0.1s" }}>
-            You don&apos;t know
-            <br />
-            what you&apos;re drinking.
-          </h1>
-          <p
-            className="hero-sensory reveal"
-            style={{ transitionDelay: "0.2s" }}
-          >
-            That chalky taste. That heavy gut.
-            <br />
-            That weird feeling after every shake.
-            <br />
-            <strong className="hero-punchline">That&apos;s not protein. That&apos;s the other 14.</strong>
-          </p>
-          <div
-            className="scroll-cue"
-            style={{ opacity: scrollCueVisible ? 0.4 : 0 }}
-          >
-            <span>scroll</span>
-            <div className="arrow" />
-          </div>
-        </section>
+      {/* ── SCREEN 2: FLIP THE BOTTLE ── */}
+      <section className="section" id="screen2">
+        <p className="compare-prompt reveal">
+          Flip your protein shake over.
+          <br />
+          Count the ingredients.
+        </p>
+        <div className="compare-stats reveal" style={{ transitionDelay: "0.15s" }}>
+          <p className="compare-most">Most have 15+.</p>
+          <p className="compare-seven">This one has 7.</p>
+        </div>
+        <div className="compare-details reveal" style={{ transitionDelay: "0.3s" }}>
+          Same 30g protein. Smaller bottle.
+          <br />
+          No artificial sweeteners. Dairy free.
+        </div>
+      </section>
 
-        {/* ── SCREEN 2: FLIP THE BOTTLE ── */}
-        <section className="section" id="screen2">
-          <p className="compare-prompt reveal">
-            Flip your protein shake over.
-            <br />
-            Count the ingredients.
-          </p>
-          <div
-            className="compare-stats reveal"
-            style={{ transitionDelay: "0.15s" }}
-          >
-            <p className="compare-most">Most have 15+.</p>
-            <p className="compare-seven">This one has 7.</p>
-          </div>
-          <div
-            className="compare-details reveal"
-            style={{ transitionDelay: "0.3s" }}
-          >
-            Same 30g protein. Smaller bottle.
-            <br />
-            No artificial sweeteners. Dairy free.
-          </div>
-        </section>
+      {/* ── SCREEN 3: OFFER ── */}
+      <section
+        className="section section--offer"
+        id="screen3"
+        ref={screen3Ref}
+      >
+        <div className="offer-box reveal">
+          <p className="offer-was">$13.47</p>
+          <p className="offer-price">$2.99</p>
+          <p className="offer-detail">3 packs · Free shipping · No commitment</p>
 
-        {/* ── SCREEN 3: OFFER ── */}
-        <section className="section section--offer" id="screen3" ref={screen3Ref}>
-          <div className="offer-box reveal">
-            <p className="offer-was">$13.47</p>
-            <p className="offer-price">$2.99</p>
-            <p className="offer-detail">
-              3 packs · Free shipping · No commitment
-            </p>
-            <div className={`form-area ${emailSent ? "submitted" : ""}`}>
+          {!emailSent ? (
+            <div className="form-area">
               <div className="email-row">
                 <input
                   ref={emailRef}
@@ -272,7 +242,6 @@ export default function MainTeaser() {
                   placeholder="your@email.com"
                   autoComplete="email"
                   inputMode="email"
-                  required
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
@@ -294,25 +263,24 @@ export default function MainTeaser() {
                   {emailLoading ? "..." : "Try it"}
                 </button>
               </div>
-              {emailError && (
-                <div className="email-error">{emailError}</div>
-              )}
+              {emailError && <p className="email-error">{emailError}</p>}
               <p className="offer-fine">Cancel anytime. No strings.</p>
-              <div className="success-msg show">
-                <div className="check">✓</div>
-                <p>
-                  <strong>You&apos;re in.</strong>
-                </p>
-                <p>We&apos;ll reach out when it&apos;s ready.</p>
-              </div>
             </div>
-          </div>
-        </section>
-      </div>
+          ) : (
+            <div className="success-msg">
+              <div className="check">✓</div>
+              <p>
+                <strong>You&apos;re in.</strong>
+              </p>
+              <p>We&apos;ll reach out when it&apos;s ready.</p>
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* ── STICKY BOTTOM CTA BAR ── */}
       <div
-        className={`sticky-bar ${stickyVisible ? "visible" : ""} ${stickyHidden ? "hide" : ""}`}
+        className={`sticky-bar${stickyVisible ? " visible" : ""}${stickyHidden ? " hide" : ""}`}
       >
         <div className="sticky-info">
           <span className="sticky-price">$2.99</span>
@@ -323,50 +291,20 @@ export default function MainTeaser() {
         </button>
       </div>
 
-      <footer className="main-footer">
-        <Image
-          src="/pillk-logo.png"
-          alt="PIILK"
-          width={64}
-          height={24}
-          style={{ display: "block", margin: "0 auto 12px", opacity: 0.4 }}
-        />
-        <div className="footer-brand">PIILK™ BY ARMORED FRESH</div>
-        <div className="footer-tagline">RTD High Protein Shake.</div>
-        <div className="footer-copy">© 2026 Armoredfresh Inc.</div>
+      {/* ── FOOTER ── */}
+      <footer className="site-footer">
+        <div>PIILK™ by Armored Fresh</div>
+        <div>© 2026 Armoredfresh Inc.</div>
       </footer>
     </>
   );
 }
 
 // ═══════════════════════════════════════════
-// CSS (Inline — mirrors piilk-main-teaser.html exactly)
+// CSS
 // ═══════════════════════════════════════════
 
-const mainTeaserCSS = `
-/* ===== NAV BAR ===== */
-.nav {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 60;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 20px;
-  background: transparent;
-}
-.nav-logo {
-  cursor: pointer;
-  text-decoration: none;
-}
-.nav-right {
-  font-size: 11px;
-  color: var(--t3);
-  letter-spacing: 0.04em;
-}
-
+const CSS = `
 /* ===== SECTIONS ===== */
 .section {
   min-height: 100vh;
@@ -384,52 +322,27 @@ const mainTeaserCSS = `
   padding: 48px 24px 120px;
 }
 
-/* ===== SCREEN 1: IMPACT HERO ===== */
-.hero-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-bottom: 24px;
-}
-.hero-stat-num {
-  font-size: clamp(56px, 16vw, 88px);
-  font-weight: 900;
-  color: var(--lime);
-  letter-spacing: -0.04em;
-  line-height: 1;
-}
-.hero-stat-label {
-  font-size: clamp(12px, 3.2vw, 14px);
-  color: var(--t3);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  margin-top: 6px;
-}
-
+/* ── Screen 1: Empathy ── */
 .hero-headline {
   font-size: clamp(26px, 7vw, 42px);
   font-weight: 700;
   line-height: 1.15;
   letter-spacing: -0.02em;
   color: #fff;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
-
 .hero-sensory {
   font-size: clamp(15px, 4vw, 18px);
   color: var(--t2);
-  line-height: 1.8;
+  line-height: 1.7;
   max-width: 340px;
-  margin-bottom: 0;
+  margin-bottom: 28px;
 }
-.hero-punchline {
-  display: block;
-  color: #fff;
-  font-weight: 600;
-  margin-top: 12px;
+.hero-confirm {
   font-size: clamp(16px, 4.2vw, 20px);
+  font-weight: 600;
+  color: #fff;
 }
-
 .scroll-cue {
   position: absolute;
   bottom: 32px;
@@ -448,8 +361,7 @@ const mainTeaserCSS = `
   text-transform: uppercase;
 }
 .scroll-cue .arrow {
-  width: 20px;
-  height: 20px;
+  width: 20px; height: 20px;
   border-right: 1.5px solid var(--t3);
   border-bottom: 1.5px solid var(--t3);
   transform: rotate(45deg);
@@ -460,7 +372,7 @@ const mainTeaserCSS = `
   50% { transform: rotate(45deg) translateY(6px); }
 }
 
-/* ===== SCREEN 2: FLIP THE BOTTLE ===== */
+/* ── Screen 2: Compare ── */
 .compare-prompt {
   font-size: clamp(18px, 5vw, 26px);
   font-weight: 600;
@@ -487,7 +399,7 @@ const mainTeaserCSS = `
   line-height: 1.8;
 }
 
-/* ===== SCREEN 3: OFFER ===== */
+/* ── Screen 3: Offer ── */
 .offer-box {
   width: 100%;
   max-width: 380px;
@@ -515,7 +427,7 @@ const mainTeaserCSS = `
 .offer-detail {
   font-size: 15px;
   color: var(--t2);
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 /* Email form */
@@ -563,7 +475,6 @@ const mainTeaserCSS = `
   margin: 4px auto 8px;
   max-width: 340px;
 }
-
 .offer-fine {
   font-size: 12px;
   color: var(--t4);
@@ -571,15 +482,14 @@ const mainTeaserCSS = `
   margin: 0 auto;
 }
 
-/* ===== SUCCESS STATE ===== */
+/* Success */
 .success-msg {
-  display: none;
+  display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
   padding: 16px;
 }
-.success-msg.show { display: flex; }
 .success-msg .check {
   width: 48px; height: 48px;
   border-radius: 50%;
@@ -589,27 +499,13 @@ const mainTeaserCSS = `
   justify-content: center;
   font-size: 24px;
 }
-.success-msg p {
-  font-size: 15px;
-  color: var(--t2);
-}
-.success-msg strong {
-  color: var(--lime);
-  font-weight: 700;
-}
+.success-msg p { font-size: 15px; color: var(--t2); }
+.success-msg strong { color: var(--lime); font-weight: 700; }
 
-.form-area .success-msg { display: none; }
-.form-area.submitted .email-row { display: none; }
-.form-area.submitted .offer-fine { display: none; }
-.form-area.submitted .email-error { display: none; }
-.form-area.submitted .success-msg { display: flex; }
-
-/* ===== STICKY BOTTOM CTA BAR ===== */
+/* ── Sticky Bottom CTA Bar ── */
 .sticky-bar {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  bottom: 0; left: 0; right: 0;
   z-index: 50;
   background: rgba(10,10,11,0.92);
   backdrop-filter: blur(16px);
@@ -623,12 +519,9 @@ const mainTeaserCSS = `
   transform: translateY(100%);
   transition: transform 0.4s ease;
 }
-.sticky-bar.visible {
-  transform: translateY(0);
-}
-.sticky-bar.hide {
-  transform: translateY(100%);
-}
+.sticky-bar.visible { transform: translateY(0); }
+.sticky-bar.hide { transform: translateY(100%); }
+
 .sticky-info {
   display: flex;
   align-items: baseline;
@@ -660,7 +553,7 @@ const mainTeaserCSS = `
 .sticky-btn:hover { opacity: 0.9; }
 .sticky-btn:active { transform: scale(0.97); }
 
-/* ===== FADE-IN ANIMATION ===== */
+/* ── Fade-in ── */
 .reveal {
   opacity: 0;
   transform: translateY(20px);
@@ -671,39 +564,18 @@ const mainTeaserCSS = `
   transform: translateY(0);
 }
 
-/* ===== FOOTER ===== */
-.main-footer {
+/* ── Footer ── */
+.site-footer {
   text-align: center;
-  padding: 48px 16px 32px;
+  padding: 24px 16px;
+  font-size: 12px;
+  color: var(--t4);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 0;
-}
-.footer-brand {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--t3);
-  letter-spacing: 0.12em;
-  margin-bottom: 4px;
-}
-.footer-tagline {
-  font-size: 13px;
-  color: var(--t3);
-  margin-bottom: 16px;
-}
-.footer-copy {
-  font-size: 11px;
-  color: var(--t4);
+  gap: 4px;
 }
 
-/* ===== PAGE CONTENT ===== */
-.page-content {
-  position: relative;
-  z-index: 1;
-}
-
-/* ===== MOBILE ===== */
+/* ── Mobile ── */
 @media (max-width: 480px) {
   .sticky-bar { padding: 10px 16px; gap: 10px; }
   .sticky-price { font-size: 18px; }
