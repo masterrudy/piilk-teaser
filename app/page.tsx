@@ -248,7 +248,7 @@ export default function MainTeaser() {
         </div>
       </section>
 
-      {/* ── SCREEN 3: OFFER ── */}
+      {/* ── SCREEN 3: EARLY ACCESS ── */}
       <section
         className="section section--offer"
         id="screen3"
@@ -257,8 +257,7 @@ export default function MainTeaser() {
         <div className="offer-box reveal">
           <p className="offer-was">$13.47</p>
           <p className="offer-price">$2.99</p>
-          <p className="offer-detail">3 packs · Free shipping · No commitment</p>
-          <p className="offer-cashback">Love it? $2.99 back on your first 6-pack.</p>
+          <p className="offer-detail">3 packs · Free shipping · Launching March</p>
 
           {!emailSent ? (
             <div className="form-area">
@@ -288,11 +287,11 @@ export default function MainTeaser() {
                   onClick={submitEmail}
                   disabled={emailLoading}
                 >
-                  {emailLoading ? "..." : "Try it"}
+                  {emailLoading ? "..." : "Lock in $2.99 →"}
                 </button>
               </div>
               {emailError && <p className="email-error">{emailError}</p>}
-              <p className="offer-fine">Cancel anytime. No strings.</p>
+              <p className="offer-fine">No charge until launch. We&apos;ll email you first.</p>
             </div>
           ) : (
             <div className="success-msg">
@@ -300,7 +299,7 @@ export default function MainTeaser() {
               <p>
                 <strong>You&apos;re in.</strong>
               </p>
-              <p>We&apos;ll reach out when it&apos;s ready.</p>
+              <p>$2.99 locked. We&apos;ll email you when it&apos;s time.</p>
             </div>
           )}
         </div>
@@ -315,7 +314,7 @@ export default function MainTeaser() {
           <span className="sticky-detail">3 packs · Free shipping</span>
         </div>
         <button className="sticky-btn" onClick={scrollToOffer}>
-          Try it →
+          Lock in $2.99 →
         </button>
       </div>
 
@@ -484,11 +483,6 @@ const CSS = `
 .offer-detail {
   font-size: 15px;
   color: #a1a1aa;
-  margin-bottom: 4px;
-}
-.offer-cashback {
-  font-size: 13px;
-  color: #71717a;
   margin-bottom: 24px;
 }
 
