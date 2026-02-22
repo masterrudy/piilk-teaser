@@ -1,25 +1,110 @@
-/* ═══════════════════════════════════════════
-   📁 V14 CSS ADDITIONS for /type page
-   아래 스타일을 기존 /type CSS에 추가해주세요.
-   기존 스타일은 변경하지 않아도 됩니다.
-   ═══════════════════════════════════════════ */
+/* ═══════════════════════════════════════
+   PIILK Teaser B — V14 (Audit V3 적용)
+   V11 → V13 → V14 통합 CSS
+   ═══════════════════════════════════════ */
 
-/* ── Nav 수정 (V14: 배경 블러 추가) ── */
+:root {
+  --bg: #09090b;
+  --sf: #111113;
+  --sf2: #18181b;
+  --bd: rgba(255, 255, 255, 0.06);
+  --bd2: rgba(255, 255, 255, 0.1);
+  --w: #fafafa;
+  --t1: #e4e4e7;
+  --t2: #a1a1aa;
+  --t3: #71717a;
+  --ac: #d4ff2b;
+  --acd: rgba(212, 255, 43, 0.08);
+  --acb: rgba(212, 255, 43, 0.2);
+  --red: #ef4444;
+  --sans: "DM Sans", system-ui, sans-serif;
+  --mono: "JetBrains Mono", monospace;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --r: 12px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+body { font-family: var(--sans); background: var(--bg); color: var(--t1); overflow-x: hidden; line-height: 1.6; }
+::selection { background: var(--ac); color: var(--bg); }
+
+/* ─── NAV ─── */
 .nav {
-  background: rgba(0,0,0,0.5);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  position: fixed; top: 0; left: 0; right: 0; z-index: 900;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 24px;
+  background: rgba(9, 9, 11, 0.88);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--bd);
 }
+.nav-logo {
+  font-size: 17px; font-weight: 700; letter-spacing: 0.06em;
+  color: var(--w); text-decoration: none; cursor: pointer; transition: opacity 0.2s;
+}
+.nav-logo:hover { opacity: 0.7; }
+.nav-logo .tm { font-size: 8px; vertical-align: super; margin-left: 1px; color: var(--t3); font-weight: 400; }
+/* V14: nav-right 스타일 업데이트 */
 .nav-right {
-  font-size: 11px;
-  letter-spacing: 0.08em;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
+  color: var(--t3);
 }
 
-/* ══════════════════════════════════════
-   HERO — V14 Type Grid (신규)
-   기존 .hero-types, .hero-type-icon 대체
-   ══════════════════════════════════════ */
+/* ─── PROGRESS ─── */
+.progress-bar {
+  position: fixed; top: 49px; left: 0; height: 2px;
+  background: var(--ac); z-index: 999;
+  transition: width 0.7s var(--ease);
+}
+
+/* ─── PHASE ─── */
+.phase { min-height: 100dvh; display: flex; flex-direction: column; padding-top: 49px; }
+.wrap { max-width: 520px; margin: 0 auto; padding: 0 24px; width: 100%; }
+
+/* ─── TYPOGRAPHY ─── */
+.label { font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ac); }
+.h1 { font-size: clamp(2.2rem, 7.5vw, 3.6rem); font-weight: 700; line-height: 1.06; letter-spacing: -0.035em; color: var(--w); }
+.h1 em { color: var(--ac); font-style: normal; }
+.h2 { font-size: clamp(1.4rem, 4.5vw, 1.85rem); font-weight: 700; line-height: 1.15; letter-spacing: -0.02em; color: var(--w); }
+.h3 { font-size: clamp(1.05rem, 2.8vw, 1.2rem); font-weight: 600; line-height: 1.3; color: var(--w); }
+.body { font-size: 15px; color: var(--t2); line-height: 1.65; }
+.body strong { color: var(--w); }
+.caption { font-family: var(--mono); font-size: 12px; color: var(--t3); }
+
+/* ─── BUTTONS ─── */
+.btn-primary {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--ac); color: var(--bg); border: none;
+  font-family: var(--sans); font-size: 15px; font-weight: 600;
+  padding: 16px 40px; border-radius: 100px;
+  cursor: pointer; transition: all 0.2s;
+  width: 100%; max-width: 320px;
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 28px rgba(212, 255, 43, 0.18); }
+.btn-primary:active { transform: scale(0.97); }
+
+/* ─── ANIMATIONS ─── */
+@keyframes up { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes glow { 0%, 100% { box-shadow: 0 0 0 rgba(212, 255, 43, 0); } 50% { box-shadow: 0 0 50px -12px rgba(212, 255, 43, 0.1); } }
+@keyframes pop { 0% { transform: scale(0.95); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+.anim-up { animation: up 0.55s var(--ease) both; }
+.d1 { animation-delay: 0.06s; }
+.d2 { animation-delay: 0.12s; }
+.d3 { animation-delay: 0.18s; }
+
+/* ═══════════════════════════════════════
+   HERO — V14 (선언형 + 2x2 타입 그리드)
+   ═══════════════════════════════════════ */
+.hero-phase { justify-content: center; align-items: center; padding: 40px 24px; }
+.hero-inner { text-align: center; max-width: 500px; position: relative; z-index: 1; }
+.hero-inner .h1 { margin-bottom: 18px; }
+.hero-inner .body { max-width: 400px; margin: 0 auto 28px; }
+.hero-inner .caption { margin-top: 14px; }
+
+/* V14: 2x2 타입 그리드 (이모지 + 타입명 동시 노출) */
 .hero-type-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -34,14 +119,14 @@
   align-items: center;
   gap: 6px;
   padding: 16px 12px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 12px;
+  background: var(--sf);
+  border: 1px solid var(--bd);
+  border-radius: var(--r);
   transition: border-color 0.2s, background 0.2s;
 }
 .hero-type-card:hover {
-  border-color: rgba(212,255,43,0.15);
-  background: rgba(255,255,255,0.05);
+  border-color: var(--acb);
+  background: var(--sf2);
 }
 .hero-type-emoji {
   font-size: 28px;
@@ -49,27 +134,89 @@
 }
 .hero-type-name {
   font-size: 12px;
-  color: #a1a1aa;
+  color: var(--t2);
   font-weight: 500;
   text-align: center;
   line-height: 1.3;
 }
 
-/* ══════════════════════════════════════
-   RESULT — Comparison Section (V14 신규)
-   타입 카드와 이메일 CTA 사이에 위치
-   ══════════════════════════════════════ */
+/* V12 legacy — 기존 이모지 전용 (V14에서 미사용, 삭제 가능) */
+.hero-types {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.hero-type-icon {
+  font-size: 36px;
+}
+.body-sm {
+  font-size: 14px;
+  color: var(--t2);
+  margin-bottom: 8px;
+}
+
+/* ═══ QUIZ ═══ */
+.quiz-phase { padding: 48px 0 80px; }
+.quiz-dots { display: flex; gap: 6px; margin-bottom: 28px; }
+.qdot { height: 2px; flex: 1; border-radius: 2px; background: var(--bd); transition: background 0.4s var(--ease); }
+.qdot.done { background: rgba(212, 255, 43, 0.35); }
+.qdot.now { background: var(--ac); }
+.quiz-q { margin-bottom: 28px; }
+.quiz-opts { display: flex; flex-direction: column; gap: 8px; }
+.qo {
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px 18px; border-radius: var(--r);
+  background: var(--sf); border: 1px solid var(--bd);
+  cursor: pointer; transition: all 0.2s;
+  font-size: 15px; color: var(--t1);
+}
+.qo:hover { border-color: var(--bd2); background: var(--sf2); transform: translateX(2px); }
+.qo.pk { border-color: var(--ac); background: var(--acd); color: var(--w); }
+.qo-icon { font-size: 20px; width: 26px; text-align: center; flex-shrink: 0; }
+
+/* ═══════════════════════════════════════
+   RESULT — V14
+   ═══════════════════════════════════════ */
+.result-phase { padding: 72px 0 0; align-items: center; }
+.result-wrap { max-width: 440px; width: 100%; padding: 0 24px; }
+
+/* ─── Card ─── */
+.card {
+  background: var(--bg); border: 1px solid var(--acb); border-radius: 20px;
+  padding: 36px 28px 28px; text-align: center;
+  position: relative; overflow: hidden;
+  animation: glow 4s ease-in-out infinite, pop 0.5s var(--ease) both;
+}
+.card::before {
+  content: ""; position: absolute; top: -80%; left: -80%;
+  width: 260%; height: 260%;
+  background: radial-gradient(ellipse, rgba(212, 255, 43, 0.025), transparent 60%);
+  pointer-events: none;
+}
+.card-inner { position: relative; z-index: 1; }
+.card .label { margin-bottom: 16px; }
+.type-icon { font-size: 48px; margin-bottom: 10px; }
+.type-name { font-size: clamp(1.6rem, 5.5vw, 2rem); font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; color: var(--w); margin-bottom: 4px; }
+.type-tagline { font-size: 14px; color: var(--t2); font-style: italic; margin-bottom: 16px; }
+.card-foot { font-family: var(--mono); font-size: 9px; color: var(--t3); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 20px; opacity: 0.35; }
+
+/* ═══════════════════════════════════════
+   V14 신규: Comparison Section (Result)
+   타입 카드 아래, 이메일 위에 위치
+   ═══════════════════════════════════════ */
 .compare-section {
   width: 100%;
-  max-width: 400px;
-  margin: 0 auto 28px;
   text-align: center;
+  padding: 28px 0 4px;
 }
 .compare-title {
-  font-size: 12px;
-  color: #71717a;
-  letter-spacing: 0.08em;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
+  color: var(--t3);
   margin-bottom: 14px;
 }
 .compare-rows {
@@ -84,56 +231,224 @@
   align-items: center;
   padding: 12px 16px;
   border-radius: 10px;
-  background: rgba(255,255,255,0.02);
-  border: 1px solid rgba(255,255,255,0.04);
+  background: var(--sf);
+  border: 1px solid var(--bd);
 }
 .compare-row-item.bright {
-  border-color: rgba(212,255,43,0.2);
-  background: rgba(212,255,43,0.04);
+  border-color: var(--acb);
+  background: var(--acd);
 }
 .compare-row-label {
   font-size: 14px;
   font-weight: 600;
-  color: #fff;
+  color: var(--w);
 }
 .compare-row-item.dim .compare-row-label {
-  color: #71717a;
+  color: var(--t3);
   font-weight: 400;
 }
 .compare-row-val {
   font-size: 12px;
-  color: #D4FF2B;
   font-weight: 500;
+  color: var(--ac);
 }
 .compare-row-item.dim .compare-row-val {
-  color: #52525b;
+  color: var(--t3);
 }
 .compare-sub {
   font-size: 13px;
-  color: #52525b;
+  color: var(--t3);
   line-height: 1.5;
 }
 
-/* ══════════════════════════════════════
-   RESULT — Email Section (V14 수정: 가격 삭제)
-   기존 .offer-box-quiz 관련 스타일 대체
-   ══════════════════════════════════════ */
+/* ═══════════════════════════════════════
+   V14 신규: Email Card (가격 삭제 버전)
+   기존 .offer-box-quiz 대체
+   ═══════════════════════════════════════ */
 .email-card {
   width: 100%;
-  max-width: 400px;
-  margin: 0 auto;
   text-align: center;
 }
 .email-prompt-type {
   font-size: 15px;
-  color: #a1a1aa;
-  font-weight: 500;
+  font-weight: 600;
+  color: var(--t1);
   margin-bottom: 16px;
+  letter-spacing: -0.01em;
 }
 
-/* ── Email input/button은 기존 스타일 재사용 ── */
+/* ─── Bridge Section (V13 — 기존 유지) ─── */
+.bridge-section {
+  text-align: center;
+  padding: 32px 0 24px;
+}
+.bridge-line {
+  font-size: clamp(18px, 5vw, 24px);
+  font-weight: 600;
+  color: var(--w);
+  margin-bottom: 20px;
+  letter-spacing: -0.01em;
+}
+.bridge-specs {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.bridge-spec {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ac);
+}
+.bridge-dot {
+  font-size: 14px;
+  color: var(--t3);
+}
+.bridge-sub {
+  font-size: 14px;
+  color: var(--t2);
+  line-height: 1.6;
+}
 
-/* ── Mobile 추가 ── */
+/* ─── Share Zone ─── */
+.share-zone { text-align: center; padding: 20px 0 0; margin-bottom: 28px; }
+.share-label { font-size: 14px; font-weight: 600; color: var(--w); margin-bottom: 14px; }
+.share-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.share-btn {
+  background: var(--ac); color: var(--bg); border: none;
+  font-family: var(--sans); font-size: 13px; font-weight: 600;
+  padding: 13px 0; border-radius: 10px;
+  cursor: pointer; transition: all 0.2s; text-align: center;
+}
+.share-btn:hover { box-shadow: 0 4px 16px rgba(212, 255, 43, 0.2); transform: translateY(-1px); }
+.copy-row {
+  width: 100%; background: var(--sf); border: 1px solid var(--bd);
+  border-radius: 10px; padding: 11px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; transition: all 0.2s;
+  font-family: var(--mono); font-size: 11px; color: var(--t3);
+}
+.copy-row:hover { border-color: var(--acb); color: var(--ac); }
+.copy-label { color: var(--ac); font-weight: 500; flex-shrink: 0; margin-left: 8px; }
+
+/* ─── Separator ─── */
+.sep { width: 32px; height: 1px; background: var(--bd); margin: 0 auto; }
+
+/* ═══ EMAIL SECTION ═══ */
+.email-section { text-align: center; padding: 28px 0; }
+
+.email-hook { text-align: center; margin-bottom: 20px; }
+.email-hook-head { font-size: 20px; font-weight: 700; color: var(--w); letter-spacing: -0.3px; margin-bottom: 6px; }
+.email-hook-sub { font-size: 13px; color: var(--t3); letter-spacing: 0.2px; }
+
+.email-bridge { font-size: 14px; color: var(--t2); margin-bottom: 16px; line-height: 1.5; text-align: center; }
+.email-bridge strong { color: var(--w); }
+
+.email-row { display: flex; gap: 8px; max-width: 400px; margin: 0 auto; }
+.email-input {
+  flex: 1; min-width: 0; background: var(--sf); border: 1px solid var(--bd);
+  border-radius: var(--r); padding: 13px 16px;
+  color: var(--w); font-family: var(--sans); font-size: 14px;
+  outline: none; transition: border-color 0.3s;
+}
+.email-input:focus { border-color: var(--ac); }
+.email-input::placeholder { color: var(--t3); }
+.email-btn {
+  background: var(--ac); color: var(--bg); border: none;
+  font-family: var(--sans); font-size: 14px; font-weight: 600;
+  padding: 13px 24px; border-radius: var(--r);
+  cursor: pointer; transition: all 0.2s; white-space: nowrap;
+  flex-shrink: 0;
+}
+.email-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(212, 255, 43, 0.18); }
+.email-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.email-note { font-size: 11px; color: var(--t3); margin-top: 10px; }
+.email-error { font-size: 12px; color: var(--red); margin-top: 8px; }
+
+/* ─── 이메일 제출 완료 ─── */
+.email-ok { animation: up 0.4s var(--ease); text-align: center; padding: 8px 0; }
+.email-ok-icon { font-size: 24px; margin-bottom: 4px; }
+.email-ok-head { font-size: 14px; font-weight: 600; color: var(--ac); margin-bottom: 8px; }
+.email-ok-sub { font-size: 12px; color: var(--t3); }
+
+/* ─── 오퍼 공개 (이메일 제출 후 보상) — 기존 유지 ─── */
+.offer-reveal {
+  margin-top: 20px;
+  background: var(--sf);
+  border: 1px solid var(--acb);
+  border-radius: 16px;
+  padding: 22px 24px;
+  text-align: center;
+  animation: up 0.5s var(--ease) 0.15s both;
+}
+.offer-reveal-label { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ac); margin-bottom: 12px; }
+.offer-reveal-price { font-size: 52px; font-weight: 800; color: var(--ac); letter-spacing: -2px; line-height: 1; margin-bottom: 8px; }
+.offer-reveal-desc { font-size: 14px; color: var(--t1); margin-bottom: 8px; }
+.offer-reveal-fine { font-size: 11px; color: var(--t3); line-height: 1.55; }
+
+/* ═══ REFERRAL ═══ */
+.referral {
+  background: var(--sf); border: 1px solid var(--bd); border-radius: 16px;
+  padding: 24px; text-align: center; margin-bottom: 28px;
+}
+.ref-rank { font-family: var(--mono); font-size: 28px; font-weight: 700; color: var(--ac); margin-bottom: 4px; }
+.ref-rank-label { font-size: 12px; color: var(--t3); margin-bottom: 16px; }
+.ref-card { background: var(--sf2); border: 1px solid var(--bd); border-radius: var(--r); padding: 16px; margin-bottom: 16px; }
+.ref-card-title { font-size: 13px; font-weight: 600; color: var(--w); margin-bottom: 10px; }
+.ref-tier { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--bd); font-size: 12px; color: var(--t2); }
+.ref-tier:last-child { border-bottom: none; }
+.ref-tier-reward { color: var(--ac); font-weight: 500; font-family: var(--mono); font-size: 11px; }
+.ref-btns { display: flex; gap: 8px; }
+.ref-btn {
+  flex: 1; padding: 11px 0; border-radius: var(--r);
+  font-family: var(--sans); font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all 0.2s; text-align: center; border: none;
+}
+.ref-btn.primary { background: var(--ac); color: var(--bg); }
+.ref-btn.ghost { background: transparent; border: 1px solid var(--bd2); color: var(--t1); }
+.ref-btn:hover { transform: translateY(-1px); }
+
+/* ═══ PROOF (BOF) ═══ */
+.proof-mini { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; padding: 20px 0; margin-bottom: 8px; }
+.ptag { font-family: var(--mono); font-size: 10px; color: var(--t3); background: var(--sf); padding: 5px 10px; border-radius: 100px; border: 1px solid var(--bd); }
+
+/* ═══ DECLARATIONS ═══ */
+.declarations { text-align: left; padding: 0 0 8px; }
+.decl-header { margin-bottom: 18px; }
+.decl-list { display: flex; flex-direction: column; }
+.decl-item {
+  padding: 14px 0; border-bottom: 1px solid var(--bd);
+  cursor: pointer; transition: all 0.25s;
+  display: flex; justify-content: space-between; align-items: center; gap: 14px;
+}
+.decl-item:hover { color: var(--ac); }
+.decl-item.voted { color: var(--ac); }
+.decl-text { font-size: clamp(15px, 3vw, 17px); font-weight: 700; line-height: 1.3; flex: 1; letter-spacing: -0.01em; }
+.decl-count { font-family: var(--mono); font-size: 11px; color: var(--t3); white-space: nowrap; transition: color 0.25s; }
+.decl-item:hover .decl-count,
+.decl-item.voted .decl-count { color: var(--ac); }
+
+/* ═══ FOOTER ═══ */
+.footer {
+  text-align: center; padding: 28px 24px 40px;
+  font-family: var(--mono); font-size: 10px;
+  color: var(--t3); opacity: 0.35;
+  letter-spacing: 0.1em; text-transform: uppercase;
+}
+
+/* ═══════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════ */
+@media (max-width: 540px) {
+  .email-row { flex-direction: column; }
+  .email-btn { width: 100%; }
+  .ref-btns { flex-direction: column; }
+  .offer-reveal-price { font-size: 44px; }
+}
+
+/* V14: Hero 타입 그리드 모바일 */
 @media (max-width: 480px) {
   .hero-type-grid {
     max-width: 280px;
@@ -148,9 +463,40 @@
   .hero-type-name {
     font-size: 11px;
   }
+}
+
+/* V14: Comparison section 모바일 */
+@media (max-width: 380px) {
   .compare-row-item {
     flex-direction: column;
     gap: 4px;
     text-align: center;
   }
+}
+
+/* ═══════════════════════════════════════
+   LEGACY (V13 이전) — 삭제하지 않음
+   V14 TSX에서 미사용하지만 안전하게 보존
+   ═══════════════════════════════════════ */
+
+/* V13 Offer box (퀴즈 결과 — V14에서 가격 삭제로 미사용) */
+.offer-box-quiz {
+  background: var(--sf);
+  border: 1px solid var(--acb);
+  border-radius: 16px;
+  padding: 28px 20px 24px;
+  text-align: center;
+  max-width: 400px;
+  margin: 12px auto 0;
+}
+.offer-box-quiz .email-row { max-width: 100%; }
+.offer-was-quiz { font-size: 14px; color: var(--t3); text-decoration: line-through; margin-bottom: 4px; }
+.offer-price-quiz { font-size: clamp(36px, 10vw, 48px); font-weight: 800; color: var(--ac); letter-spacing: -0.03em; line-height: 1; margin-bottom: 6px; }
+.offer-detail-quiz { font-size: 15px; color: var(--t2); margin-bottom: 20px; }
+.offer-box-quiz .email-input { min-width: 0; }
+.offer-box-quiz .email-btn { flex-shrink: 0; }
+
+@media (max-width: 420px) {
+  .offer-box-quiz .email-row { flex-direction: column; }
+  .offer-box-quiz .email-btn { width: 100%; }
 }
