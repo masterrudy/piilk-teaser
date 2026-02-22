@@ -359,7 +359,7 @@ export default function MainTeaser() {
         <p className="compare-body reveal" style={{ transitionDelay: "0.2s" }}>
           We kept the protein and removed what you don&apos;t need.
           <br />
-          No artificial sweeteners. No carrageenan. No preservatives.
+          No artificial sweeteners. No emulsifiers. No preservatives.
           <br />
           35% less liquid. Same protein.
         </p>
