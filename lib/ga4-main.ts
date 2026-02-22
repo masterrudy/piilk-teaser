@@ -125,17 +125,21 @@ function sendGA4(event: string, params: Params = {}) {
 }
 
 // ─── Supabase 이벤트 전송 ───
-function sendSupabase(event_type: string, metadata: Params = {}) {
+function sendSupabase(event_name: string, metadata: Params = {}) {
+  const utm = getTrackingData();
   fetch("/api/track", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      event_type,
+      event_name,
+      event_data: metadata,
       variant: VARIANT,
       visitor_id: getVisitorId(),
       session_id: getSessionId(),
-      metadata,
-      tracking: getTrackingData(),
+      device_type: /Mobile|Android|iPhone/i.test(navigator?.userAgent || '') ? 'mobile' : 'desktop',
+      utm_source: utm.utm_source,
+      utm_medium: utm.utm_medium,
+      utm_campaign: utm.utm_campaign,
     }),
   }).catch(() => {});
 }
