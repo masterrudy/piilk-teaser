@@ -182,7 +182,16 @@ export default function MainTeaser() {
 
       {/* ── NAV ── */}
       <nav className="nav">
-        <div className="nav-logo">
+        <a
+          className="nav-logo"
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+          style={{ cursor: "pointer" }}
+        >
           <Image
             src="/pillk-logo.png"
             alt="PIILK"
@@ -191,7 +200,7 @@ export default function MainTeaser() {
             style={{ display: "block" }}
             priority
           />
-        </div>
+        </a>
         <span className="nav-right">by Armored Fresh</span>
       </nav>
 
@@ -361,7 +370,7 @@ const CSS = `
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: 60px 24px;
+  padding: 80px 24px 60px;
   text-align: center;
   position: relative;
 }
