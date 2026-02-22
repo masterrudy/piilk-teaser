@@ -1,13 +1,10 @@
 // ═══════════════════════════════════════════
-// 📁 lib/quiz-data.ts — V13
+// 📁 lib/quiz-data.ts — V13 (변경 없음)
 // PIILK Quiz & Content Data
 //
-// ✅ V12 → V13 변경사항:
-//   1. Q1 선택지: 설명적 문장 → 실제 뉴요커 말투
-//   2. Q2: 유지 (이미 좋음) — 마지막 선택지만 교체
-//   3. Q3: 마지막 선택지 자연스럽게 교체
-//   4. zombie 태그라인 개선
-//   5. Declaration 더 캐주얼하게
+// ✅ V14 참고: 이 파일은 변경 없음.
+//    quiz-data의 타입, 질문, 선택지, 계산 로직은 그대로 유지.
+//    Hero에서 AFTERFEEL_TYPES를 직접 렌더링하므로 export 유지.
 // ═══════════════════════════════════════════
 
 export type AfterfeelType = "brick" | "chalk" | "zombie" | "gambler";
