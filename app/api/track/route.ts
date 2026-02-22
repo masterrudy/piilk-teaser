@@ -57,20 +57,21 @@ export async function POST(request: NextRequest) {
     const ip = getClientIP(request);
     const geo = await getGeoFromIP(ip);
 
-    const { error } = await supabase.from('piilk_events').insert({
-      event_name,
-      event_data: event_data || null,
-      session_id: session_id || null,
-      visitor_id: visitor_id || null,
-      ip_address: ip,
-      country: geo.country,
-      city: geo.city,
-      device_type: device_type || null,
-      referrer: referrer || null,
-      utm_source: utm_source || null,
-      utm_medium: utm_medium || null,
-      utm_campaign: utm_campaign || null,
-    });
+const { error } = await supabase.from('piilk_events').insert({
+  event_name,
+  event_data: event_data || null,
+  session_id: session_id || null,
+  visitor_id: visitor_id || null,
+  variant: body.variant || 'a',
+  ip_address: ip,
+  country: geo.country,
+  city: geo.city,
+  device_type: device_type || null,
+  referrer: referrer || null,
+  utm_source: utm_source || null,
+  utm_medium: utm_medium || null,
+  utm_campaign: utm_campaign || null,
+});
 
     if (error) {
       console.error('Track insert error:', error);
