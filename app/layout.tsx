@@ -8,15 +8,15 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://teaser.piilk.com"),
-  title: "PIILK - Nothing after. Period.",
-  description: "Clean protein, no compromise. NYC 2026",
+  title: "PIILK \u2014 The protein shake that doesn\u2019t fight back.",
+  description: "30g protein. 7 ingredients. Dairy free. Launching mid-March.",
   icons: {
     icon: "/favicon-v2.png",
     apple: "/favicon-v2.png",
   },
   openGraph: {
-    title: "PIILK - Nothing after. Period.",
-    description: "Clean protein, no compromise. NYC 2026",
+    title: "PIILK \u2014 The protein shake that doesn\u2019t fight back.",
+    description: "30g protein. 7 ingredients. Dairy free. Launching mid-March.",
     url: "https://teaser.piilk.com",
     siteName: "PIILK",
     type: "website",
@@ -25,14 +25,14 @@ export const metadata: Metadata = {
         url: "https://teaser.piilk.com/og-image-v2.png",
         width: 1200,
         height: 630,
-        alt: "PIILK",
+        alt: "PIILK \u2014 30g protein. 7 ingredients. No after-feel.",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "PIILK - Nothing after. Period.",
-    description: "Clean protein, no compromise. NYC 2026",
+    title: "PIILK \u2014 The protein shake that doesn\u2019t fight back.",
+    description: "30g protein. 7 ingredients. Dairy free. Launching mid-March.",
     images: ["https://teaser.piilk.com/og-image-v2.png"],
   },
 };
