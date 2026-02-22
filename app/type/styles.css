@@ -329,14 +329,10 @@ body { font-family: var(--sans); background: var(--bg); color: var(--t1); overfl
 }
 /* ═══════════════════════════════════════════
    V13 Quiz Page — CSS Additions
-   
-   ⚠️ 적용 방법:
-   1. quiz.css 맨 끝의 기존 .bridge-line 삭제:
-      .bridge-line { font-size: 15px; color: var(--t2); ... }
-   2. 아래 전체를 quiz.css 끝에 붙여넣기
+   styles.css 맨 끝의 V13 섹션을 이걸로 교체
    ═══════════════════════════════════════════ */
 
-/* ── Bridge Section (V12 .bridge-line 교체) ── */
+/* ── Bridge Section ── */
 .bridge-section {
   text-align: center;
   padding: 32px 0 24px;
@@ -371,7 +367,7 @@ body { font-family: var(--sans); background: var(--bg); color: var(--t1); overfl
   line-height: 1.6;
 }
 
-/* ── Offer Box (퀴즈 결과 이메일 전) ── */
+/* ── Offer Box (퀴즈 결과) ── */
 .offer-box-quiz {
   background: var(--sf);
   border: 1px solid var(--acb);
@@ -379,7 +375,10 @@ body { font-family: var(--sans); background: var(--bg); color: var(--t1); overfl
   padding: 28px 20px 24px;
   text-align: center;
   max-width: 360px;
-  margin: 0 auto;
+  margin: 12px auto 0;
+}
+.offer-box-quiz .email-row {
+  max-width: 100%;
 }
 .offer-was-quiz {
   font-size: 14px;
@@ -398,15 +397,5 @@ body { font-family: var(--sans); background: var(--bg); color: var(--t1); overfl
 .offer-detail-quiz {
   font-size: 15px;
   color: var(--t2);
-  margin-bottom: 4px;
-}
-.offer-cashback-quiz {
-  font-size: 13px;
-  color: var(--t3);
   margin-bottom: 20px;
-}
-
-/* ── Responsive ── */
-@media (max-width: 540px) {
-  .offer-price-quiz { font-size: 40px; }
 }
