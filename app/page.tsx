@@ -285,7 +285,7 @@ export default function MainTeaser() {
         <div className="clean-tags reveal" style={{ transitionDelay: "0.2s" }}>
           <span className="ctag">No artificial sweeteners</span>
           <span className="ctag-dot">·</span>
-          <span className="ctag">No carrageenan</span>
+          <span className="ctag">No emulsifiers</span>
           <span className="ctag-dot">·</span>
           <span className="ctag">Dairy free</span>
         </div>
