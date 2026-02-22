@@ -203,24 +203,24 @@ export default function MainTeaser() {
       <div className="page-content">
         {/* ── SCREEN 1: EMPATHY ── */}
         <section className="section" id="screen1">
-          <h1 className="hero-headline reveal">
-            Ever had a protein drink
+          <div className="hero-stat reveal">
+            <span className="hero-stat-num">15+</span>
+            <span className="hero-stat-label">ingredients in your protein shake</span>
+          </div>
+          <h1 className="hero-headline reveal" style={{ transitionDelay: "0.1s" }}>
+            You don&apos;t know
             <br />
-            that felt off right after?
+            what you&apos;re drinking.
           </h1>
           <p
             className="hero-sensory reveal"
-            style={{ transitionDelay: "0.15s" }}
+            style={{ transitionDelay: "0.2s" }}
           >
-            That chalky taste. That heavy gut feeling.
+            That chalky taste. That heavy gut.
             <br />
-            Something off you can&apos;t quite name.
-          </p>
-          <p
-            className="hero-confirm reveal"
-            style={{ transitionDelay: "0.3s" }}
-          >
-            You&apos;re not imagining it.
+            That weird feeling after every shake.
+            <br />
+            <strong className="hero-punchline">That&apos;s not protein. That&apos;s the other 14.</strong>
           </p>
           <div
             className="scroll-cue"
@@ -384,26 +384,50 @@ const mainTeaserCSS = `
   padding: 48px 24px 120px;
 }
 
-/* ===== SCREEN 1: EMPATHY + SENSORY ===== */
+/* ===== SCREEN 1: IMPACT HERO ===== */
+.hero-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.hero-stat-num {
+  font-size: clamp(56px, 16vw, 88px);
+  font-weight: 900;
+  color: var(--lime);
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+.hero-stat-label {
+  font-size: clamp(12px, 3.2vw, 14px);
+  color: var(--t3);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-top: 6px;
+}
+
 .hero-headline {
   font-size: clamp(26px, 7vw, 42px);
   font-weight: 700;
   line-height: 1.15;
   letter-spacing: -0.02em;
   color: #fff;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
+
 .hero-sensory {
   font-size: clamp(15px, 4vw, 18px);
   color: var(--t2);
-  line-height: 1.7;
+  line-height: 1.8;
   max-width: 340px;
-  margin-bottom: 28px;
+  margin-bottom: 0;
 }
-.hero-confirm {
-  font-size: clamp(16px, 4.2vw, 20px);
-  font-weight: 600;
+.hero-punchline {
+  display: block;
   color: #fff;
+  font-weight: 600;
+  margin-top: 12px;
+  font-size: clamp(16px, 4.2vw, 20px);
 }
 
 .scroll-cue {
