@@ -432,9 +432,22 @@ function Result({ type }: { type: AfterfeelType }) {
           </div>
         </div>
 
-        {/* ── 2. COMPARISON SECTION (V14 신규 — Audit V3 핵심 추가) ── */}
+        {/* ── 2. WHY YOU FEEL THIS WAY (V14.1 — 원인 연결 섹션) ── */}
+        <div className="cause-section">
+          <div className="cause-title">Why you feel this way</div>
+          <h3 className="cause-headline">
+            It&apos;s not you. It&apos;s the 15+ ingredients.
+          </h3>
+          <p className="cause-body">
+            Most protein shakes have emulsifiers, artificial sweeteners,
+            and ingredients you can&apos;t pronounce.
+            <br />
+            They add up. Your body notices.
+          </p>
+        </div>
+
+        {/* ── 3. COMPARISON (V14.1 — 대안 제시) ── */}
         <div className="compare-section">
-          <div className="compare-title">What makes PIILK different</div>
           <div className="compare-rows">
             <div className="compare-row-item dim">
               <span className="compare-row-label">Your shake</span>
@@ -448,7 +461,7 @@ function Result({ type }: { type: AfterfeelType }) {
             </div>
           </div>
           <div className="compare-sub">
-            Same protein. Smaller bottle. No artificial sweeteners.
+            Nothing your body has to fight through.
           </div>
         </div>
 
