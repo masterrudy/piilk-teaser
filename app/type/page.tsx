@@ -449,13 +449,25 @@ const CSS = `
   position: relative;
 }
 
-/* ── Screen 1: Hero (V3 — 1 viewport 완결) ── */
+/* ── Screen 1: Hero (V3.1 — 1 viewport, content upper-center) ── */
 .section--hero {
   min-height: 100vh;
   min-height: 100svh;
   padding-top: 80px;
   padding-bottom: 40px;
   gap: 0;
+  justify-content: center;
+  /* 콘텐츠를 시각적 중앙보다 약간 위로 — 데스크톱에서 상단 공백 방지 */
+  padding-top: 12vh;
+  padding-bottom: 8vh;
+}
+
+@media (min-width: 768px) {
+  .section--hero {
+    /* 데스크톱: 더 위로 올림 */
+    justify-content: flex-start;
+    padding-top: 18vh;
+  }
 }
 
 .hero-headline {
@@ -629,7 +641,7 @@ const CSS = `
 /* ── Screen 2: Compare (Below Fold — 보조 섹션) ── */
 .section--compare {
   min-height: auto;
-  padding: 64px 24px 80px;
+  padding: 48px 24px 64px;
   border-top: 1px solid rgba(255,255,255,0.04);
 }
 
