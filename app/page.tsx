@@ -352,60 +352,60 @@ export default function MainTeaser() {
                     <div className="flip-card-face flip-card-front">
                       <svg
                         className="flip-svg"
-                        width="32"
-                        height="32"
+                        width="40"
+                        height="40"
                         viewBox="0 0 36 36"
                         fill="none"
                       >
                         <path
                           d="M18 6C11.373 6 6 11.373 6 18h3c0-4.97 4.03-9 9-9V6z"
-                          fill="rgba(255,255,255,0.18)"
+                          fill="rgba(212,255,43,0.6)"
                         >
                           <animateTransform
                             attributeName="transform"
                             type="rotate"
                             from="0 18 18"
                             to="360 18 18"
-                            dur="3s"
+                            dur="2s"
                             repeatCount="indefinite"
                           />
                         </path>
                         <path
                           d="M18 30c6.627 0 12-5.373 12-12h-3c0 4.97-4.03 9-9 9v3z"
-                          fill="rgba(255,255,255,0.10)"
+                          fill="rgba(212,255,43,0.35)"
                         >
                           <animateTransform
                             attributeName="transform"
                             type="rotate"
                             from="0 18 18"
                             to="360 18 18"
-                            dur="3s"
+                            dur="2s"
                             repeatCount="indefinite"
                           />
                         </path>
                         <polygon
                           points="6,14 6,18 10,18"
-                          fill="rgba(255,255,255,0.18)"
+                          fill="rgba(212,255,43,0.6)"
                         >
                           <animateTransform
                             attributeName="transform"
                             type="rotate"
                             from="0 18 18"
                             to="360 18 18"
-                            dur="3s"
+                            dur="2s"
                             repeatCount="indefinite"
                           />
                         </polygon>
                         <polygon
                           points="30,22 30,18 26,18"
-                          fill="rgba(255,255,255,0.10)"
+                          fill="rgba(212,255,43,0.35)"
                         >
                           <animateTransform
                             attributeName="transform"
                             type="rotate"
                             from="0 18 18"
                             to="360 18 18"
-                            dur="3s"
+                            dur="2s"
                             repeatCount="indefinite"
                           />
                         </polygon>
@@ -666,15 +666,15 @@ const CSS = `
 .flip-card.flipped .flip-card-inner { transform: rotateY(180deg); }
 .flip-card-face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
 
-.flip-card-front { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.07); transition: border-color 0.3s, background 0.3s; }
-.flip-card:hover .flip-card-front, .flip-card:focus .flip-card-front { border-color: rgba(212,255,43,0.25); background: rgba(212,255,43,0.02); }
-.flip-svg { opacity: 0.35; margin-bottom: 2px; }
-.flip-card:hover .flip-svg { opacity: 0.55; }
+.flip-card-front { background: rgba(212,255,43,0.03); border: 1px solid rgba(212,255,43,0.15); transition: border-color 0.3s, background 0.3s; }
+.flip-card:hover .flip-card-front, .flip-card:focus .flip-card-front { border-color: rgba(212,255,43,0.35); background: rgba(212,255,43,0.05); }
+.flip-svg { opacity: 0.8; margin-bottom: 2px; }
+.flip-card:hover .flip-svg { opacity: 1; }
 .flip-card-title { font-size: 16px; font-weight: 700; color: #fff; }
 .flip-card-sub { font-size: 12px; color: #52525b; transition: color 0.3s; }
 .flip-card:hover .flip-card-sub { color: #71717a; }
-.flip-card-front::after { content: ''; position: absolute; inset: -2px; border-radius: 18px; border: 1.5px solid rgba(212,255,43,0.12); animation: tapPulse 2.5s ease-in-out infinite; pointer-events: none; }
-@keyframes tapPulse { 0%, 100% { opacity: 0; transform: scale(1); } 50% { opacity: 1; transform: scale(1.015); } }
+.flip-card-front::after { content: ''; position: absolute; inset: -2px; border-radius: 18px; border: 1.5px solid rgba(212,255,43,0.25); animation: tapPulse 2s ease-in-out infinite; pointer-events: none; }
+@keyframes tapPulse { 0%, 100% { opacity: 0.3; transform: scale(1); } 50% { opacity: 1; transform: scale(1.02); } }
 
 .flip-card-back { background: #111113; border: 1px solid rgba(255,255,255,0.06); transform: rotateY(180deg); gap: 3px; }
 .flip-back-label { font-size: 9px; color: #52525b; letter-spacing: 0.15em; text-transform: uppercase; }
@@ -764,14 +764,30 @@ const CSS = `
 
 /* ── Mobile ── */
 @media (max-width: 480px) {
-  .section--full { padding: 52px 20px 32px; }
-  .section--reveal-full { padding: 60px 20px 48px; }
-  .empathy-headline { font-size: clamp(24px, 6.5vw, 32px); }
-  .email-row { flex-direction: column; }
-  .email-btn { width: 100%; }
-  .flip-card { width: 240px; height: 148px; }
+  .section--full { padding: 48px 20px 24px; }
+  .section--reveal-full { padding: 48px 20px 32px; }
+  .empathy-content { max-width: 100%; }
+  .reveal-content { max-width: 100%; }
+  .empathy-headline { font-size: clamp(22px, 6.5vw, 30px); margin-bottom: 8px; }
+  .empathy-sub { font-size: 14px; margin-bottom: 16px; }
+  .hero-offer { font-size: 13px; margin-bottom: 10px; }
+  .hero-email { margin-bottom: 20px; }
+  .email-row { flex-direction: column; gap: 6px; }
+  .email-input { padding: 12px 14px; font-size: 14px; border-radius: 10px; }
+  .email-btn { width: 100%; padding: 12px 20px; font-size: 14px; border-radius: 10px; }
+  .email-fine { font-size: 10px; }
+  .hero-divider { margin-bottom: 16px; }
+  .flip-intro { font-size: 12px; margin-bottom: 8px; }
+  .flip-card { width: 220px; height: 136px; margin-bottom: 14px; }
+  .flip-card-title { font-size: 14px; }
+  .flip-card-sub { font-size: 11px; }
   .compare-cards { flex-direction: column; gap: 8px; }
   .ccard { padding: 14px; flex-direction: row; justify-content: space-between; }
+  .reveal-bridge { font-size: 12px; margin-bottom: 14px; }
+  .reveal-closer { font-size: 15px; }
+  .reveal-claims { font-size: 12px; margin-bottom: 20px; }
+  .email-section { max-width: 100%; }
+  .email-prompt { font-size: 13px; margin-bottom: 10px; }
   .sticky-bar { padding: 10px 16px; gap: 10px; }
   .sticky-text { font-size: 12px; }
   .sticky-btn { padding: 10px 16px; font-size: 13px; }
