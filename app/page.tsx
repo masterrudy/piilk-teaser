@@ -275,11 +275,9 @@ export default function MainTeaser() {
           <div className="empathy-content">
             {/* 선언형 헤드라인 (숫자 우선) */}
             <h1 className="empathy-headline anim-up">
-              7 ingredients.
-              <br />
-              30g protein.
-              <br />
-              <span className="accent">Nothing after.</span>
+              <span className="headline-line">7 ingredients.</span>
+              <span className="headline-line">30g protein.</span>
+              <span className="headline-line accent">Nothing after.</span>
             </h1>
 
             {/* 공감 1줄 → 즉시 답 */}
@@ -652,8 +650,9 @@ const CSS = `
 
 /* ── Empathy ── */
 .empathy-content { display: flex; flex-direction: column; align-items: center; text-align: center; width: 100%; max-width: 440px; }
-.empathy-headline { font-size: clamp(26px, 7vw, 38px); font-weight: 800; color: #fff; line-height: 1.15; letter-spacing: -0.03em; margin-bottom: 12px; }
+.empathy-headline { font-size: clamp(26px, 7vw, 38px); font-weight: 800; color: #fff; line-height: 1.2; letter-spacing: -0.03em; margin-bottom: 12px; }
 .empathy-headline .accent { color: #D4FF2B; }
+.headline-line { display: block; }
 .empathy-sub { font-size: 15px; color: #71717a; line-height: 1.6; margin-bottom: 24px; }
 
 /* ── Hero Email ── */
@@ -766,32 +765,43 @@ const CSS = `
 
 /* ── Mobile ── */
 @media (max-width: 480px) {
-  .section--full { padding: 48px 20px 24px; }
-  .section--reveal-full { padding: 48px 20px 32px; }
+  .section--full { padding: 44px 20px 20px; min-height: 100vh; min-height: 100svh; }
+  .section--reveal-full { padding: 44px 20px 24px; min-height: 100vh; min-height: 100svh; }
   .empathy-content { max-width: 100%; }
   .reveal-content { max-width: 100%; }
-  .empathy-headline { font-size: clamp(22px, 6.5vw, 30px); margin-bottom: 8px; }
-  .empathy-sub { font-size: 14px; margin-bottom: 16px; }
-  .hero-offer { font-size: 13px; margin-bottom: 10px; }
-  .hero-email { margin-bottom: 20px; }
-  .email-row { flex-direction: column; gap: 6px; }
-  .email-input { padding: 12px 14px; font-size: 14px; border-radius: 10px; }
-  .email-btn { width: 100%; padding: 12px 20px; font-size: 14px; border-radius: 10px; }
-  .email-fine { font-size: 10px; }
-  .hero-divider { margin-bottom: 16px; }
-  .flip-intro { font-size: 12px; margin-bottom: 8px; }
-  .flip-card { width: 220px; height: 136px; margin-bottom: 14px; }
-  .flip-card-title { font-size: 14px; }
-  .flip-card-sub { font-size: 11px; }
+  .empathy-headline { font-size: clamp(22px, 6.2vw, 28px); margin-bottom: 6px; line-height: 1.25; }
+  .empathy-sub { font-size: 13px; margin-bottom: 14px; }
+  .hero-offer { font-size: 12px; margin-bottom: 8px; }
+  .hero-email { margin-bottom: 16px; }
+  .email-row { flex-direction: row; gap: 6px; }
+  .email-input { padding: 11px 12px; font-size: 13px; border-radius: 10px; }
+  .email-btn { padding: 11px 18px; font-size: 13px; border-radius: 10px; width: auto; }
+  .email-fine { font-size: 10px; margin-top: 2px; }
+  .email-error { font-size: 11px; }
+  .hero-divider { margin-bottom: 12px; }
+  .flip-intro { font-size: 11px; margin-bottom: 6px; }
+  .flip-card { width: 200px; height: 120px; margin-bottom: 10px; }
+  .flip-card-title { font-size: 13px; }
+  .flip-card-sub { font-size: 10px; }
+  .fallback-cta { margin-top: 4px; }
+  .fallback-or { font-size: 11px; }
+  .fallback-link { font-size: 11px; }
   .compare-cards { flex-direction: column; gap: 8px; }
-  .ccard { padding: 14px; flex-direction: row; justify-content: space-between; }
-  .reveal-bridge { font-size: 12px; margin-bottom: 14px; }
-  .reveal-closer { font-size: 15px; }
-  .reveal-claims { font-size: 12px; margin-bottom: 20px; }
+  .ccard { padding: 12px 14px; flex-direction: row; justify-content: space-between; align-items: center; }
+  .ccard-num { font-size: 28px; }
+  .ccard-label { font-size: 9px; }
+  .ccard-sub { font-size: 10px; }
+  .reveal-bridge { font-size: 11px; margin-bottom: 12px; }
+  .reveal-closer { font-size: 14px; }
+  .reveal-claims { font-size: 11px; margin-bottom: 16px; }
   .email-section { max-width: 100%; }
-  .email-prompt { font-size: 13px; margin-bottom: 10px; }
+  .email-prompt { font-size: 12px; margin-bottom: 8px; }
   .sticky-bar { padding: 10px 16px; gap: 10px; }
   .sticky-text { font-size: 12px; }
   .sticky-btn { padding: 10px 16px; font-size: 13px; }
+  .site-footer { padding: 20px 16px; }
+  .footer-brand { font-size: 11px; }
+  .footer-desc { font-size: 10px; }
+  .footer-copy { font-size: 10px; }
 }
 `;
