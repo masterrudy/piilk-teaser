@@ -1,10 +1,11 @@
 // ═══════════════════════════════════════════════════════════
 // 📁 파일 위치: app/api/dashboard/analytics/route.ts
 // 📌 역할: 대시보드 퍼널 분석 API (variant 필터 지원)
-// 📌 v9 수정:
-//   - v8의 visitor/session 카운트 개선 유지
-//   - ✅ quiz_start → step1_cta_click 복원 (page_view 이벤트가 실제로 존재하므로)
-//   - ✅ page_view가 실제 이벤트로 들어오므로 synthetic 불필요
+// 📌 v10 수정:
+//   - ✅ MAIN_EVENT_MAP에 email_submit, email_focus 등 누락 이벤트 추가
+//   - ✅ 이미 정규화된 step* 이벤트명도 passthrough 처리
+//   - ✅ segmentDistribution/reasonDistribution에서 email_submit도 포함
+//   - v9의 visitor/session 카운트 개선 유지
 // ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -85,10 +86,10 @@ function getTodayNYC(): string {
   return nycDateFmt.format(new Date());
 }
 
-/* ─── ✅ v9: Quiz Type → 정규화 이벤트명 매핑 (quiz_start = step1_cta_click) ─── */
+/* ─── ✅ Quiz Type → 정규화 이벤트명 매핑 ─── */
 const TYPE_EVENT_MAP: Record<string, string> = {
-  page_view: 'page_view',          // ✅ 실제 page_view 이벤트 (V11에서 추가됨)
-  quiz_start: 'step1_cta_click',   // ✅ v9: 원복 — quiz_start는 CTA 클릭
+  page_view: 'page_view',
+  quiz_start: 'step1_cta_click',
   quiz_step_1: 'step1_cta_click',
   quiz_step_2: 'step2_answer',
   quiz_step_3: 'step2_answer',
@@ -102,14 +103,24 @@ const TYPE_EVENT_MAP: Record<string, string> = {
   referral_share: 'referral_share',
 };
 
-/* ─── Main Teaser → 정규화 이벤트명 매핑 (신구 모두 지원) ─── */
+/* ─── ✅ v10: Main Teaser → 정규화 이벤트명 매핑 (신구 + 크로스 이벤트 모두 지원) ─── */
 const MAIN_EVENT_MAP: Record<string, string> = {
+  // 실제 DB에 저장되는 이벤트명 → 정규화
   page_view: 'page_view',
-  lead_start: 'step3_email_focus',
-  lead_submit: 'step4_submit',
   section_why_view: 'step1_cta_click',
   phase_2_view: 'step1_cta_click',
   phase_3_view: 'step2_answer',
+  lead_start: 'step3_email_focus',
+  lead_submit: 'step4_submit',
+  // ✅ v10 추가: 최근 main variant에서 email_submit/email_focus로 저장되는 이벤트
+  email_submit: 'step4_submit',
+  email_focus: 'step3_email_focus',
+  // ✅ v10 추가: 이미 정규화된 이름으로 저장된 이벤트도 passthrough
+  step1_cta_click: 'step1_cta_click',
+  step2_answer: 'step2_answer',
+  step3_email_focus: 'step3_email_focus',
+  step3_reason_select: 'step3_reason_select',
+  step4_submit: 'step4_submit',
 };
 
 function normalizeEventName(eventName: string, isTypeVariant: boolean): string {
@@ -159,7 +170,7 @@ function getVid(ev: any): string | null {
   return (vid && typeof vid === 'string' && vid.trim()) ? vid.trim() : null;
 }
 
-/* ─── ✅ v8/v9: UTM 소스별 상세 통계 — 세션 첫 이벤트 기반 ─── */
+/* ─── UTM 소스별 상세 통계 — 세션 첫 이벤트 기반 ─── */
 function buildUtmSourceStats(normalizedEvents: any[], todayStr: string) {
   const utmTotal: Record<string, { visitors: Set<string>; sessions: Set<string>; events: number; page_views: number; submits: Set<string> }> = {};
   const utmToday: Record<string, { visitors: Set<string>; sessions: Set<string>; events: number; page_views: number; submits: Set<string> }> = {};
@@ -226,7 +237,7 @@ function buildUtmSourceStats(normalizedEvents: any[], todayStr: string) {
   return { total: formatUtmMap(utmTotal), today: formatUtmMap(utmToday) };
 }
 
-/* ─── ✅ v8/v9: 방문자 통계 — 세션 첫 이벤트 기반 ─── */
+/* ─── 방문자 통계 — 세션 첫 이벤트 기반 ─── */
 function buildVisitorStats(normalizedEvents: any[], todayStr: string) {
   const totalVisitors = new Set<string>();
   const totalSessions = new Set<string>();
@@ -297,7 +308,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // ✅ v9: 이벤트 정규화
+    // ✅ v10: 이벤트 정규화
     const normalizedEvents = events.map(ev => ({
       ...ev,
       event_name: normalizeEventName(ev.event_name, isTypeVariant),
@@ -358,7 +369,7 @@ export async function GET(request: NextRequest) {
     const utmSourceStats = buildUtmSourceStats(normalizedEvents, todayStr);
     const visitorStats = buildVisitorStats(normalizedEvents, todayStr);
 
-    // ─── Segment distribution ───
+    // ─── ✅ v10: Segment distribution — lead_submit + email_submit 모두 포함 ───
     const segmentDistribution: Record<string, number> = {};
     if (isTypeVariant) {
       events.filter(ev => ev.event_name === 'quiz_complete' || ev.event_name === 'type_result').forEach(ev => {
@@ -366,13 +377,13 @@ export async function GET(request: NextRequest) {
         segmentDistribution[seg] = (segmentDistribution[seg] || 0) + 1;
       });
     } else {
-      events.filter(ev => ev.event_name === 'lead_submit').forEach(ev => {
+      events.filter(ev => ev.event_name === 'lead_submit' || ev.event_name === 'email_submit').forEach(ev => {
         const seg = ev.event_data?.segment || 'Unknown';
         segmentDistribution[seg] = (segmentDistribution[seg] || 0) + 1;
       });
     }
 
-    // ─── Reason distribution ───
+    // ─── ✅ v10: Reason distribution — lead_submit + email_submit 모두 포함 ───
     const reasonDistribution: Record<string, number> = {};
     if (isTypeVariant) {
       events.filter(ev => ev.event_name === 'email_submit').forEach(ev => {
@@ -380,7 +391,7 @@ export async function GET(request: NextRequest) {
         reasonDistribution[reason] = (reasonDistribution[reason] || 0) + 1;
       });
     } else {
-      events.filter(ev => ev.event_name === 'lead_submit').forEach(ev => {
+      events.filter(ev => ev.event_name === 'lead_submit' || ev.event_name === 'email_submit').forEach(ev => {
         const reason = ev.event_data?.sub_reason || 'Unknown';
         reasonDistribution[reason] = (reasonDistribution[reason] || 0) + 1;
       });
