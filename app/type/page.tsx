@@ -102,7 +102,8 @@ async function safeCopy(text: string): Promise<boolean> {
 }
 
 function calcQuizProgress(qi: number, total: number): number {
-  return Math.round(25 + (qi / total) * 50);
+  // hero=0, Q1=20, Q2=40, Q3=60, finding=80, result=100
+  return Math.round(20 + (qi / total) * 40);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -721,13 +722,13 @@ export default function TeaserType() {
   const startQuiz = () => {
     track.quizStart();
     setPhase("quiz");
-    setProgress(25);
+    setProgress(20);
   };
 
   const handleQuizComplete = (type: AfterfeelType) => {
     pendingType.current = type;
     setPhase("finding");
-    setProgress(85);
+    setProgress(80);
   };
 
   const handleFindingDone = useCallback(() => {
