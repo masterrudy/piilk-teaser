@@ -193,11 +193,13 @@ export default function MainTeaser() {
         const res = await fetch("/api/subscribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email,
-            source: "main_teaser",
-            tracking: getTrackingData(),
-          }),
+body: JSON.stringify({
+  email,
+  segment: "A",
+  answers: { sub_reason: "direct" },
+  source: "main_teaser",
+  tracking: getTrackingData(),
+}),
         });
 
         const data = await res.json();
