@@ -277,7 +277,9 @@ export default function MainTeaser() {
             <h1 className="empathy-headline anim-up">
               7 ingredients.
               <br />
-              30g protein. <span className="accent">Nothing after.</span>
+              30g protein.
+              <br />
+              <span className="accent">Nothing after.</span>
             </h1>
 
             {/* 공감 1줄 → 즉시 답 */}
