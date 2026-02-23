@@ -146,12 +146,12 @@ export default function DashboardPage() {
   const [lastUpdated, setLastUpdated] = useState('');
 
   // View mode
-  const [viewMode, setViewMode] = useState<'overview' | 'participants' | 'analytics'>('overview');
+  const [viewMode, setViewMode] = useState<'overview' | 'participants' | 'analytics'>('analytics');
 
   // Analytics
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
-const [analyticsPeriod, setAnalyticsPeriod] = useState<string>('all');
+  const [analyticsPeriod, setAnalyticsPeriod] = useState<string>('today');
 
   // ✅ NEW: Custom date range, traffic filter, meta ads
   const [analyticsDateFrom, setAnalyticsDateFrom] = useState<string>('');
