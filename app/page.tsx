@@ -275,9 +275,9 @@ export default function MainTeaser() {
           <div className="empathy-content">
             {/* 선언형 헤드라인 (숫자 우선) */}
             <h1 className="empathy-headline anim-up">
-              7 ingredients. 30g protein.
+              7 ingredients.
               <br />
-              <span className="accent">Nothing after.</span>
+              30g protein. <span className="accent">Nothing after.</span>
             </h1>
 
             {/* 공감 1줄 → 즉시 답 */}
