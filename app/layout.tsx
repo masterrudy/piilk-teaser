@@ -8,15 +8,17 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://teaser.piilk.com"),
-  title: "PIILK \u2014 The protein shake that doesn\u2019t fight back.",
-  description: "30g protein. 7 ingredients. Dairy free. Launching mid-March.",
+  title: "PIILK \u2014 7 ingredients. 30g protein. Nothing after.",
+  description:
+    "30g protein shake with only 7 ingredients. 3 bottles, $2.99 each, free shipping. NYC March 2026.",
   icons: {
     icon: "/favicon-v2.png",
     apple: "/favicon-v2.png",
   },
   openGraph: {
-    title: "PIILK \u2014 The protein shake that doesn\u2019t fight back.",
-    description: "30g protein. 7 ingredients. Dairy free. Launching mid-March.",
+    title: "PIILK \u2014 7 ingredients. 30g protein. Nothing after.",
+    description:
+      "30g protein shake with only 7 ingredients. 3 bottles, $2.99 each, free shipping. NYC March 2026.",
     url: "https://teaser.piilk.com",
     siteName: "PIILK",
     type: "website",
@@ -25,19 +27,24 @@ export const metadata: Metadata = {
         url: "https://teaser.piilk.com/og-image-v2.png",
         width: 1200,
         height: 630,
-        alt: "PIILK \u2014 30g protein. 7 ingredients. No after-feel.",
+        alt: "PIILK \u2014 7 ingredients. 30g protein. Nothing after.",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "PIILK \u2014 The protein shake that doesn\u2019t fight back.",
-    description: "30g protein. 7 ingredients. Dairy free. Launching mid-March.",
+    title: "PIILK \u2014 7 ingredients. 30g protein. Nothing after.",
+    description:
+      "30g protein shake with only 7 ingredients. $2.99 each. NYC March 2026.",
     images: ["https://teaser.piilk.com/og-image-v2.png"],
   },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
       <body className={inter.className}>
