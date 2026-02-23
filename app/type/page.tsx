@@ -517,6 +517,11 @@ function Result({ type }: { type: AfterfeelType }) {
                 ingredients in PIILK. Same 30g protein.
               </span>
             </div>
+            <div className="learn-compliance">
+              No artificial sweeteners. No emulsifiers.
+              <br />
+              No carrageenan. Dairy free.
+            </div>
           </div>
 
           {/* Email CTA */}
