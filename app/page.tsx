@@ -492,36 +492,42 @@ export default function MainTeaser() {
           ════════════════════════════════════════════ */}
       {stage === "reveal" && (
         <>
-          <section className="section section--reveal">
-            {/* 비교 카드만 (중복 제거) */}
-            <div className="compare-cards anim-up">
-              <div className="ccard ccard--dim">
-                <span className="ccard-label">MOST SHAKES</span>
-                <span className="ccard-num">15+</span>
-                <span className="ccard-sub">ingredients · 11.5 oz</span>
-              </div>
-              <div className="ccard ccard--piilk">
-                <span className="ccard-label">PIILK™</span>
-                <span className="ccard-num accent">7</span>
-                <span className="ccard-sub">
-                  ingredients · 8.5 oz · 30g protein
-                </span>
-              </div>
-            </div>
+          <section className="section section--reveal-full">
+            <div className="reveal-content">
+              {/* 감정 bridge 1줄 (스펙 전 필수) */}
+              <p className="reveal-bridge anim-up">
+                Now compare.
+              </p>
 
-            <p className="reveal-closer anim-up d1">
-              We kept the protein. Removed the rest.
-            </p>
-            <p className="reveal-claims anim-up d1">
-              No artificial sweeteners · No emulsifiers · No carrageenan ·
-              Dairy free
-            </p>
+              {/* 비교 카드 */}
+              <div className="compare-cards anim-up d1">
+                <div className="ccard ccard--dim">
+                  <span className="ccard-label">MOST SHAKES</span>
+                  <span className="ccard-num">15+</span>
+                  <span className="ccard-sub">ingredients · 11.5 oz</span>
+                </div>
+                <div className="ccard ccard--piilk">
+                  <span className="ccard-label">PIILK™</span>
+                  <span className="ccard-num accent">7</span>
+                  <span className="ccard-sub">
+                    ingredients · 8.5 oz · 30g protein
+                  </span>
+                </div>
+              </div>
 
-            {/* Email CTA */}
-            <div
-              className="email-section anim-up d2"
-              ref={emailSectionRef}
-            >
+              <p className="reveal-closer anim-up d2">
+                We kept the protein. Removed the rest.
+              </p>
+              <p className="reveal-claims anim-up d2">
+                No artificial sweeteners · No emulsifiers · No carrageenan ·
+                Dairy free
+              </p>
+
+              {/* Email CTA */}
+              <div
+                className="email-section anim-up d3"
+                ref={emailSectionRef}
+              >
               {!emailSent ? (
                 <div className="email-box">
                   <p className="email-prompt">
@@ -572,6 +578,7 @@ export default function MainTeaser() {
                   <p>We&apos;ll reach out when it&apos;s ready.</p>
                 </div>
               )}
+            </div>
             </div>
           </section>
 
@@ -633,7 +640,11 @@ const CSS = `
 /* ── Sections ── */
 .section { display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; }
 .section--full { min-height: 100vh; min-height: 100svh; justify-content: center; padding: 60px 24px 40px; }
-.section--reveal { padding: 76px 24px 60px; gap: 0; }
+.section--reveal-full { min-height: 100vh; min-height: 100svh; justify-content: center; padding: 80px 24px 60px; }
+
+/* ── Reveal Content ── */
+.reveal-content { display: flex; flex-direction: column; align-items: center; text-align: center; width: 100%; max-width: 440px; }
+.reveal-bridge { font-size: 13px; color: #52525b; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 20px; }
 
 /* ── Empathy ── */
 .empathy-content { display: flex; flex-direction: column; align-items: center; text-align: center; width: 100%; max-width: 440px; }
@@ -752,7 +763,7 @@ const CSS = `
 /* ── Mobile ── */
 @media (max-width: 480px) {
   .section--full { padding: 52px 20px 32px; }
-  .section--reveal { padding: 64px 20px 48px; }
+  .section--reveal-full { padding: 60px 20px 48px; }
   .empathy-headline { font-size: clamp(24px, 6.5vw, 32px); }
   .email-row { flex-direction: column; }
   .email-btn { width: 100%; }
