@@ -1,15 +1,14 @@
 // ═══════════════════════════════════════════════════════════
-// 📁 app/type/page.tsx — V15.2 FINAL
-// 📌 V15.1 → V15.2 변경사항:
-//   1. Nav: "by Armored Fresh" → "NYC · March 2026" (Main과 통일)
-//   2. $2.99 혜택 반영 (email-prompt-type)
-//   3. Hero: "What happens after..." (질문형) → "The shake is done. But something isn't." (선언형)
-//   4. Hero CTA: "What's yours? →" → "Which one am I? — 30 sec"
-//   5. 타입 미리보기: 이모지만 → 2×2 그리드 (이모지 + 타입명)
-//   6. Quick Pick: 타입 직접 선택 → 퀴즈 스킵 가능
-//   7. Result: 공유를 Email 위로 (바이럴 우선)
-//   8. Result: 타입별 맞춤 브릿지 문구
-//   9. TypeScript: safeCopy, voteDeclaration 에러 핸들링 정리
+// 📁 app/type/page.tsx — V15.3
+// 📌 V15.2 → V15.3 변경사항:
+//   1. Hero: 리빌 애니메이션 삭제, Quick Pick 삭제
+//      → "Which one am I?" 1탭으로 바로 Quiz 시작
+//   2. Quiz → Result 전환: "Finding your type..." 1.5초 서스펜스 추가
+//   3. Result 순서 변경:
+//      Card → Bridge+학습+Email(통합) → Share → Referral → Declarations
+//      (Compare 섹션 학습에 흡수 → 삭제, Proof 섹션 → 삭제)
+//   4. Quiz 3번째 문항 이후 "Almost there" 메시지
+//   5. phase에 "finding" 추가 (hero → quiz → finding → result)
 //
 // 🔒 변경하지 않은 것들:
 //   - import 경로: @/lib/quiz-data, @/lib/ga4 → 동일
@@ -20,6 +19,7 @@
 //   - 에러 메시지 → 동일
 //   - Referral tiers → 동일
 //   - Footer → 동일
+//   - Utils 함수들 → 동일
 // ═══════════════════════════════════════════════════════════
 
 "use client";
@@ -38,7 +38,7 @@ import {
 import { track } from "@/lib/ga4";
 
 // ─────────────────────────────────────────────────────────────
-// Utils
+// Utils (V15.2 동일)
 // ─────────────────────────────────────────────────────────────
 
 function safeUUID(): string {
@@ -106,145 +106,79 @@ function calcQuizProgress(qi: number, total: number): number {
 }
 
 // ─────────────────────────────────────────────────────────────
-// 타입별 브릿지 문구
+// 타입별 브릿지 문구 — V15.3 (감정 브릿지 + 학습 통합)
 // ─────────────────────────────────────────────────────────────
-const TYPE_BRIDGES: Record<AfterfeelType, string> = {
-  brick: "Fewer ingredients. Nothing to weigh you down.",
-  chalk: "Fewer ingredients. Nothing to coat your mouth.",
-  zombie: "Fewer ingredients. Less to process.",
-  gambler: "Fewer ingredients. Nothing to worry about.",
+const TYPE_BRIDGES: Record<
+  AfterfeelType,
+  { emotion: string; learning: string }
+> = {
+  brick: {
+    emotion: "That heavy feeling has a reason.",
+    learning: "8 of them aren\u2019t protein. That\u2019s what you\u2019re feeling.",
+  },
+  chalk: {
+    emotion: "That coated feeling has a reason.",
+    learning: "8 of them aren\u2019t protein. That\u2019s what you\u2019re tasting.",
+  },
+  zombie: {
+    emotion: "That drained feeling has a reason.",
+    learning: "8 of them aren\u2019t protein. That\u2019s what\u2019s slowing you down.",
+  },
+  gambler: {
+    emotion: "That unpredictable feeling has a reason.",
+    learning: "8 of them aren\u2019t protein. That\u2019s the gamble.",
+  },
 };
 
 // ═══════════════════════════════════════════
-// HERO — V15.2 (선언형 + 2×2 그리드 + Quick Pick)
+// HERO — V15.3 (간소화: 1탭 → 바로 Quiz)
 // ═══════════════════════════════════════════
-function Hero({
-  onStart,
-  onQuickPick,
-}: {
-  onStart: () => void;
-  onQuickPick: (type: AfterfeelType) => void;
-}) {
-  const [revealed, setRevealed] = useState(false);
-  const [revealIdx, setRevealIdx] = useState(-1);
-  const [showPick, setShowPick] = useState(false);
-
+function Hero({ onStart }: { onStart: () => void }) {
   const typeEntries = Object.entries(AFTERFEEL_TYPES) as [
     AfterfeelType,
     (typeof AFTERFEEL_TYPES)[AfterfeelType],
   ][];
 
-  useEffect(() => {
-    if (!revealed) return;
-    if (revealIdx >= typeEntries.length - 1) {
-      const t = setTimeout(() => setShowPick(true), 600);
-      return () => clearTimeout(t);
-    }
-    const t = setTimeout(() => setRevealIdx((r) => r + 1), 400);
-    return () => clearTimeout(t);
-  }, [revealed, revealIdx, typeEntries.length]);
-
-  const handleDiscover = () => {
-    setRevealed(true);
-    setRevealIdx(-1);
-    setTimeout(() => setRevealIdx(0), 200);
-  };
-
-  // ── 초기 Hero (선언형) ──
-  if (!revealed) {
-    return (
-      <section className="phase hero-phase">
-        <div className="hero-inner">
-          <h1 className="h1 anim-up">
-            The shake is done.
-            <br />
-            <span className="accent">But something isn&apos;t.</span>
-          </h1>
-
-          <p className="body anim-up d1">
-            That &ldquo;something&rdquo; is different for everyone.
-            <br />
-            Some feel it. Some taste it. Some just feel… off.
-          </p>
-
-          {/* 2×2 타입 그리드 */}
-          <div className="hero-type-grid anim-up d2">
-            {typeEntries.map(([key, t]) => (
-              <div className="hero-type-card" key={key}>
-                <span className="hero-type-emoji">{t.icon}</span>
-                <span className="hero-type-name">{t.name}</span>
-              </div>
-            ))}
-          </div>
-
-          <p className="body-sm anim-up d2">
-            We found <strong className="accent">4 types</strong>. Everyone
-            has one.
-          </p>
-
-          <button
-            className="btn-primary anim-up d3"
-            onClick={handleDiscover}
-          >
-            Which one am I? — 30 sec
-          </button>
-        </div>
-      </section>
-    );
-  }
-
-  // ── 리빌 + Quick Pick ──
   return (
     <section className="phase hero-phase">
       <div className="hero-inner">
-        <p className="reveal-label anim-up">THE 4 AFTER-FEEL TYPES</p>
+        <h1 className="h1 anim-up">
+          The shake is done.
+          <br />
+          <span className="accent">But something isn&apos;t.</span>
+        </h1>
 
-        <div className="type-reveal-list">
-          {typeEntries.map(([key, t], i) => (
-            <button
-              key={key}
-              className={`type-reveal-card${i <= revealIdx ? " show" : ""}${showPick ? " pickable" : ""}`}
-              onClick={() => {
-                if (!showPick) return;
-                track.quizComplete(key);
-                onQuickPick(key);
-              }}
-              disabled={!showPick}
-            >
-              <span className="trc-emoji">{t.icon}</span>
-              <div className="trc-info">
-                <span
-                  className="trc-name"
-                  style={{ color: i <= revealIdx ? "#fff" : "#333" }}
-                >
-                  {t.name}
-                </span>
-                <span className="trc-tagline">{t.tagline}</span>
-              </div>
-              {showPick && <span className="trc-arrow">→</span>}
-            </button>
+        <p className="body anim-up d1">
+          That &ldquo;something&rdquo; is different for everyone.
+          <br />
+          Some feel it. Some taste it. Some just feel… off.
+        </p>
+
+        {/* 2×2 타입 그리드 */}
+        <div className="hero-type-grid anim-up d2">
+          {typeEntries.map(([key, t]) => (
+            <div className="hero-type-card" key={key}>
+              <span className="hero-type-emoji">{t.icon}</span>
+              <span className="hero-type-name">{t.name}</span>
+            </div>
           ))}
         </div>
 
-        {showPick && (
-          <div className="pick-prompt anim-up">
-            <p className="pick-title">Which one are you?</p>
-            <p className="pick-sub">Tap the one that feels closest</p>
-            <div className="pick-or">
-              <span>Not sure? </span>
-              <button className="pick-quiz-link" onClick={onStart}>
-                Take the full quiz — 30 sec
-              </button>
-            </div>
-          </div>
-        )}
+        <p className="body-sm anim-up d2">
+          We found <strong className="accent">4 types</strong>. Everyone
+          has one.
+        </p>
+
+        <button className="btn-primary anim-up d3" onClick={onStart}>
+          Which one am I? — 30 sec
+        </button>
       </div>
     </section>
   );
 }
 
 // ═══════════════════════════════════════════
-// QUIZ (로직 동일)
+// QUIZ — V15.3 ("Almost there" 메시지 추가)
 // ═══════════════════════════════════════════
 function Quiz({
   onComplete,
@@ -286,6 +220,7 @@ function Quiz({
   };
 
   const pickedAnswer = answers[answers.length - 1];
+  const isAlmostDone = qi >= total - 1;
 
   return (
     <section className="phase quiz-phase">
@@ -301,6 +236,11 @@ function Quiz({
 
         <div className="caption" style={{ marginBottom: 8 }}>
           {qi + 1} of {total}
+          {isAlmostDone && (
+            <span style={{ marginLeft: 8, opacity: 0.6 }}>
+              — last one
+            </span>
+          )}
         </div>
 
         <h2 className="h2 quiz-q">{q.question}</h2>
@@ -331,10 +271,52 @@ function Quiz({
 }
 
 // ═══════════════════════════════════════════
-// RESULT — V15.2 (공유 위로 + 브릿지 + $2.99)
+// FINDING — V15.3 신규 (서스펜스 로딩)
+// ═══════════════════════════════════════════
+function Finding({ onDone }: { onDone: () => void }) {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    // 0→100 in 1.5s (50ms intervals)
+    const interval = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          return 100;
+        }
+        return prev + 100 / 30; // 30 steps × 50ms = 1.5s
+      });
+    }, 50);
+
+    const done = setTimeout(onDone, 1600);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(done);
+    };
+  }, [onDone]);
+
+  return (
+    <section className="phase finding-phase">
+      <div className="finding-inner">
+        <div className="finding-text">Finding your after-feel type...</div>
+        <div className="finding-bar-track">
+          <div
+            className="finding-bar-fill"
+            style={{ width: `${Math.min(progress, 100)}%` }}
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ═══════════════════════════════════════════
+// RESULT — V15.3 (Card → Bridge+학습+Email → Share → Referral → Declarations)
 // ═══════════════════════════════════════════
 function Result({ type }: { type: AfterfeelType }) {
   const t = AFTERFEEL_TYPES[type];
+  const bridge = TYPE_BRIDGES[type];
 
   const [emailSent, setEmailSent] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
@@ -364,7 +346,7 @@ function Result({ type }: { type: AfterfeelType }) {
         data.declarations.forEach(
           (d: { statement_key: string; vote_count: number }) => {
             counts[d.statement_key] = d.vote_count;
-          }
+          },
         );
         setDeclCounts(counts);
       })
@@ -382,7 +364,7 @@ function Result({ type }: { type: AfterfeelType }) {
       if (channel === "x") {
         window.open(
           `https://twitter.com/intent/tweet?text=${encodeURIComponent(txt)}&url=${encodeURIComponent(SHARE_URL)}`,
-          "_blank"
+          "_blank",
         );
         return;
       }
@@ -396,7 +378,7 @@ function Result({ type }: { type: AfterfeelType }) {
         setTimeout(() => setCopied(false), 1800);
       }
     },
-    [t.name, type]
+    [t.name, type],
   );
 
   // ─── Email Submit ───
@@ -442,8 +424,8 @@ function Result({ type }: { type: AfterfeelType }) {
         data?.error === "invalid_email"
           ? "Please enter a valid email address."
           : data?.error === "already_exists"
-            ? "You're already on the list! 🎉"
-            : "Something went wrong. Please try again."
+            ? "You\u2019re already on the list! \uD83C\uDF89"
+            : "Something went wrong. Please try again.",
       );
     } catch {
       setEmailError("Connection error. Please try again.");
@@ -481,18 +463,18 @@ function Result({ type }: { type: AfterfeelType }) {
   const refShare = async (channel: string) => {
     track.referralShare(channel);
     const refUrl = `${SHARE_URL}?ref=${referralCode}`;
-    const txt = `I'm #${queuePosition.toLocaleString()} on the PIILK™ list. Something better is coming:`;
+    const txt = `I'm #${queuePosition.toLocaleString()} on the PIILK\u2122 list. Something better is coming:`;
 
     if (channel === "x") {
       window.open(
         `https://twitter.com/intent/tweet?text=${encodeURIComponent(txt)}&url=${encodeURIComponent(refUrl)}`,
-        "_blank"
+        "_blank",
       );
       return;
     }
     if (channel === "sms") {
       window.open(
-        `sms:?&body=${encodeURIComponent(txt + " " + refUrl)}`
+        `sms:?&body=${encodeURIComponent(txt + " " + refUrl)}`,
       );
       return;
     }
@@ -517,66 +499,27 @@ function Result({ type }: { type: AfterfeelType }) {
           </div>
         </div>
 
-        {/* 2. SHARE (바이럴 우선 — Email 위) */}
-        <div className="share-zone anim-up">
-          <div className="share-label">
-            &ldquo;I&apos;m a {t.name}.&rdquo; — tell a friend
-          </div>
+        {/* 2. BRIDGE + LEARNING + EMAIL (통합 흐름) */}
+        <div className="learn-email-section anim-up">
+          {/* 감정 브릿지 */}
+          <div className="bridge-emotion">{bridge.emotion}</div>
 
-          <div className="share-grid">
-            <button className="share-btn" onClick={() => doShare("save")}>
-              📋 Save link
-            </button>
-            <button className="share-btn" onClick={() => doShare("sms")}>
-              💬 Text
-            </button>
-            <button className="share-btn" onClick={() => doShare("x")}>
-              𝕏 Post
-            </button>
-          </div>
-
-          <div
-            className="copy-row"
-            onClick={() => doShare("link")}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") doShare("link");
-            }}
-          >
-            <span>teaser.piilk.com/type</span>
-            <span className="copy-label">
-              {copied ? "Copied!" : "Copy link"}
-            </span>
-          </div>
-        </div>
-
-        {/* 3. BRIDGE + COMPARISON */}
-        <div className="compare-section anim-up">
-          <div className="bridge-text">{TYPE_BRIDGES[type]}</div>
-          <div className="compare-rows">
-            <div className="compare-row-item dim">
-              <span className="compare-row-label">Most shakes</span>
-              <span className="compare-row-val">
-                15+ ingredients · 11.5 oz
-              </span>
+          {/* 학습 */}
+          <div className="learn-block">
+            <div className="learn-stat">
+              <span className="learn-num">15</span>
+              <span className="learn-label">ingredients in most shakes</span>
             </div>
-            <div className="compare-row-item bright">
-              <span className="compare-row-label">PIILK™</span>
-              <span className="compare-row-val">
-                7 ingredients · 8.5 oz · same 30g
+            <div className="learn-insight">{bridge.learning}</div>
+            <div className="learn-answer">
+              <span className="learn-num accent">7</span>
+              <span className="learn-label">
+                ingredients in PIILK. Same 30g protein.
               </span>
             </div>
           </div>
-          <div className="compare-sub">
-            No artificial sweeteners. No emulsifiers.
-            <br />
-            No carrageenan. Dairy free.
-          </div>
-        </div>
 
-        {/* 4. EMAIL CTA — $2.99 반영 */}
-        <div className="email-section">
+          {/* Email CTA */}
           {!emailSent ? (
             <div className="email-card">
               <div className="email-prompt-type">
@@ -629,7 +572,41 @@ function Result({ type }: { type: AfterfeelType }) {
           )}
         </div>
 
-        {/* 5. REFERRAL */}
+        {/* 3. SHARE (Email 아래) */}
+        <div className="share-zone anim-up">
+          <div className="share-label">
+            &ldquo;I&apos;m a {t.name}.&rdquo; — tell a friend
+          </div>
+
+          <div className="share-grid">
+            <button className="share-btn" onClick={() => doShare("save")}>
+              📋 Save link
+            </button>
+            <button className="share-btn" onClick={() => doShare("sms")}>
+              💬 Text
+            </button>
+            <button className="share-btn" onClick={() => doShare("x")}>
+              𝕏 Post
+            </button>
+          </div>
+
+          <div
+            className="copy-row"
+            onClick={() => doShare("link")}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") doShare("link");
+            }}
+          >
+            <span>teaser.piilk.com/type</span>
+            <span className="copy-label">
+              {copied ? "Copied!" : "Copy link"}
+            </span>
+          </div>
+        </div>
+
+        {/* 4. REFERRAL */}
         {emailSent && (
           <div className="referral anim-up">
             <div className="ref-rank">
@@ -680,19 +657,9 @@ function Result({ type }: { type: AfterfeelType }) {
           </div>
         )}
 
-        {/* 6. PROOF */}
-        {emailSent && (
-          <div className="proof-mini anim-up">
-            <span className="ptag">30g protein</span>
-            <span className="ptag">7 ingredients</span>
-            <span className="ptag">Dairy-free</span>
-            <span className="ptag">No after-feel.</span>
-          </div>
-        )}
-
         <div className="sep" />
 
-        {/* 7. DECLARATIONS */}
+        {/* 5. DECLARATIONS */}
         <div className="declarations">
           <div className="decl-header">
             <div className="label" style={{ marginBottom: 8 }}>
@@ -728,12 +695,15 @@ function Result({ type }: { type: AfterfeelType }) {
 }
 
 // ═══════════════════════════════════════════
-// MAIN PAGE
+// MAIN PAGE — V15.3 (finding phase 추가)
 // ═══════════════════════════════════════════
 export default function TeaserType() {
-  const [phase, setPhase] = useState<"hero" | "quiz" | "result">("hero");
+  const [phase, setPhase] = useState<
+    "hero" | "quiz" | "finding" | "result"
+  >("hero");
   const [resultType, setResultType] = useState<AfterfeelType>("brick");
   const [progress, setProgress] = useState(0);
+  const pendingType = useRef<AfterfeelType>("brick");
 
   useEffect(() => {
     track.pageView();
@@ -749,19 +719,18 @@ export default function TeaserType() {
     setProgress(25);
   };
 
-  const handleQuickPick = (type: AfterfeelType) => {
-    setResultType(type);
-    setPhase("result");
-    setProgress(100);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  const handleQuizComplete = (type: AfterfeelType) => {
+    pendingType.current = type;
+    setPhase("finding");
+    setProgress(85);
   };
 
-  const handleQuizComplete = (type: AfterfeelType) => {
-    setResultType(type);
+  const handleFindingDone = useCallback(() => {
+    setResultType(pendingType.current);
     setPhase("result");
     setProgress(100);
     window.scrollTo({ top: 0, behavior: "smooth" });
-  };
+  }, []);
 
   const goHome = () => {
     setPhase("hero");
@@ -796,15 +765,14 @@ export default function TeaserType() {
 
       <div className="progress-bar" style={{ width: `${progress}%` }} />
 
-      {phase === "hero" && (
-        <Hero onStart={startQuiz} onQuickPick={handleQuickPick} />
-      )}
+      {phase === "hero" && <Hero onStart={startQuiz} />}
       {phase === "quiz" && (
         <Quiz
           onComplete={handleQuizComplete}
           onProgressUpdate={handleProgressUpdate}
         />
       )}
+      {phase === "finding" && <Finding onDone={handleFindingDone} />}
       {phase === "result" && <Result type={resultType} />}
 
       <footer className="footer">
