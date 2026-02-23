@@ -533,3 +533,237 @@ body { font-family: var(--sans); background: var(--bg); color: var(--t1); overfl
   .offer-box-quiz .email-row { flex-direction: column; }
   .offer-box-quiz .email-btn { width: 100%; }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   📁 V15 CSS PATCH — app/type/styles.css 맨 아래에 APPEND
+   📌 기존 V14 CSS 전부 유지. 아래만 추가.
+   📌 기존 변수 (var(--ac), var(--sf) 등) 사용.
+   📌 이미 있는 클래스: body-sm, compare-section, compare-rows,
+      compare-row-item, compare-row-label, compare-row-val, compare-sub
+      → 이들은 중복 정의하지 않음
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Hero V15: accent span in h1 ── */
+.h1 .accent {
+  color: var(--ac);
+}
+
+/* ── Hero V15: Reveal Label ── */
+.reveal-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--t3);
+  margin-bottom: 20px;
+}
+
+/* ── Hero V15: Type Reveal List (순차 등장) ── */
+.type-reveal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto 20px;
+}
+
+.type-reveal-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  background: var(--sf);
+  border-radius: var(--r);
+  border: 1px solid var(--bd);
+  text-align: left;
+  cursor: default;
+  font-family: var(--sans);
+  font-size: 15px;
+  color: var(--t1);
+  transition: all 0.4s var(--ease);
+  -webkit-tap-highlight-color: transparent;
+
+  /* 초기: 숨김 */
+  opacity: 0.15;
+  transform: translateX(16px);
+}
+
+.type-reveal-card.show {
+  opacity: 1;
+  transform: translateX(0);
+  border-color: var(--bd2);
+}
+
+.type-reveal-card.pickable {
+  cursor: pointer;
+}
+
+.type-reveal-card.pickable:hover,
+.type-reveal-card.pickable:active {
+  background: var(--acd);
+  border-color: var(--acb);
+  transform: translateX(2px);
+}
+
+.trc-emoji {
+  font-size: 28px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.trc-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.trc-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--t3);
+  transition: color 0.3s;
+}
+
+.type-reveal-card.show .trc-name {
+  color: var(--w);
+}
+
+.trc-tagline {
+  font-size: 12px;
+  color: var(--t3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trc-arrow {
+  font-size: 16px;
+  color: var(--ac);
+  flex-shrink: 0;
+  animation: up 0.3s var(--ease) both;
+}
+
+/* ── Hero V15: Quick Pick Prompt ── */
+.pick-prompt {
+  text-align: center;
+  margin-top: 8px;
+}
+
+.pick-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--w);
+  margin-bottom: 4px;
+}
+
+.pick-sub {
+  font-size: 13px;
+  color: var(--t3);
+  margin-bottom: 12px;
+}
+
+.pick-or {
+  font-size: 13px;
+  color: var(--t3);
+}
+
+.pick-quiz-link {
+  font-size: 13px;
+  color: var(--ac);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--sans);
+  font-weight: 600;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pick-quiz-link:hover {
+  text-decoration: underline;
+}
+
+/* ── Result V15: Bridge Text (타입→비교 자연 연결) ── */
+.bridge-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ac);
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+/* ── Result V15: compare-section margin 보강 ──
+   기존 .compare-section은 padding만. V15에서는 result-wrap 내에서 margin 필요 */
+.result-wrap .compare-section {
+  margin-bottom: 8px;
+}
+
+/* ── Hero V15: Fallback link ("or just take the full quiz →") ── */
+.hero-fallback {
+  margin-top: 12px;
+  text-align: center;
+}
+
+.hero-fallback-text {
+  font-size: 12px;
+  color: var(--t3);
+}
+
+.hero-fallback-link {
+  font-size: 12px;
+  color: rgba(212, 255, 43, 0.5);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  font-family: var(--sans);
+  padding: 0;
+}
+
+.hero-fallback-link:hover {
+  color: var(--ac);
+}
+
+/* ── V15 Responsive ── */
+@media (max-width: 480px) {
+  .type-reveal-list {
+    max-width: 100%;
+  }
+
+  .type-reveal-card {
+    padding: 14px 12px;
+    gap: 12px;
+  }
+
+  .trc-emoji {
+    font-size: 24px;
+  }
+
+  .trc-tagline {
+    font-size: 11px;
+  }
+
+  .pick-title {
+    font-size: 16px;
+  }
+
+  .bridge-text {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 380px) {
+  .type-reveal-card {
+    padding: 12px 10px;
+    gap: 10px;
+  }
+
+  .trc-name {
+    font-size: 14px;
+  }
+}
+
