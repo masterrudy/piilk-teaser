@@ -143,7 +143,8 @@ function Hero({ onStart }: { onStart: () => void }) {
     <section className="phase hero-phase">
       <div className="hero-inner">
         <h1 className="h1 anim-up">
-          The shake is done.{" "}
+          The shake is done.
+          <br />
           <span className="accent">But something isn&apos;t.</span>
         </h1>
 
