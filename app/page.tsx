@@ -510,7 +510,9 @@ export default function MainTeaser() {
                   <span className="ccard-label">PIILK™</span>
                   <span className="ccard-num accent">7</span>
                   <span className="ccard-sub">
-                    ingredients · 8.5 oz · 30g protein
+                    ingredients
+                    <br />
+                    30g protein · 8.5 oz
                   </span>
                 </div>
               </div>
