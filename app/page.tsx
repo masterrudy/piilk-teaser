@@ -1,30 +1,24 @@
 // ═══════════════════════════════════════════════════════════
-// 📁 파일 위치: app/page.tsx — V4 (Label Journey: Flip It)
+// 📁 파일 위치: app/page.tsx — V4.1 (Label Journey: 3D Flip Card)
 // 📌 역할: / 메인 티저 페이지 — 인터랙티브 라벨 발견 여정
 // 📌 API: /api/subscribe (Supabase + Klaviyo 서버사이드) — 변경 없음
 // 📌 트래킹: lib/ga4-main.ts (GA4 + Meta Pixel + TikTok + Supabase) — 이벤트명 유지
 //
-// ✅ V3.1 → V4 변경사항 (디자인만 변경, 인프라 변경 없음):
-//   1. 구조: 스크롤 reveal → 인터랙티브 3단계 (공감 → Flip → PIILK reveal)
-//   2. Hero: 텍스트 + IntersectionObserver → 탭 가능한 Flip 버튼
-//   3. Flip 시 성분 15개 카운팅 애니메이션 (하나씩 등장)
-//   4. 카운팅 완료 → "What if it only took 7?" CTA → PIILK 비교 화면
-//   5. 5초 후 Flip 안 누른 유저용 fallback "or scroll to see ↓"
-//   6. 법적: Gellan Gum, Cellulose Gum 태그 삭제, "All for 30g" 삭제
-//   7. 모든 track/API 호출, body 구조, 에러 핸들링 100% 유지
-//   8. Sticky bar 로직 100% 유지
-//   9. 혜택/오퍼: "Get early access · 3 bottles · Free shipping" 유지
-//  10. Nav: "NYC · March 2026" 유지
+// ✅ V4 → V4.1 변경사항 (디자인만 변경, 인프라 변경 없음):
+//   1. 🔄 이모지 제거 → 3D flip 카드 애니메이션으로 대체
+//   2. 카드 앞면: "Flip your bottle over." 텍스트 + 미니멀 SVG 화살표
+//   3. 카드 뒷면: 성분 카운팅 애니메이션이 카드 안에서 시작
+//   4. 카드 flip 후 → 카운팅 완료 → "What if 7?" 풀스크린 전환
+//   5. 모든 track/API 호출, body 구조, 에러 핸들링 100% 유지
 //
 // 🔒 변경하지 않은 것들:
 //   - import { track } from "@/lib/ga4-main" → 동일
 //   - fetch("/api/subscribe") → 동일
 //   - body: { email, source: "main_teaser", tracking } → 동일
-//   - track.pageView(), track.emailSubmit(), track.emailFocus(),
-//     track.scrollDepth(), track.stickyClick() → 동일
+//   - 모든 track 이벤트명 → 동일
 //   - Image src="/pillk-logo.png" → 동일
 //   - 에러 메시지: invalid_email, already_exists → 동일
-//   - Footer: PIILK™ BY ARMORED FRESH, © 2026 Armoredfresh Inc. → 동일
+//   - Footer, Nav, Sticky bar → 동일
 // ═══════════════════════════════════════════════════════════
 
 "use client";
@@ -34,7 +28,7 @@ import Image from "next/image";
 import { track } from "@/lib/ga4-main";
 
 // ─────────────────────────────────────────────────────────────
-// Utils (기존 V3.1과 동일)
+// Utils (기존과 동일)
 // ─────────────────────────────────────────────────────────────
 
 function getTrackingData() {
@@ -83,11 +77,12 @@ export default function MainTeaser() {
   const [stage, setStage] = useState<"empathy" | "counting" | "reveal">(
     "empathy"
   );
+  const [isFlipped, setIsFlipped] = useState(false);
   const [visibleCount, setVisibleCount] = useState(0);
   const [countDone, setCountDone] = useState(false);
   const [showFallback, setShowFallback] = useState(false);
 
-  // ─── Email state (기존 V3.1과 동일) ───
+  // ─── Email state (기존과 동일) ───
   const [emailSent, setEmailSent] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailError, setEmailError] = useState("");
@@ -100,19 +95,19 @@ export default function MainTeaser() {
   const emailFocusTracked = useRef(false);
   const flipTracked = useRef(false);
 
-  // ─── Page View (기존 V3.1과 동일) ───
+  // ─── Page View (기존과 동일) ───
   useEffect(() => {
     track.pageView();
   }, []);
 
-  // ─── 5초 후 fallback 표시 (Flip 안 누르는 유저 구제) ───
+  // ─── 5초 후 fallback 표시 ───
   useEffect(() => {
     if (stage !== "empathy") return;
     const timer = setTimeout(() => setShowFallback(true), 5000);
     return () => clearTimeout(timer);
   }, [stage]);
 
-  // ─── Counting animation ───
+  // ─── Counting animation (flip 후 시작) ───
   useEffect(() => {
     if (stage !== "counting") return;
     if (visibleCount >= COMPETITOR_INGREDIENTS.length) {
@@ -126,7 +121,7 @@ export default function MainTeaser() {
     return () => clearTimeout(timer);
   }, [stage, visibleCount]);
 
-  // ─── Sticky Bar: email section 벗어나면 표시 (기존 V3.1 로직 동일) ───
+  // ─── Sticky Bar (기존과 동일) ───
   useEffect(() => {
     if (stage !== "reveal") return;
     const el = emailSectionRef.current;
@@ -149,7 +144,6 @@ export default function MainTeaser() {
     return () => obs.disconnect();
   }, [stage]);
 
-  // ─── Sticky Bar: 스크롤 후 표시 (기존 V3.1 로직 동일) ───
   useEffect(() => {
     if (stage !== "reveal") return;
     const onScroll = () => {
@@ -165,27 +159,32 @@ export default function MainTeaser() {
     return () => window.removeEventListener("scroll", onScroll);
   }, [stage]);
 
-  // ─── Flip handler ───
+  // ─── Flip handler: 카드 뒤집기 → 딜레이 후 카운팅 스테이지 ───
   const handleFlip = () => {
+    if (isFlipped) return;
+    setIsFlipped(true);
+
     if (!flipTracked.current) {
       flipTracked.current = true;
-      // 기존 track.scrollDepth 재활용: "flip_bottle" 이벤트
       track.scrollDepth("flip_bottle");
     }
-    setStage("counting");
-    setVisibleCount(0);
-    setCountDone(false);
+
+    // 카드 flip 애니메이션 완료(0.7s) 후 counting 스테이지로 전환
+    setTimeout(() => {
+      setStage("counting");
+      setVisibleCount(0);
+      setCountDone(false);
+    }, 800);
   };
 
-  // ─── "What if 7?" → Reveal handler ───
+  // ─── Reveal handler ───
   const handleReveal = () => {
-    // 기존 track.scrollDepth 재활용: "comparison" 이벤트 (V3.1과 동일 이벤트명)
     track.scrollDepth("comparison");
     setStage("reveal");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // ─── Email Submit (API 경로 + body 구조 + 에러 핸들링 100% V3.1 동일) ───
+  // ─── Email Submit (100% 동일) ───
   const submitEmail = useCallback(async () => {
     const raw = emailRef.current?.value ?? "";
     const email = raw.trim();
@@ -246,12 +245,13 @@ export default function MainTeaser() {
     <>
       <style>{CSS}</style>
 
-      {/* ── NAV (V3.1과 동일) ── */}
+      {/* ── NAV (동일) ── */}
       <nav className="nav">
         <a
           className="nav-logo"
           onClick={() => {
             setStage("empathy");
+            setIsFlipped(false);
             setShowFallback(false);
             window.scrollTo({ top: 0, behavior: "smooth" });
           }}
@@ -260,6 +260,7 @@ export default function MainTeaser() {
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               setStage("empathy");
+              setIsFlipped(false);
               window.scrollTo({ top: 0, behavior: "smooth" });
             }
           }}
@@ -278,7 +279,7 @@ export default function MainTeaser() {
       </nav>
 
       {/* ════════════════════════════════════════════
-          STAGE 1: EMPATHY — "You felt it" + Flip button
+          STAGE 1: EMPATHY — 3D Flip Card
           ════════════════════════════════════════════ */}
       {stage === "empathy" && (
         <section className="section section--full">
@@ -293,16 +294,102 @@ export default function MainTeaser() {
               You&apos;re not alone.
             </p>
 
-            {/* THE FLIP BUTTON */}
-            <button className="flip-btn anim-up d3" onClick={handleFlip}>
-              <span className="flip-icon">🔄</span>
-              <span className="flip-text">Flip your bottle over.</span>
-              <span className="flip-hint">
-                tap to see what&apos;s on the back
-              </span>
-            </button>
+            {/* ── 3D FLIP CARD ── */}
+            <div
+              className={`flip-card anim-up d3${isFlipped ? " flipped" : ""}`}
+              onClick={handleFlip}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") handleFlip();
+              }}
+            >
+              <div className="flip-card-inner">
+                {/* FRONT */}
+                <div className="flip-card-face flip-card-front">
+                  <svg
+                    className="flip-svg"
+                    width="36"
+                    height="36"
+                    viewBox="0 0 36 36"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M18 6C11.373 6 6 11.373 6 18h3c0-4.97 4.03-9 9-9V6z"
+                      fill="rgba(255,255,255,0.2)"
+                    >
+                      <animateTransform
+                        attributeName="transform"
+                        type="rotate"
+                        from="0 18 18"
+                        to="360 18 18"
+                        dur="3s"
+                        repeatCount="indefinite"
+                      />
+                    </path>
+                    <path
+                      d="M18 30c6.627 0 12-5.373 12-12h-3c0 4.97-4.03 9-9 9v3z"
+                      fill="rgba(255,255,255,0.12)"
+                    >
+                      <animateTransform
+                        attributeName="transform"
+                        type="rotate"
+                        from="0 18 18"
+                        to="360 18 18"
+                        dur="3s"
+                        repeatCount="indefinite"
+                      />
+                    </path>
+                    {/* Arrow heads */}
+                    <polygon
+                      points="6,14 6,18 10,18"
+                      fill="rgba(255,255,255,0.2)"
+                    >
+                      <animateTransform
+                        attributeName="transform"
+                        type="rotate"
+                        from="0 18 18"
+                        to="360 18 18"
+                        dur="3s"
+                        repeatCount="indefinite"
+                      />
+                    </polygon>
+                    <polygon
+                      points="30,22 30,18 26,18"
+                      fill="rgba(255,255,255,0.12)"
+                    >
+                      <animateTransform
+                        attributeName="transform"
+                        type="rotate"
+                        from="0 18 18"
+                        to="360 18 18"
+                        dur="3s"
+                        repeatCount="indefinite"
+                      />
+                    </polygon>
+                  </svg>
+                  <span className="flip-card-title">
+                    Flip your bottle over.
+                  </span>
+                  <span className="flip-card-sub">
+                    tap to see what&apos;s on the back
+                  </span>
+                </div>
 
-            {/* Fallback: 5초 후 표시 — Flip 안 누르는 유저 구제 */}
+                {/* BACK */}
+                <div className="flip-card-face flip-card-back">
+                  <span className="flip-back-label">THE BACK LABEL</span>
+                  <span className="flip-back-count">15</span>
+                  <span className="flip-back-unit">ingredients</span>
+                  <span className="flip-back-hint">
+                    Hold on...
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Fallback: 5초 후 fade in */}
             <div
               className={`fallback-cta ${showFallback ? "visible" : ""}`}
             >
@@ -323,7 +410,7 @@ export default function MainTeaser() {
       )}
 
       {/* ════════════════════════════════════════════
-          STAGE 2: COUNTING — 성분 하나씩 등장 + 카운터
+          STAGE 2: COUNTING — 성분 카운팅 풀스크린
           ════════════════════════════════════════════ */}
       {stage === "counting" && (
         <section className="section section--full">
@@ -341,7 +428,6 @@ export default function MainTeaser() {
                 : "ingredients"}
             </p>
 
-            {/* 성분 태그 월 — 전부 중립 회색 (법적: 색상 구분 없음) */}
             <div className="ingredient-wall">
               {COMPETITOR_INGREDIENTS.slice(0, visibleCount).map(
                 (ing, i) => (
@@ -352,7 +438,6 @@ export default function MainTeaser() {
               )}
             </div>
 
-            {/* 카운팅 완료 후 */}
             {countDone && (
               <div className="count-done anim-up">
                 <p className="count-done-text">
@@ -376,7 +461,6 @@ export default function MainTeaser() {
       {stage === "reveal" && (
         <>
           <section className="section section--reveal">
-            {/* 비교 카드 */}
             <div className="compare-cards anim-up">
               <div className="ccard ccard--dim">
                 <span className="ccard-label">MOST SHAKES</span>
@@ -399,7 +483,6 @@ export default function MainTeaser() {
               No carrageenan. Dairy free.
             </p>
 
-            {/* Stat Row (V3.1과 동일 구조) */}
             <div className="stat-row anim-up d2">
               <div className="stat">
                 <div className="stat-num accent">7</div>
@@ -423,7 +506,6 @@ export default function MainTeaser() {
               We kept the protein. Removed the rest.
             </p>
 
-            {/* Email CTA (V3.1 오퍼 동일: "Get early access · 3 bottles · Free shipping") */}
             <div className="email-section anim-up d3" ref={emailSectionRef}>
               {!emailSent ? (
                 <div className="email-box">
@@ -478,7 +560,7 @@ export default function MainTeaser() {
             </div>
           </section>
 
-          {/* ── STICKY BOTTOM CTA BAR (V3.1과 동일) ── */}
+          {/* ── STICKY BAR (동일) ── */}
           <div
             className={`sticky-bar${stickyVisible ? " visible" : ""}${stickyHidden ? " hide" : ""}`}
           >
@@ -492,7 +574,7 @@ export default function MainTeaser() {
         </>
       )}
 
-      {/* ── FOOTER (V3.1과 동일) ── */}
+      {/* ── FOOTER (동일) ── */}
       <footer className="site-footer">
         <div className="footer-logo">
           <Image
@@ -516,14 +598,14 @@ export default function MainTeaser() {
 }
 
 // ═══════════════════════════════════════════
-// CSS — V4
+// CSS — V4.1
 // ═══════════════════════════════════════════
 
 const CSS = `
 /* ── Reset ── */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-/* ── Nav (V3.1 동일) ── */
+/* ── Nav (동일) ── */
 .nav {
   position: fixed;
   top: 0; left: 0; right: 0;
@@ -592,47 +674,130 @@ const CSS = `
   margin-bottom: 36px;
 }
 
-/* ── Flip Button ── */
-.flip-btn {
+/* ══════════════════════════════
+   3D FLIP CARD
+   ══════════════════════════════ */
+.flip-card {
+  perspective: 1000px;
+  width: 280px;
+  height: 180px;
+  cursor: pointer;
+  margin-bottom: 24px;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
+.flip-card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.7s cubic-bezier(0.4, 0.0, 0.2, 1);
+  transform-style: preserve-3d;
+}
+
+.flip-card.flipped .flip-card-inner {
+  transform: rotateY(180deg);
+}
+
+.flip-card-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 18px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  background: transparent;
-  border: 2px solid rgba(255,255,255,0.1);
-  border-radius: 18px;
-  padding: 24px 32px;
-  cursor: pointer;
-  transition: all 0.3s;
-  margin-bottom: 24px;
-  font-family: inherit;
-  -webkit-tap-highlight-color: transparent;
 }
-.flip-btn:hover, .flip-btn:active {
-  border-color: #D4FF2B;
-  background: rgba(212,255,43,0.04);
+
+/* ── FRONT FACE ── */
+.flip-card-front {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  transition: border-color 0.3s, background 0.3s;
 }
-.flip-icon {
-  font-size: 32px;
-  display: inline-block;
-  animation: spinPause 4s ease-in-out infinite;
+.flip-card:hover .flip-card-front,
+.flip-card:focus .flip-card-front {
+  border-color: rgba(212,255,43,0.3);
+  background: rgba(212,255,43,0.02);
 }
-@keyframes spinPause {
-  0% { transform: rotate(0deg); }
-  15% { transform: rotate(360deg); }
-  100% { transform: rotate(360deg); }
+
+.flip-svg {
+  opacity: 0.4;
+  margin-bottom: 4px;
 }
-.flip-text {
+.flip-card:hover .flip-svg,
+.flip-card:focus .flip-svg {
+  opacity: 0.6;
+}
+
+.flip-card-title {
   font-size: 18px;
   font-weight: 700;
   color: #fff;
 }
-.flip-hint {
+.flip-card-sub {
   font-size: 13px;
+  color: #52525b;
+  transition: color 0.3s;
+}
+.flip-card:hover .flip-card-sub {
   color: #71717a;
 }
 
-/* ── Fallback CTA (5초 후 fade in) ── */
+/* ── Tap pulse ring ── */
+.flip-card-front::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 20px;
+  border: 2px solid rgba(212,255,43,0.15);
+  animation: tapPulse 2.5s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes tapPulse {
+  0%, 100% { opacity: 0; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.02); }
+}
+
+/* ── BACK FACE ── */
+.flip-card-back {
+  background: #111113;
+  border: 1px solid rgba(255,255,255,0.06);
+  transform: rotateY(180deg);
+  gap: 4px;
+}
+.flip-back-label {
+  font-size: 10px;
+  color: #52525b;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+.flip-back-count {
+  font-size: 42px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+.flip-back-unit {
+  font-size: 13px;
+  color: #71717a;
+}
+.flip-back-hint {
+  font-size: 11px;
+  color: #52525b;
+  margin-top: 4px;
+  animation: blink 1.2s ease-in-out infinite;
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ── Fallback CTA ── */
 .fallback-cta {
   opacity: 0;
   transform: translateY(8px);
@@ -689,7 +854,6 @@ const CSS = `
   margin-bottom: 20px;
 }
 
-/* ── Ingredient Wall ── */
 .ingredient-wall {
   display: flex;
   flex-wrap: wrap;
@@ -712,7 +876,6 @@ const CSS = `
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-/* ── Count Done ── */
 .count-done {
   display: flex;
   flex-direction: column;
@@ -725,7 +888,6 @@ const CSS = `
   line-height: 1.7;
 }
 
-/* ── Reveal Button ── */
 .reveal-btn {
   padding: 16px 36px;
   background: #D4FF2B;
@@ -800,7 +962,7 @@ const CSS = `
   margin-bottom: 24px;
 }
 
-/* ── Stat Row (V3.1 동일) ── */
+/* ── Stat Row (동일) ── */
 .stat-row {
   display: flex;
   align-items: center;
@@ -828,7 +990,7 @@ const CSS = `
   margin-bottom: 32px;
 }
 
-/* ── Email Section (V3.1 동일) ── */
+/* ── Email Section (동일) ── */
 .email-section { width: 100%; max-width: 440px; }
 .email-box { text-align: center; }
 .email-prompt {
@@ -889,7 +1051,7 @@ const CSS = `
   margin: 0 auto;
 }
 
-/* ── Success (V3.1 동일) ── */
+/* ── Success (동일) ── */
 .success-msg {
   display: flex;
   flex-direction: column;
@@ -909,7 +1071,7 @@ const CSS = `
 .success-msg p { font-size: 15px; color: #a1a1aa; }
 .success-msg strong { color: #D4FF2B; font-weight: 700; }
 
-/* ── Sticky Bar (V3.1 동일) ── */
+/* ── Sticky Bar (동일) ── */
 .sticky-bar {
   position: fixed;
   bottom: 0; left: 0; right: 0;
@@ -959,7 +1121,7 @@ const CSS = `
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* ── Footer (V3.1 동일) ── */
+/* ── Footer (동일) ── */
 .site-footer {
   text-align: center;
   padding: 32px 16px;
@@ -978,7 +1140,7 @@ const CSS = `
 .footer-desc { font-size: 12px; color: #71717a; }
 .footer-copy { font-size: 11px; color: #3f3f46; margin-top: 4px; }
 
-/* ── Mobile (V3.1 동일 + 추가) ── */
+/* ── Mobile ── */
 @media (max-width: 480px) {
   .section--full { padding: 72px 20px 32px; }
   .section--reveal { padding: 80px 20px 48px; }
@@ -987,7 +1149,7 @@ const CSS = `
   .stat-divider { height: 32px; }
   .email-row { flex-direction: column; }
   .email-btn { width: 100%; }
-  .flip-btn { padding: 20px 24px; }
+  .flip-card { width: 260px; height: 164px; }
   .compare-cards { flex-direction: column; gap: 8px; }
   .ccard { padding: 14px; flex-direction: row; justify-content: space-between; }
   .sticky-bar { padding: 10px 16px; gap: 10px; }
