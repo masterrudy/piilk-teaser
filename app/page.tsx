@@ -357,7 +357,7 @@ html { scroll-behavior: smooth; }
 .section--hero {
   min-height: 100vh; min-height: 100svh;
   justify-content: center;
-  padding: 60px 24px 20px;
+  padding: 80px 24px 32px;
 }
 .hero-content {
   display: flex; flex-direction: column; align-items: center;
@@ -430,7 +430,7 @@ html { scroll-behavior: smooth; }
 
 /* ── CTA Section ── */
 .section--cta {
-  padding: 20px 24px 60px;
+  padding: 16px 24px 60px;
 }
 .cta-content {
   width: 100%; max-width: 440px;
@@ -545,14 +545,14 @@ html { scroll-behavior: smooth; }
 /* ── Mobile ── */
 @media (max-width: 480px) {
   .section--hero {
-    padding: 52px 20px 24px;
-    min-height: 100vh; min-height: 100svh;
+    padding: 56px 20px 20px;
+    min-height: auto;
   }
   .hero-content { max-width: 100%; }
-  .emotion-bridge { font-size: 13px; margin-bottom: 14px; }
+  .emotion-bridge { font-size: 13px; margin-bottom: 10px; }
   .hero-headline {
     font-size: clamp(22px, 6.2vw, 28px);
-    margin-bottom: 16px; line-height: 1.25;
+    margin-bottom: 12px; line-height: 1.25;
   }
   .compare-cards { flex-direction: column; gap: 8px; }
   .ccard {
@@ -565,7 +565,7 @@ html { scroll-behavior: smooth; }
   .hero-closer { font-size: 14px; }
   .hero-claims { font-size: 11px; }
   .hero-benefit { font-size: 13px; }
-  .section--cta { padding: 12px 20px 40px; }
+  .section--cta { padding: 8px 20px 32px; }
   .cta-content { max-width: 100%; }
   .email-offer { font-size: 13px; }
   .email-tagline { font-size: 10px; margin-bottom: 12px; }
