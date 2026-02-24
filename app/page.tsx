@@ -240,8 +240,8 @@ export default function MainTeaser() {
 
           {/* 스크롤 화살표 */}
           <div className="scroll-arrow anim-up d3" onClick={scrollToEmail}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <path d="M12 5v14M5 12l7 7 7-7" stroke="#D4FF2B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+              <path d="M7 10l5 5 5-5" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
         </div>
@@ -600,7 +600,7 @@ html { scroll-behavior: smooth; }
   .hero-claims { font-size: 11px; }
   .hero-benefit { font-size: 13px; margin-bottom: 0; }
   .scroll-arrow { bottom: 20px; }
-  .scroll-arrow svg { width: 20px; height: 20px; }
+  .scroll-arrow svg { width: 28px; height: 28px; }
   .section--cta { padding: 48px 20px 48px; min-height: 100vh; min-height: 100svh; }
   .cta-content { max-width: 100%; }
   .email-hook { font-size: 16px; }
