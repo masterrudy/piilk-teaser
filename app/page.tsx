@@ -237,6 +237,13 @@ export default function MainTeaser() {
           <p className="hero-benefit anim-up d3">
             Drink it. Forget about it. That&apos;s the point.
           </p>
+
+          {/* 스크롤 화살표 */}
+          <div className="scroll-arrow anim-up d3" onClick={scrollToEmail}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M12 5v14M5 12l7 7 7-7" stroke="#D4FF2B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
         </div>
       </section>
 
@@ -356,8 +363,8 @@ html { scroll-behavior: smooth; }
 /* HERO: 감정→선언→비교 */
 .section--hero {
   min-height: 100vh; min-height: 100svh;
-  justify-content: flex-end;
-  padding: 60px 24px 48px;
+  justify-content: center;
+  padding: 60px 24px 32px;
 }
 .hero-content {
   display: flex; flex-direction: column; align-items: center;
@@ -425,7 +432,20 @@ html { scroll-behavior: smooth; }
 .hero-benefit {
   font-size: 15px; color: #a1a1aa; line-height: 1.6;
   font-style: italic;
-  margin-bottom: 0;
+  margin-bottom: 24px;
+}
+
+/* scroll arrow */
+.scroll-arrow {
+  cursor: pointer;
+  opacity: 0.5;
+  animation: bounce 2s ease-in-out infinite;
+  -webkit-tap-highlight-color: transparent;
+}
+.scroll-arrow:hover { opacity: 1; }
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(8px); }
 }
 
 /* ── CTA Section ── */
@@ -545,7 +565,7 @@ html { scroll-behavior: smooth; }
 /* ── Mobile ── */
 @media (max-width: 480px) {
   .section--hero {
-    padding: 48px 20px 32px;
+    padding: 48px 20px 24px;
     min-height: 100vh; min-height: 100svh;
   }
   .hero-content { max-width: 100%; }
@@ -564,7 +584,8 @@ html { scroll-behavior: smooth; }
   .ccard-sub { font-size: 10px; }
   .hero-closer { font-size: 14px; }
   .hero-claims { font-size: 11px; }
-  .hero-benefit { font-size: 13px; }
+  .hero-benefit { font-size: 13px; margin-bottom: 16px; }
+  .scroll-arrow svg { width: 20px; height: 20px; }
   .section--cta { padding: 16px 20px 32px; }
   .cta-content { max-width: 100%; }
   .email-offer { font-size: 13px; }
