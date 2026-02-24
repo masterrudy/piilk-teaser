@@ -68,6 +68,14 @@ export default function MainTeaser() {
   // ─── Page View ───
   useEffect(() => { track.pageView(); }, []);
 
+  // ─── iOS 자동 줌 방지 ───
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="viewport"]');
+    if (meta) {
+      meta.setAttribute("content", "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no");
+    }
+  }, []);
+
   // ─── Scroll tracking: comparison section visibility ───
   useEffect(() => {
     const onScroll = () => {
