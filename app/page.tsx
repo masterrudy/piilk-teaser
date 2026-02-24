@@ -232,6 +232,11 @@ export default function MainTeaser() {
           <p className="hero-claims anim-up d3">
             No artificial sweeteners · No emulsifiers · No carrageenan · Dairy free
           </p>
+
+          {/* benefit bridge — 스펙 → 체감 번역 */}
+          <p className="hero-benefit anim-up d3">
+            Drink it. Forget about it. That&apos;s the point.
+          </p>
         </div>
       </section>
 
@@ -413,6 +418,13 @@ html { scroll-behavior: smooth; }
 }
 .hero-claims {
   font-size: 13px; color: #71717a; line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+/* benefit bridge */
+.hero-benefit {
+  font-size: 15px; color: #a1a1aa; line-height: 1.6;
+  font-style: italic;
   margin-bottom: 0;
 }
 
@@ -552,6 +564,7 @@ html { scroll-behavior: smooth; }
   .ccard-sub { font-size: 10px; }
   .hero-closer { font-size: 14px; }
   .hero-claims { font-size: 11px; }
+  .hero-benefit { font-size: 13px; }
   .section--cta { padding: 12px 20px 40px; }
   .cta-content { max-width: 100%; }
   .email-offer { font-size: 13px; }
