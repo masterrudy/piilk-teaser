@@ -704,7 +704,7 @@ html { scroll-behavior: smooth; }
   .email-offer { font-size: 12px; }
   .email-tagline { font-size: 12px; margin-bottom: 14px; }
   .email-row { gap: 6px; }
-  .email-input { padding: 11px 12px; font-size: 13px; border-radius: 10px; }
+  .email-input { padding: 11px 12px; font-size: 16px; border-radius: 10px; }
   .email-btn { padding: 11px 18px; font-size: 13px; border-radius: 10px; }
   .email-fine { font-size: 11px; margin-top: 2px; }
   .email-error { font-size: 11px; }
