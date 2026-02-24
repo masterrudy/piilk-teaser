@@ -254,15 +254,15 @@ export default function MainTeaser() {
         <div className="cta-content" ref={emailSectionRef}>
           {!emailSent ? (
             <div className="email-box">
-              {/* ⑤ 1,000명 한정 + 100% back */}
+              {/* ⑤ 1,000명 한정 + $2.99 credit */}
               <p className="email-hook">
-                First 1,000 get 100% back.
+                First 1,000: $2.99 credit on us.
               </p>
               <p className="email-offer">
-                3 bottles · $2.99 each · Free shipping
+                3 bottles · $2.99 · Free shipping
               </p>
               <p className="email-tagline">
-                Your $8.97 returns as store credit on launch day.
+                Pay once. Get $2.99 back toward your next order.
               </p>
               <div className="email-row">
                 <input
@@ -311,7 +311,7 @@ export default function MainTeaser() {
         <div
           className={`sticky-bar${stickyVisible ? " visible" : ""}${stickyHidden ? " hide" : ""}`}
         >
-          <span className="sticky-text">First 1,000 get 100% back</span>
+          <span className="sticky-text">First 1,000: $2.99 credit on us</span>
           <button className="sticky-btn" onClick={scrollToEmail}>
             I&apos;m in →
           </button>
