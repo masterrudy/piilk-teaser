@@ -305,8 +305,31 @@ export default function MainTeaser() {
           ) : (
             <div className="success-msg">
               <div className="check">✓</div>
-              <p><strong>You&apos;re in.</strong></p>
-              <p>We&apos;ll reach out when it&apos;s ready.</p>
+              <p className="success-title">You&apos;re one of the first 1,000.</p>
+              <p className="success-credit">Your $2.99 credit is locked in.</p>
+              <p className="success-sub">We&apos;ll email you before launch day.</p>
+              <div className="success-share">
+                <p className="success-share-text">Know someone who&apos;d want in?</p>
+                <button
+                  className="share-btn"
+                  onClick={() => {
+                    const shareData = {
+                      title: "PIILK — 7 ingredients. 30g protein. Nothing after.",
+                      text: "First 1,000 get $2.99 credit. Check it out:",
+                      url: window.location.href,
+                    };
+                    if (navigator.share) {
+                      navigator.share(shareData).catch(() => {});
+                    } else {
+                      navigator.clipboard.writeText(window.location.href);
+                      const btn = document.querySelector(".share-btn");
+                      if (btn) btn.textContent = "Link copied ✓";
+                    }
+                  }}
+                >
+                  Share →
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -534,16 +557,46 @@ html { scroll-behavior: smooth; }
 /* Success */
 .success-msg {
   display: flex; flex-direction: column;
-  align-items: center; gap: 8px; padding: 16px;
+  align-items: center; gap: 6px; padding: 16px;
 }
 .success-msg .check {
   width: 48px; height: 48px; border-radius: 50%;
   background: rgba(212,255,43,0.1);
   display: flex; align-items: center; justify-content: center;
-  font-size: 24px;
+  font-size: 24px; margin-bottom: 4px;
 }
-.success-msg p { font-size: 15px; color: #a1a1aa; }
-.success-msg strong { color: #D4FF2B; font-weight: 700; }
+.success-title {
+  font-size: 17px; color: #fff; font-weight: 700;
+}
+.success-credit {
+  font-size: 14px; color: #D4FF2B; font-weight: 600;
+}
+.success-sub {
+  font-size: 13px; color: #71717a;
+  margin-bottom: 8px;
+}
+.success-share {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 8px; margin-top: 12px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  width: 100%;
+}
+.success-share-text {
+  font-size: 13px; color: #a1a1aa;
+}
+.share-btn {
+  padding: 10px 28px; background: transparent;
+  color: #D4FF2B; border: 1px solid rgba(212,255,43,0.3);
+  border-radius: 10px; font-size: 14px;
+  font-weight: 600; font-family: inherit; cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.share-btn:hover {
+  background: rgba(212,255,43,0.06);
+  border-color: rgba(212,255,43,0.5);
+}
 
 /* ── Sticky ── */
 .sticky-bar {
