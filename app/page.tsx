@@ -356,8 +356,8 @@ html { scroll-behavior: smooth; }
 /* HERO: 감정→선언→비교 */
 .section--hero {
   min-height: 100vh; min-height: 100svh;
-  justify-content: center;
-  padding: 80px 24px 32px;
+  justify-content: flex-end;
+  padding: 60px 24px 48px;
 }
 .hero-content {
   display: flex; flex-direction: column; align-items: center;
@@ -545,11 +545,11 @@ html { scroll-behavior: smooth; }
 /* ── Mobile ── */
 @media (max-width: 480px) {
   .section--hero {
-    padding: 56px 20px 20px;
-    min-height: auto;
+    padding: 48px 20px 32px;
+    min-height: 100vh; min-height: 100svh;
   }
   .hero-content { max-width: 100%; }
-  .emotion-bridge { font-size: 13px; margin-bottom: 10px; }
+  .emotion-bridge { font-size: 13px; margin-bottom: 12px; }
   .hero-headline {
     font-size: clamp(22px, 6.2vw, 28px);
     margin-bottom: 12px; line-height: 1.25;
@@ -565,7 +565,7 @@ html { scroll-behavior: smooth; }
   .hero-closer { font-size: 14px; }
   .hero-claims { font-size: 11px; }
   .hero-benefit { font-size: 13px; }
-  .section--cta { padding: 8px 20px 32px; }
+  .section--cta { padding: 16px 20px 32px; }
   .cta-content { max-width: 100%; }
   .email-offer { font-size: 13px; }
   .email-tagline { font-size: 10px; margin-bottom: 12px; }
