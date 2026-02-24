@@ -314,9 +314,9 @@ export default function MainTeaser() {
                   className="share-btn"
                   onClick={() => {
                     const shareData = {
-                      title: "PIILK — 7 ingredients. 30g protein. Nothing after.",
-                      text: "First 1,000 get $2.99 credit. Check it out:",
-                      url: window.location.href,
+                      title: "PIILK",
+                      text: "7 ingredients. 30g protein. Nothing after. First 1,000 get $2.99 credit.",
+                      url: window.location.origin,
                     };
                     if (navigator.share) {
                       navigator.share(shareData).catch(() => {});
