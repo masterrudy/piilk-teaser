@@ -254,17 +254,17 @@ export default function MainTeaser() {
           SECTION 2: EMAIL CTA — 가격은 증거 뒤에
           ════════════════════════════════════════════════════════ */}
       <section className="section section--cta">
-        <div className="cta-product">
+        <div className="cta-bg">
           <Image
             src="/piilk-hero.png"
             alt="PIILK Chocolate Protein Shake"
             width={660}
             height={900}
-            style={{ display: "block", maxWidth: "100%", height: "auto" }}
+            style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 20%" }}
             priority
           />
         </div>
-        <div className="cta-content" ref={emailSectionRef}>
+        <div className="cta-float" ref={emailSectionRef}>
           {!emailSent ? (
             <div className="email-box">
               {/* ⑤ 긴급성 + credit 혜택 */}
@@ -502,19 +502,34 @@ html { scroll-behavior: smooth; }
 /* ── CTA Section ── */
 .section--cta {
   min-height: 100vh; min-height: 100svh;
+  position: relative;
+  padding: 0;
   justify-content: center;
-  padding: 40px 24px 48px;
-  gap: 28px;
+  align-items: center;
 }
-.cta-product {
-  max-width: 660px;
-  margin: 0 auto;
+.cta-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
 }
-.cta-content {
+.cta-float {
+  position: relative;
+  z-index: 1;
   width: 100%; max-width: 440px;
   display: flex; flex-direction: column; align-items: center;
   text-align: center;
+  padding: 40px 24px;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
 }
+.cta-content {
+  width: 100%;
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center;
+}
+.cta-product { display: none; }
 
 /* Email box */
 .email-box { width: 100%; text-align: center; }
@@ -685,8 +700,8 @@ html { scroll-behavior: smooth; }
   .hero-benefit { font-size: 13px; margin-bottom: 0; }
   .scroll-arrow { bottom: 20px; }
   .scroll-arrow svg { width: 28px; height: 28px; }
-  .section--cta { padding: 32px 20px 40px; min-height: 100vh; min-height: 100svh; gap: 16px; }
-  .cta-product { max-width: 480px; }
+  .section--cta { padding: 0; min-height: 100vh; min-height: 100svh; }
+  .cta-float { margin: 0 16px; padding: 28px 20px; border-radius: 16px; max-width: calc(100% - 32px); }
   .cta-content { max-width: 100%; }
   .email-scarcity { font-size: 16px; }
   .email-hook { font-size: 14px; }
