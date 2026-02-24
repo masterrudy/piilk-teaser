@@ -516,8 +516,10 @@ html { scroll-behavior: smooth; }
     rgba(0,0,0,1) 30%,
     rgba(0,0,0,1) 100%
   );
-  padding: 60px 24px 48px;
+  padding: 60px 24px 120px;
+  min-height: 100vh; min-height: 100svh;
   display: flex; flex-direction: column; align-items: center;
+  justify-content: center;
 }
 .cta-content {
   width: 100%; max-width: 440px;
