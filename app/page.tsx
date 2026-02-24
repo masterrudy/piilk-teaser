@@ -358,7 +358,7 @@ html { scroll-behavior: smooth; }
 .nav-right { font-size: 10px; color: #52525b; letter-spacing: 0.08em; text-transform: uppercase; }
 
 /* ── Sections ── */
-.section { display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; }
+.section { display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; overflow: hidden; }
 
 /* HERO: 감정→선언→비교 */
 .section--hero {
@@ -435,8 +435,12 @@ html { scroll-behavior: smooth; }
   margin-bottom: 24px;
 }
 
-/* scroll arrow */
+/* scroll arrow - 화면 하단 고정 */
 .scroll-arrow {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
   cursor: pointer;
   opacity: 0.5;
   animation: bounce 2s ease-in-out infinite;
@@ -444,8 +448,8 @@ html { scroll-behavior: smooth; }
 }
 .scroll-arrow:hover { opacity: 1; }
 @keyframes bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(8px); }
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(8px); }
 }
 
 /* ── CTA Section ── */
@@ -565,8 +569,10 @@ html { scroll-behavior: smooth; }
 /* ── Mobile ── */
 @media (max-width: 480px) {
   .section--hero {
-    padding: 48px 20px 24px;
+    padding: 52px 20px 20px;
     min-height: 100vh; min-height: 100svh;
+    justify-content: flex-start;
+    padding-top: 72px;
   }
   .hero-content { max-width: 100%; }
   .emotion-bridge { font-size: 13px; margin-bottom: 12px; }
@@ -584,9 +590,10 @@ html { scroll-behavior: smooth; }
   .ccard-sub { font-size: 10px; }
   .hero-closer { font-size: 14px; }
   .hero-claims { font-size: 11px; }
-  .hero-benefit { font-size: 13px; margin-bottom: 16px; }
+  .hero-benefit { font-size: 13px; margin-bottom: 0; }
+  .scroll-arrow { bottom: 16px; }
   .scroll-arrow svg { width: 20px; height: 20px; }
-  .section--cta { padding: 16px 20px 32px; }
+  .section--cta { padding: 32px 20px 32px; }
   .cta-content { max-width: 100%; }
   .email-offer { font-size: 13px; }
   .email-tagline { font-size: 10px; margin-bottom: 12px; }
