@@ -68,14 +68,6 @@ export default function MainTeaser() {
   // ─── Page View ───
   useEffect(() => { track.pageView(); }, []);
 
-  // ─── iOS 자동 줌 방지 ───
-  useEffect(() => {
-    const meta = document.querySelector('meta[name="viewport"]');
-    if (meta) {
-      meta.setAttribute("content", "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no");
-    }
-  }, []);
-
   // ─── Scroll tracking: comparison section visibility ───
   useEffect(() => {
     const onScroll = () => {
@@ -93,19 +85,6 @@ export default function MainTeaser() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
-
-  // ─── 모바일 키보드 대응 ───
-  useEffect(() => {
-    const input = document.querySelector(".email-input") as HTMLElement;
-    if (!input) return;
-    const handleFocus = () => {
-      setTimeout(() => {
-        input.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 350);
-    };
-    input.addEventListener("focus", handleFocus);
-    return () => input.removeEventListener("focus", handleFocus);
-  }, [emailSent]);
 
   // ─── Sticky Bar: hide when email section visible ───
   useEffect(() => {
@@ -419,7 +398,7 @@ html { scroll-behavior: smooth; }
 .nav-right { font-size: 10px; color: #52525b; letter-spacing: 0.08em; text-transform: uppercase; }
 
 /* ── Sections ── */
-.section { display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; overflow: hidden; z-index: 1; background: #000; }
+.section { display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; overflow: hidden; }
 
 /* HERO: 감정→선언→비교 */
 .section--hero {
@@ -523,8 +502,6 @@ html { scroll-behavior: smooth; }
 .section--cta {
   position: relative;
   padding: 0;
-  background: transparent;
-  overflow: visible;
 }
 .cta-spacer {
   height: 100vh; height: 100svh;
@@ -532,7 +509,14 @@ html { scroll-behavior: smooth; }
 .cta-scroll {
   position: relative;
   z-index: 1;
-  padding: 60px 24px 160px;
+  background: linear-gradient(
+    to bottom,
+    rgba(0,0,0,0) 0%,
+    rgba(0,0,0,0.8) 15%,
+    rgba(0,0,0,1) 30%,
+    rgba(0,0,0,1) 100%
+  );
+  padding: 60px 24px 120px;
   min-height: 100vh; min-height: 100svh;
   display: flex; flex-direction: column; align-items: center;
   justify-content: center;
@@ -541,11 +525,6 @@ html { scroll-behavior: smooth; }
   width: 100%; max-width: 440px;
   display: flex; flex-direction: column; align-items: center;
   text-align: center;
-  background: rgba(0,0,0,0.55);
-  backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 20px;
-  padding: 36px 28px;
 }
 .cta-bg, .cta-product { display: none; }
 
@@ -682,12 +661,8 @@ html { scroll-behavior: smooth; }
 
 /* ── Footer ── */
 .site-footer {
-  position: fixed;
-  bottom: 0; left: 0; right: 0;
-  z-index: 0;
-  text-align: center; padding: 24px 16px; font-size: 12px;
+  text-align: center; padding: 32px 16px; font-size: 12px;
   color: #71717a; display: flex; flex-direction: column; gap: 4px;
-  align-items: center;
 }
 .footer-brand {
   font-size: 13px; font-weight: 700; color: #a1a1aa;
@@ -723,15 +698,15 @@ html { scroll-behavior: smooth; }
   .scroll-arrow { bottom: 20px; }
   .scroll-arrow svg { width: 28px; height: 28px; }
   .section--cta { background-attachment: scroll !important; background-size: auto 70% !important; background-position: center 10% !important; }
-  .cta-spacer { height: 65vh; height: 65svh; }
-  .cta-scroll { padding: 40px 16px 80px; }
-  .cta-content { max-width: 100%; padding: 28px 20px; border-radius: 16px; }
+  .cta-spacer { height: 75vh; height: 75svh; }
+  .cta-scroll { padding: 40px 20px 36px; }
+  .cta-content { max-width: 100%; }
   .email-scarcity { font-size: 16px; }
   .email-hook { font-size: 14px; }
   .email-offer { font-size: 12px; }
   .email-tagline { font-size: 12px; margin-bottom: 14px; }
   .email-row { gap: 6px; }
-  .email-input { padding: 11px 12px; font-size: 16px; border-radius: 10px; }
+  .email-input { padding: 11px 12px; font-size: 13px; border-radius: 10px; }
   .email-btn { padding: 11px 18px; font-size: 13px; border-radius: 10px; }
   .email-fine { font-size: 11px; margin-top: 2px; }
   .email-error { font-size: 11px; }
