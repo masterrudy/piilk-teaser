@@ -199,20 +199,23 @@ export default function MainTeaser() {
       <section className="section section--hero">
         <div className="hero-content">
 
-          {/* ① 감정 bridge — 광고 hook 연결 */}
+          {/* ① 감정 bridge — 공감 + 원인 지목 */}
           <p className="emotion-bridge anim-up">
             You know that feeling after a protein shake.
           </p>
+          <p className="emotion-cause anim-up d1">
+            It&apos;s not the protein. It&apos;s the other 14 ingredients.
+          </p>
 
           {/* ② 선언형 헤드라인 (숫자 우선) */}
-          <h1 className="hero-headline anim-up d1">
+          <h1 className="hero-headline anim-up d2">
             <span className="headline-line">7 ingredients.</span>
             <span className="headline-line">30g protein.</span>
             <span className="headline-line accent">Nothing after.</span>
           </h1>
 
           {/* ③ 비교 카드 — FIRST VIEWPORT */}
-          <div className="compare-cards anim-up d2">
+          <div className="compare-cards anim-up d3">
             <div className="ccard ccard--them">
               <span className="ccard-label">MOST SHAKES</span>
               <span className="ccard-num">15+</span>
@@ -234,12 +237,12 @@ export default function MainTeaser() {
           </p>
 
           {/* benefit bridge — 스펙 → 체감 번역 */}
-          <p className="hero-benefit anim-up d3">
+          <p className="hero-benefit anim-up d4">
             Drink it. Forget about it. That&apos;s the point.
           </p>
 
           {/* 스크롤 화살표 */}
-          <div className="scroll-arrow anim-up d3" onClick={scrollToEmail}>
+          <div className="scroll-arrow anim-up d4" onClick={scrollToEmail}>
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
               <path d="M7 10l5 5 5-5" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
@@ -254,9 +257,9 @@ export default function MainTeaser() {
         <div className="cta-content" ref={emailSectionRef}>
           {!emailSent ? (
             <div className="email-box">
-              {/* ⑤ 1,000명 한정 + $2.99 credit */}
+              {/* ⑤ 긴급성 + credit 혜택 */}
               <p className="email-hook">
-                First 1,000: $2.99 credit on us.
+                1,000 spots. $2.99 credit on us.
               </p>
               <p className="email-offer">
                 3 bottles · $2.99 · Free shipping
@@ -311,7 +314,7 @@ export default function MainTeaser() {
         <div
           className={`sticky-bar${stickyVisible ? " visible" : ""}${stickyHidden ? " hide" : ""}`}
         >
-          <span className="sticky-text">First 1,000: $2.99 credit on us</span>
+          <span className="sticky-text">1,000 spots · $2.99 credit on us</span>
           <button className="sticky-btn" onClick={scrollToEmail}>
             I&apos;m in →
           </button>
@@ -377,6 +380,11 @@ html { scroll-behavior: smooth; }
 /* ① 감정 bridge */
 .emotion-bridge {
   font-size: 15px; color: #71717a; line-height: 1.6;
+  margin-bottom: 6px;
+}
+.emotion-cause {
+  font-size: 15px; color: #a1a1aa; line-height: 1.6;
+  font-weight: 600;
   margin-bottom: 20px;
 }
 
@@ -559,6 +567,7 @@ html { scroll-behavior: smooth; }
 .d1 { animation-delay: 0.1s; }
 .d2 { animation-delay: 0.2s; }
 .d3 { animation-delay: 0.35s; }
+.d4 { animation-delay: 0.5s; }
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(18px); }
   to { opacity: 1; transform: translateY(0); }
@@ -583,7 +592,8 @@ html { scroll-behavior: smooth; }
     min-height: 100vh; min-height: 100svh;
   }
   .hero-content { max-width: 100%; }
-  .emotion-bridge { font-size: 13px; margin-bottom: 12px; }
+  .emotion-bridge { font-size: 13px; margin-bottom: 4px; }
+  .emotion-cause { font-size: 13px; margin-bottom: 12px; }
   .hero-headline {
     font-size: clamp(22px, 6.2vw, 28px);
     margin-bottom: 12px; line-height: 1.25;
