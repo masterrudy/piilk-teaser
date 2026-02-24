@@ -258,8 +258,11 @@ export default function MainTeaser() {
           {!emailSent ? (
             <div className="email-box">
               {/* ⑤ 긴급성 + credit 혜택 */}
+              <p className="email-scarcity">
+                1,000 spots only.
+              </p>
               <p className="email-hook">
-                1,000 spots. $2.99 credit on us.
+                $2.99 credit on us.
               </p>
               <p className="email-offer">
                 3 bottles · $2.99 · Free shipping
@@ -383,7 +386,7 @@ html { scroll-behavior: smooth; }
   margin-bottom: 6px;
 }
 .emotion-cause {
-  font-size: 15px; color: #a1a1aa; line-height: 1.6;
+  font-size: 15px; color: #D4FF2B; line-height: 1.6;
   font-weight: 600;
   margin-bottom: 20px;
 }
@@ -436,7 +439,7 @@ html { scroll-behavior: smooth; }
 }
 .hero-claims {
   font-size: 13px; color: #71717a; line-height: 1.6;
-  margin-bottom: 16px;
+  margin-bottom: 24px;
 }
 
 /* benefit bridge */
@@ -478,12 +481,16 @@ html { scroll-behavior: smooth; }
 
 /* Email box */
 .email-box { width: 100%; text-align: center; }
-.email-hook {
+.email-scarcity {
   font-size: 18px; font-weight: 800; color: #fff;
-  margin-bottom: 6px; letter-spacing: -0.02em;
+  margin-bottom: 4px; letter-spacing: -0.02em;
+}
+.email-hook {
+  font-size: 16px; font-weight: 700; color: #D4FF2B;
+  margin-bottom: 12px;
 }
 .email-offer {
-  font-size: 14px; font-weight: 600; color: #D4FF2B;
+  font-size: 14px; font-weight: 600; color: #a1a1aa;
   margin-bottom: 4px; letter-spacing: 0.01em;
 }
 .email-tagline {
@@ -613,7 +620,8 @@ html { scroll-behavior: smooth; }
   .scroll-arrow svg { width: 28px; height: 28px; }
   .section--cta { padding: 48px 20px 48px; min-height: 100vh; min-height: 100svh; }
   .cta-content { max-width: 100%; }
-  .email-hook { font-size: 16px; }
+  .email-scarcity { font-size: 16px; }
+  .email-hook { font-size: 14px; }
   .email-offer { font-size: 12px; }
   .email-tagline { font-size: 11px; margin-bottom: 14px; }
   .email-row { gap: 6px; }
