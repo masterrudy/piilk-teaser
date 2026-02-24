@@ -412,8 +412,8 @@ html { scroll-behavior: smooth; }
 }
 .ccard--them {
   background: #111113;
-  border: 1px solid rgba(255,255,255,0.04);
-  opacity: 0.6;
+  border: 1px solid rgba(255,255,255,0.06);
+  opacity: 0.75;
 }
 .ccard--piilk {
   background: rgba(212,255,43,0.04);
@@ -427,7 +427,7 @@ html { scroll-behavior: smooth; }
 .ccard--piilk .ccard-label { color: #D4FF2B; }
 .ccard-num {
   font-size: 36px; font-weight: 800;
-  color: #52525b; letter-spacing: -0.03em;
+  color: #71717a; letter-spacing: -0.03em;
 }
 .ccard-num.accent { color: #D4FF2B; }
 .ccard-sub { font-size: 11px; color: #52525b; }
