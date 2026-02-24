@@ -253,22 +253,16 @@ export default function MainTeaser() {
       {/* ════════════════════════════════════════════════════════
           SECTION 2: EMAIL CTA — 가격은 증거 뒤에
           ════════════════════════════════════════════════════════ */}
-      <section className="section section--cta">
+      <section className="section section--cta" style={{
+        backgroundImage: "url(/piilk-hero.png)",
+        backgroundSize: "cover",
+        backgroundPosition: "center top",
+        backgroundRepeat: "no-repeat",
+      }}>
+        <div className="cta-overlay">
         <div className="cta-content" ref={emailSectionRef}>
           {!emailSent ? (
             <div className="email-box">
-              {/* 제품 이미지 */}
-              <div className="product-hero">
-                <Image
-                  src="/piilk-hero.png"
-                  alt="PIILK Chocolate Protein Shake — 7 Simple Ingredients, 30g Protein"
-                  width={280}
-                  height={380}
-                  style={{ display: "block", margin: "0 auto", maxWidth: "100%", height: "auto" }}
-                  priority
-                />
-              </div>
-
               {/* ⑤ 긴급성 + credit 혜택 */}
               <p className="email-scarcity">
                 1,000 spots only.
@@ -344,9 +338,8 @@ export default function MainTeaser() {
             </div>
           )}
         </div>
+        </div>
       </section>
-
-      {/* ── STICKY BAR ── */}
       {!emailSent && (
         <div
           className={`sticky-bar${stickyVisible ? " visible" : ""}${stickyHidden ? " hide" : ""}`}
@@ -504,8 +497,21 @@ html { scroll-behavior: smooth; }
 /* ── CTA Section ── */
 .section--cta {
   min-height: 100vh; min-height: 100svh;
-  justify-content: center;
-  padding: 40px 24px 40px;
+  justify-content: flex-end;
+  padding: 0;
+  overflow: hidden;
+}
+.cta-overlay {
+  width: 100%;
+  padding: 40px 24px 48px;
+  background: linear-gradient(
+    to bottom,
+    rgba(0,0,0,0) 0%,
+    rgba(0,0,0,0.5) 25%,
+    rgba(0,0,0,0.88) 55%,
+    rgba(0,0,0,0.96) 100%
+  );
+  display: flex; flex-direction: column; align-items: center;
 }
 .cta-content {
   width: 100%; max-width: 440px;
@@ -515,14 +521,6 @@ html { scroll-behavior: smooth; }
 
 /* Email box */
 .email-box { width: 100%; text-align: center; }
-
-/* Product image */
-.product-hero {
-  margin-bottom: 20px;
-  max-width: 240px;
-  margin-left: auto;
-  margin-right: auto;
-}
 .email-scarcity {
   font-size: 18px; font-weight: 800; color: #fff;
   margin-bottom: 4px; letter-spacing: -0.02em;
@@ -690,8 +688,8 @@ html { scroll-behavior: smooth; }
   .hero-benefit { font-size: 13px; margin-bottom: 0; }
   .scroll-arrow { bottom: 20px; }
   .scroll-arrow svg { width: 28px; height: 28px; }
-  .section--cta { padding: 24px 20px 32px; min-height: 100vh; min-height: 100svh; }
-  .product-hero { max-width: 180px; margin-bottom: 16px; }
+  .section--cta { padding: 0; min-height: 100vh; min-height: 100svh; }
+  .cta-overlay { padding: 24px 20px 32px; }
   .cta-content { max-width: 100%; }
   .email-scarcity { font-size: 16px; }
   .email-hook { font-size: 14px; }
