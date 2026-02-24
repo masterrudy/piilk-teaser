@@ -611,10 +611,10 @@ html { scroll-behavior: smooth; }
     justify-content: space-between; align-items: center;
   }
   .ccard-num { font-size: 28px; }
-  .ccard-label { font-size: 9px; }
-  .ccard-sub { font-size: 10px; }
+  .ccard-label { font-size: 10px; }
+  .ccard-sub { font-size: 11px; }
   .hero-closer { font-size: 14px; }
-  .hero-claims { font-size: 11px; }
+  .hero-claims { font-size: 12px; }
   .hero-benefit { font-size: 13px; margin-bottom: 0; }
   .scroll-arrow { bottom: 20px; }
   .scroll-arrow svg { width: 28px; height: 28px; }
@@ -623,11 +623,11 @@ html { scroll-behavior: smooth; }
   .email-scarcity { font-size: 16px; }
   .email-hook { font-size: 14px; }
   .email-offer { font-size: 12px; }
-  .email-tagline { font-size: 11px; margin-bottom: 14px; }
+  .email-tagline { font-size: 12px; margin-bottom: 14px; }
   .email-row { gap: 6px; }
   .email-input { padding: 11px 12px; font-size: 13px; border-radius: 10px; }
   .email-btn { padding: 11px 18px; font-size: 13px; border-radius: 10px; }
-  .email-fine { font-size: 10px; margin-top: 2px; }
+  .email-fine { font-size: 11px; margin-top: 2px; }
   .email-error { font-size: 11px; }
   .sticky-bar { padding: 10px 16px; gap: 10px; }
   .sticky-text { font-size: 12px; }
