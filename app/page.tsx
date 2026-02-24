@@ -603,14 +603,14 @@ html { scroll-behavior: smooth; }
   .emotion-cause { font-size: 13px; margin-bottom: 12px; }
   .hero-headline {
     font-size: clamp(22px, 6.2vw, 28px);
-    margin-bottom: 12px; line-height: 1.25;
+    margin-bottom: 20px; line-height: 1.25;
   }
-  .compare-cards { flex-direction: column; gap: 8px; }
+  .compare-cards { flex-direction: row; gap: 10px; }
   .ccard {
-    padding: 12px 14px; flex-direction: row;
-    justify-content: space-between; align-items: center;
+    padding: 14px 12px; flex-direction: column;
+    align-items: center; text-align: center;
   }
-  .ccard-num { font-size: 28px; }
+  .ccard-num { font-size: 32px; }
   .ccard-label { font-size: 10px; }
   .ccard-sub { font-size: 11px; }
   .hero-closer { font-size: 14px; }
