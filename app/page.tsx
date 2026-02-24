@@ -253,15 +253,17 @@ export default function MainTeaser() {
       {/* ════════════════════════════════════════════════════════
           SECTION 2: EMAIL CTA — 가격은 증거 뒤에
           ════════════════════════════════════════════════════════ */}
-      <section className="section section--cta" style={{
-        backgroundImage: "url(/piilk-hero.png)",
-        backgroundSize: "cover",
-        backgroundPosition: "center 20%",
-        backgroundRepeat: "no-repeat",
-        backgroundAttachment: "scroll",
-      }}>
-        <div className="cta-overlay">
-        <div className="cta-glass">
+      <section className="section section--cta">
+        <div className="cta-product">
+          <Image
+            src="/piilk-hero.png"
+            alt="PIILK Chocolate Protein Shake"
+            width={400}
+            height={540}
+            style={{ display: "block", maxWidth: "100%", height: "auto" }}
+            priority
+          />
+        </div>
         <div className="cta-content" ref={emailSectionRef}>
           {!emailSent ? (
             <div className="email-box">
@@ -339,8 +341,6 @@ export default function MainTeaser() {
               </div>
             </div>
           )}
-        </div>
-        </div>
         </div>
       </section>
 
@@ -503,26 +503,15 @@ html { scroll-behavior: smooth; }
 .section--cta {
   min-height: 100vh; min-height: 100svh;
   justify-content: center;
-  padding: 0;
-  overflow: hidden;
+  padding: 40px 24px 48px;
+  gap: 24px;
 }
-.cta-overlay {
-  width: 100%;
-  min-height: 100vh; min-height: 100svh;
-  display: flex; align-items: center; justify-content: center;
-  padding: 40px 24px;
-}
-.cta-glass {
-  background: rgba(0,0,0,0.65);
-  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 20px;
-  padding: 36px 28px;
-  max-width: 420px;
-  width: 100%;
+.cta-product {
+  max-width: 220px;
+  margin: 0 auto;
 }
 .cta-content {
-  width: 100%;
+  width: 100%; max-width: 440px;
   display: flex; flex-direction: column; align-items: center;
   text-align: center;
 }
@@ -696,9 +685,8 @@ html { scroll-behavior: smooth; }
   .hero-benefit { font-size: 13px; margin-bottom: 0; }
   .scroll-arrow { bottom: 20px; }
   .scroll-arrow svg { width: 28px; height: 28px; }
-  .section--cta { padding: 0; min-height: 100vh; min-height: 100svh; }
-  .cta-overlay { padding: 20px 16px; }
-  .cta-glass { padding: 28px 20px; border-radius: 16px; }
+  .section--cta { padding: 32px 20px 40px; min-height: 100vh; min-height: 100svh; gap: 16px; }
+  .cta-product { max-width: 160px; }
   .cta-content { max-width: 100%; }
   .email-scarcity { font-size: 16px; }
   .email-hook { font-size: 14px; }
