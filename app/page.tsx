@@ -256,7 +256,7 @@ export default function MainTeaser() {
       <section className="section section--cta" style={{
         backgroundImage: "url(/piilk-hero.png)",
         backgroundSize: "cover",
-        backgroundPosition: "center top",
+        backgroundPosition: "center 20%",
         backgroundRepeat: "no-repeat",
       }}>
         <div className="cta-overlay">
@@ -507,9 +507,9 @@ html { scroll-behavior: smooth; }
   background: linear-gradient(
     to bottom,
     rgba(0,0,0,0) 0%,
-    rgba(0,0,0,0.5) 25%,
-    rgba(0,0,0,0.88) 55%,
-    rgba(0,0,0,0.96) 100%
+    rgba(0,0,0,0.7) 15%,
+    rgba(0,0,0,0.95) 40%,
+    rgba(0,0,0,1) 100%
   );
   display: flex; flex-direction: column; align-items: center;
 }
