@@ -86,6 +86,19 @@ export default function MainTeaser() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // ─── 모바일 키보드 대응 ───
+  useEffect(() => {
+    const input = document.querySelector(".email-input") as HTMLElement;
+    if (!input) return;
+    const handleFocus = () => {
+      setTimeout(() => {
+        input.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 350);
+    };
+    input.addEventListener("focus", handleFocus);
+    return () => input.removeEventListener("focus", handleFocus);
+  }, [emailSent]);
+
   // ─── Sticky Bar: hide when email section visible ───
   useEffect(() => {
     const el = emailSectionRef.current;
