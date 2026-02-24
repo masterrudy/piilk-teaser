@@ -258,13 +258,14 @@ export default function MainTeaser() {
           <Image
             src="/piilk-hero.png"
             alt="PIILK Chocolate Protein Shake"
-            width={660}
-            height={900}
-            style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 20%" }}
+            width={320}
+            height={440}
+            style={{ display: "block", maxWidth: "100%", height: "auto" }}
             priority
           />
         </div>
-        <div className="cta-float" ref={emailSectionRef}>
+        <div className="cta-spacer"></div>
+        <div className="cta-content" ref={emailSectionRef}>
           {!emailSent ? (
             <div className="email-box">
               {/* ⑤ 긴급성 + credit 혜택 */}
@@ -501,33 +502,32 @@ html { scroll-behavior: smooth; }
 
 /* ── CTA Section ── */
 .section--cta {
-  min-height: 100vh; min-height: 100svh;
   position: relative;
-  padding: 0;
-  justify-content: center;
-  align-items: center;
+  padding: 0 24px 48px;
+  display: flex; flex-direction: column; align-items: center;
 }
 .cta-bg {
-  position: absolute;
-  inset: 0;
+  position: sticky;
+  top: 0;
+  width: 100%;
+  height: 100vh; height: 100svh;
+  display: flex; align-items: center; justify-content: center;
   z-index: 0;
+  pointer-events: none;
 }
-.cta-float {
+.cta-spacer {
+  height: 30vh;
+}
+.cta-content {
   position: relative;
   z-index: 1;
   width: 100%; max-width: 440px;
   display: flex; flex-direction: column; align-items: center;
   text-align: center;
-  padding: 40px 24px;
-  background: rgba(0,0,0,0.6);
-  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(0,0,0,0.85);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   border-radius: 20px;
-}
-.cta-content {
-  width: 100%;
-  display: flex; flex-direction: column; align-items: center;
-  text-align: center;
+  padding: 36px 28px;
 }
 .cta-product { display: none; }
 
@@ -700,9 +700,11 @@ html { scroll-behavior: smooth; }
   .hero-benefit { font-size: 13px; margin-bottom: 0; }
   .scroll-arrow { bottom: 20px; }
   .scroll-arrow svg { width: 28px; height: 28px; }
-  .section--cta { padding: 0; min-height: 100vh; min-height: 100svh; }
-  .cta-float { margin: 0 16px; padding: 28px 20px; border-radius: 16px; max-width: calc(100% - 32px); }
-  .cta-content { max-width: 100%; }
+  .section--cta { padding: 0 16px 36px; }
+  .cta-bg { height: 100vh; height: 100svh; }
+  .cta-bg img { max-width: 240px !important; }
+  .cta-spacer { height: 20vh; }
+  .cta-content { max-width: 100%; padding: 28px 20px; border-radius: 16px; }
   .email-scarcity { font-size: 16px; }
   .email-hook { font-size: 14px; }
   .email-offer { font-size: 12px; }
