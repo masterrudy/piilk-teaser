@@ -141,12 +141,12 @@ export default function DashboardPage() {
   // Dashboard data
   const [supabaseData, setSupabaseData] = useState<DashboardData | null>(null);
   const [klaviyoData, setKlaviyoData] = useState<DashboardData | null>(null);
-  const [activeSource, setActiveSource] = useState<'klaviyo' | 'supabase'>('klaviyo');
+  const [activeSource, setActiveSource] = useState<'klaviyo' | 'supabase'>('supabase');
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState('');
 
   // View mode
-  const [viewMode, setViewMode] = useState<'overview' | 'participants' | 'analytics'>('analytics');
+  const [viewMode, setViewMode] = useState<'overview' | 'participants' | 'analytics'>('participants');
 
   // Analytics
   const [analyticsData, setAnalyticsData] = useState<any>(null);
