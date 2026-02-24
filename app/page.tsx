@@ -352,7 +352,7 @@ html { scroll-behavior: smooth; }
 .section--hero {
   min-height: 100vh; min-height: 100svh;
   justify-content: center;
-  padding: 60px 24px 40px;
+  padding: 60px 24px 20px;
 }
 .hero-content {
   display: flex; flex-direction: column; align-items: center;
@@ -418,7 +418,7 @@ html { scroll-behavior: smooth; }
 
 /* ── CTA Section ── */
 .section--cta {
-  padding: 40px 24px 60px;
+  padding: 20px 24px 60px;
 }
 .cta-content {
   width: 100%; max-width: 440px;
@@ -552,7 +552,7 @@ html { scroll-behavior: smooth; }
   .ccard-sub { font-size: 10px; }
   .hero-closer { font-size: 14px; }
   .hero-claims { font-size: 11px; }
-  .section--cta { padding: 24px 20px 40px; }
+  .section--cta { padding: 12px 20px 40px; }
   .cta-content { max-width: 100%; }
   .email-offer { font-size: 13px; }
   .email-tagline { font-size: 10px; margin-bottom: 12px; }
