@@ -509,13 +509,6 @@ html { scroll-behavior: smooth; }
 .cta-scroll {
   position: relative;
   z-index: 1;
-  background: linear-gradient(
-    to bottom,
-    rgba(0,0,0,0) 0%,
-    rgba(0,0,0,0.8) 15%,
-    rgba(0,0,0,1) 30%,
-    rgba(0,0,0,1) 100%
-  );
   padding: 60px 24px 120px;
   min-height: 100vh; min-height: 100svh;
   display: flex; flex-direction: column; align-items: center;
@@ -525,6 +518,11 @@ html { scroll-behavior: smooth; }
   width: 100%; max-width: 440px;
   display: flex; flex-direction: column; align-items: center;
   text-align: center;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+  padding: 36px 28px;
 }
 .cta-bg, .cta-product { display: none; }
 
@@ -698,9 +696,9 @@ html { scroll-behavior: smooth; }
   .scroll-arrow { bottom: 20px; }
   .scroll-arrow svg { width: 28px; height: 28px; }
   .section--cta { background-attachment: scroll !important; background-size: auto 70% !important; background-position: center 10% !important; }
-  .cta-spacer { height: 75vh; height: 75svh; }
-  .cta-scroll { padding: 40px 20px 36px; }
-  .cta-content { max-width: 100%; }
+  .cta-spacer { height: 65vh; height: 65svh; }
+  .cta-scroll { padding: 40px 16px 80px; }
+  .cta-content { max-width: 100%; padding: 28px 20px; border-radius: 16px; }
   .email-scarcity { font-size: 16px; }
   .email-hook { font-size: 14px; }
   .email-offer { font-size: 12px; }
