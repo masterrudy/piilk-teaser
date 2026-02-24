@@ -233,8 +233,7 @@ export default function MainTeaser() {
             We kept the protein. Removed the rest.
           </p>
           <p className="hero-claims anim-up d3">
-            No artificial sweeteners · No emulsifiers<br />
-            No carrageenan · Dairy free
+            No artificial sweeteners · No emulsifiers · Dairy free
           </p>
 
           {/* benefit bridge — 스펙 → 체감 번역 */}
