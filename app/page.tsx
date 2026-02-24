@@ -253,19 +253,16 @@ export default function MainTeaser() {
       {/* ════════════════════════════════════════════════════════
           SECTION 2: EMAIL CTA — 가격은 증거 뒤에
           ════════════════════════════════════════════════════════ */}
-      <section className="section section--cta">
-        <div className="cta-bg">
-          <Image
-            src="/piilk-hero.png"
-            alt="PIILK Chocolate Protein Shake"
-            width={320}
-            height={440}
-            style={{ display: "block", maxWidth: "100%", height: "auto" }}
-            priority
-          />
-        </div>
+      <section className="section section--cta" style={{
+        backgroundImage: "url(/piilk-hero.png)",
+        backgroundSize: "auto 85%",
+        backgroundPosition: "center 15%",
+        backgroundRepeat: "no-repeat",
+        backgroundAttachment: "fixed",
+      }}>
         <div className="cta-spacer"></div>
-        <div className="cta-content" ref={emailSectionRef}>
+        <div className="cta-scroll">
+          <div className="cta-content" ref={emailSectionRef}>
           {!emailSent ? (
             <div className="email-box">
               {/* ⑤ 긴급성 + credit 혜택 */}
@@ -342,6 +339,7 @@ export default function MainTeaser() {
               </div>
             </div>
           )}
+        </div>
         </div>
       </section>
 
@@ -503,33 +501,30 @@ html { scroll-behavior: smooth; }
 /* ── CTA Section ── */
 .section--cta {
   position: relative;
-  padding: 0 24px 48px;
-  display: flex; flex-direction: column; align-items: center;
-}
-.cta-bg {
-  position: sticky;
-  top: 0;
-  width: 100%;
-  height: 100vh; height: 100svh;
-  display: flex; align-items: center; justify-content: center;
-  z-index: 0;
-  pointer-events: none;
+  padding: 0;
 }
 .cta-spacer {
-  height: 30vh;
+  height: 100vh; height: 100svh;
 }
-.cta-content {
+.cta-scroll {
   position: relative;
   z-index: 1;
+  background: linear-gradient(
+    to bottom,
+    rgba(0,0,0,0) 0%,
+    rgba(0,0,0,0.8) 15%,
+    rgba(0,0,0,1) 30%,
+    rgba(0,0,0,1) 100%
+  );
+  padding: 60px 24px 48px;
+  display: flex; flex-direction: column; align-items: center;
+}
+.cta-content {
   width: 100%; max-width: 440px;
   display: flex; flex-direction: column; align-items: center;
   text-align: center;
-  background: rgba(0,0,0,0.85);
-  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-  border-radius: 20px;
-  padding: 36px 28px;
 }
-.cta-product { display: none; }
+.cta-bg, .cta-product { display: none; }
 
 /* Email box */
 .email-box { width: 100%; text-align: center; }
@@ -700,11 +695,10 @@ html { scroll-behavior: smooth; }
   .hero-benefit { font-size: 13px; margin-bottom: 0; }
   .scroll-arrow { bottom: 20px; }
   .scroll-arrow svg { width: 28px; height: 28px; }
-  .section--cta { padding: 0 16px 36px; }
-  .cta-bg { height: 100vh; height: 100svh; }
-  .cta-bg img { max-width: 240px !important; }
-  .cta-spacer { height: 20vh; }
-  .cta-content { max-width: 100%; padding: 28px 20px; border-radius: 16px; }
+  .section--cta { background-attachment: scroll !important; background-size: auto 70% !important; background-position: center 10% !important; }
+  .cta-spacer { height: 75vh; height: 75svh; }
+  .cta-scroll { padding: 40px 20px 36px; }
+  .cta-content { max-width: 100%; }
   .email-scarcity { font-size: 16px; }
   .email-hook { font-size: 14px; }
   .email-offer { font-size: 12px; }
