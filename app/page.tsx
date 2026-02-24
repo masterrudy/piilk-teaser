@@ -313,15 +313,11 @@ export default function MainTeaser() {
                 <button
                   className="share-btn"
                   onClick={() => {
-                    const shareData = {
-                      title: "PIILK",
-                      text: "7 ingredients. 30g protein. Nothing after. First 1,000 get $2.99 credit.",
-                      url: window.location.origin,
-                    };
+                    const url = window.location.origin;
                     if (navigator.share) {
-                      navigator.share(shareData).catch(() => {});
+                      navigator.share({ url }).catch(() => {});
                     } else {
-                      navigator.clipboard.writeText(window.location.href);
+                      navigator.clipboard.writeText(url);
                       const btn = document.querySelector(".share-btn");
                       if (btn) btn.textContent = "Link copied ✓";
                     }
