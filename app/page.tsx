@@ -254,12 +254,15 @@ export default function MainTeaser() {
         <div className="cta-content" ref={emailSectionRef}>
           {!emailSent ? (
             <div className="email-box">
-              {/* ⑤ 가격 — 비교 증거 다음에 배치 = "이게 이 가격에?" */}
+              {/* ⑤ 1,000명 한정 + 100% back */}
+              <p className="email-hook">
+                First 1,000 get 100% back.
+              </p>
               <p className="email-offer">
                 3 bottles · $2.99 each · Free shipping
               </p>
               <p className="email-tagline">
-                Launching NYC · March 2026
+                Your $8.97 returns as store credit on launch day.
               </p>
               <div className="email-row">
                 <input
@@ -308,7 +311,7 @@ export default function MainTeaser() {
         <div
           className={`sticky-bar${stickyVisible ? " visible" : ""}${stickyHidden ? " hide" : ""}`}
         >
-          <span className="sticky-text">3 bottles · $2.99 each · Free shipping</span>
+          <span className="sticky-text">First 1,000 get 100% back</span>
           <button className="sticky-btn" onClick={scrollToEmail}>
             I&apos;m in →
           </button>
@@ -364,7 +367,7 @@ html { scroll-behavior: smooth; }
 .section--hero {
   min-height: 100vh; min-height: 100svh;
   justify-content: center;
-  padding: 60px 24px 32px;
+  padding: 60px 24px 60px;
 }
 .hero-content {
   display: flex; flex-direction: column; align-items: center;
@@ -432,29 +435,32 @@ html { scroll-behavior: smooth; }
 .hero-benefit {
   font-size: 15px; color: #a1a1aa; line-height: 1.6;
   font-style: italic;
-  margin-bottom: 24px;
+  margin-bottom: 0;
 }
 
-/* scroll arrow - 화면 하단 고정 */
+/* scroll arrow - 화면 하단 고정, 고급 fade pulse */
 .scroll-arrow {
   position: absolute;
-  bottom: 24px;
+  bottom: 28px;
   left: 50%;
   transform: translateX(-50%);
   cursor: pointer;
-  opacity: 0.5;
-  animation: bounce 2s ease-in-out infinite;
+  animation: arrowPulse 2.4s ease-in-out infinite;
   -webkit-tap-highlight-color: transparent;
 }
-.scroll-arrow:hover { opacity: 1; }
-@keyframes bounce {
-  0%, 100% { transform: translateX(-50%) translateY(0); }
-  50% { transform: translateX(-50%) translateY(8px); }
+@keyframes arrowPulse {
+  0% { opacity: 0; transform: translateX(-50%) translateY(-4px); }
+  30% { opacity: 0.6; transform: translateX(-50%) translateY(0); }
+  50% { opacity: 0.6; transform: translateX(-50%) translateY(4px); }
+  70% { opacity: 0.3; transform: translateX(-50%) translateY(6px); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(8px); }
 }
 
 /* ── CTA Section ── */
 .section--cta {
-  padding: 16px 24px 60px;
+  min-height: 100vh; min-height: 100svh;
+  justify-content: center;
+  padding: 60px 24px 60px;
 }
 .cta-content {
   width: 100%; max-width: 440px;
@@ -464,13 +470,17 @@ html { scroll-behavior: smooth; }
 
 /* Email box */
 .email-box { width: 100%; text-align: center; }
+.email-hook {
+  font-size: 18px; font-weight: 800; color: #fff;
+  margin-bottom: 6px; letter-spacing: -0.02em;
+}
 .email-offer {
-  font-size: 15px; font-weight: 700; color: #D4FF2B;
+  font-size: 14px; font-weight: 600; color: #D4FF2B;
   margin-bottom: 4px; letter-spacing: 0.01em;
 }
 .email-tagline {
-  font-size: 12px; color: #52525b; margin-bottom: 16px;
-  letter-spacing: 0.04em; text-transform: uppercase;
+  font-size: 12px; color: #71717a; margin-bottom: 18px;
+  font-style: italic;
 }
 .email-row {
   display: flex; gap: 8px; max-width: 100%;
@@ -569,10 +579,8 @@ html { scroll-behavior: smooth; }
 /* ── Mobile ── */
 @media (max-width: 480px) {
   .section--hero {
-    padding: 52px 20px 20px;
+    padding: 48px 20px 48px;
     min-height: 100vh; min-height: 100svh;
-    justify-content: flex-start;
-    padding-top: 72px;
   }
   .hero-content { max-width: 100%; }
   .emotion-bridge { font-size: 13px; margin-bottom: 12px; }
@@ -591,12 +599,13 @@ html { scroll-behavior: smooth; }
   .hero-closer { font-size: 14px; }
   .hero-claims { font-size: 11px; }
   .hero-benefit { font-size: 13px; margin-bottom: 0; }
-  .scroll-arrow { bottom: 16px; }
+  .scroll-arrow { bottom: 20px; }
   .scroll-arrow svg { width: 20px; height: 20px; }
-  .section--cta { padding: 32px 20px 32px; }
+  .section--cta { padding: 48px 20px 48px; min-height: 100vh; min-height: 100svh; }
   .cta-content { max-width: 100%; }
-  .email-offer { font-size: 13px; }
-  .email-tagline { font-size: 10px; margin-bottom: 12px; }
+  .email-hook { font-size: 16px; }
+  .email-offer { font-size: 12px; }
+  .email-tagline { font-size: 11px; margin-bottom: 14px; }
   .email-row { gap: 6px; }
   .email-input { padding: 11px 12px; font-size: 13px; border-radius: 10px; }
   .email-btn { padding: 11px 18px; font-size: 13px; border-radius: 10px; }
