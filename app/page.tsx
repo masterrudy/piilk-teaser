@@ -435,6 +435,7 @@ body { background: #000; color: #f4f4f5; font-family: -apple-system, BlinkMacSys
 .hero-content {
   display: flex; flex-direction: column; align-items: center;
   text-align: center; width: 100%; max-width: 440px;
+  margin-top: -8vh;
 }
 
 /* ① 원인 지목 */
@@ -678,7 +679,7 @@ body { background: #000; color: #f4f4f5; font-family: -apple-system, BlinkMacSys
     padding: 44px 20px 24px;
     min-height: 100vh; min-height: 100svh;
   }
-  .hero-content { max-width: 100%; }
+  .hero-content { max-width: 100%; margin-top: -10vh; }
   .emotion-cause { font-size: 13px; margin-bottom: 10px; }
   .hero-headline {
     font-size: clamp(22px, 6.2vw, 28px);
@@ -725,6 +726,7 @@ body { background: #000; color: #f4f4f5; font-family: -apple-system, BlinkMacSys
 /* ── Small height devices — CTA 잘리지 않도록 ── */
 @media (max-height: 680px) and (max-width: 480px) {
   .section--hero { padding-top: 40px; padding-bottom: 20px; }
+  .hero-content { margin-top: -4vh; }
   .emotion-cause { font-size: 12px; margin-bottom: 6px; }
   .hero-headline {
     font-size: clamp(20px, 5.5vw, 24px);
