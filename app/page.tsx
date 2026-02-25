@@ -487,9 +487,16 @@ body { background: #000; color: #f4f4f5; font-family: -apple-system, BlinkMacSys
 
 /* ④ Hero 이메일 CTA */
 .hero-email { width: 100%; }
+.hero-email .email-row { margin: 0 auto 6px; }
+.hero-email .email-input {
+  padding: 11px 14px; font-size: 14px; border-radius: 10px;
+}
+.hero-email .email-btn {
+  padding: 11px 20px; font-size: 14px; border-radius: 10px;
+}
 .hero-incentive {
   font-size: 12px; color: #71717a;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 .hero-success { width: 100%; }
 .success-inline {
@@ -683,15 +690,18 @@ body { background: #000; color: #f4f4f5; font-family: -apple-system, BlinkMacSys
     font-size: clamp(22px, 6.2vw, 28px);
     margin-bottom: 14px; line-height: 1.25;
   }
-  .compare-cards { flex-direction: row; gap: 10px; margin-bottom: 16px; }
+  .compare-cards { flex-direction: row; gap: 10px; margin-bottom: 14px; }
   .ccard { padding: 12px 10px; }
   .ccard-num { font-size: 30px; }
   .ccard-label { font-size: 9px; }
   .ccard-sub { font-size: 10px; }
+  .hero-email .email-row { gap: 6px; }
+  .hero-email .email-input { padding: 11px 12px; font-size: 16px; border-radius: 10px; }
+  .hero-email .email-btn { padding: 11px 16px; font-size: 13px; border-radius: 10px; }
+  .hero-incentive { font-size: 11px; margin-top: 5px; }
   .email-row { gap: 6px; }
-  .email-input { padding: 12px 12px; font-size: 16px; border-radius: 10px; }
-  .email-btn { padding: 12px 18px; font-size: 13px; border-radius: 10px; }
-  .hero-incentive { font-size: 11px; margin-top: 6px; }
+  .email-input { padding: 11px 12px; font-size: 16px; border-radius: 10px; }
+  .email-btn { padding: 11px 18px; font-size: 13px; border-radius: 10px; }
 
   .section--product {
     background-attachment: scroll !important;
@@ -721,15 +731,15 @@ body { background: #000; color: #f4f4f5; font-family: -apple-system, BlinkMacSys
 /* ── Small height devices — CTA 잘리지 않도록 ── */
 @media (max-height: 680px) and (max-width: 480px) {
   .section--hero { padding-top: 40px; padding-bottom: 20px; }
-  .emotion-cause { font-size: 12px; margin-bottom: 8px; }
+  .emotion-cause { font-size: 12px; margin-bottom: 6px; }
   .hero-headline {
     font-size: clamp(20px, 5.5vw, 24px);
     margin-bottom: 10px;
   }
-  .compare-cards { margin-bottom: 12px; }
+  .compare-cards { margin-bottom: 10px; }
   .ccard { padding: 10px 8px; }
   .ccard-num { font-size: 26px; }
-  .email-input { padding: 10px 12px; }
-  .email-btn { padding: 10px 16px; }
+  .hero-email .email-input { padding: 10px 12px; }
+  .hero-email .email-btn { padding: 10px 14px; font-size: 12px; }
 }
 `;
