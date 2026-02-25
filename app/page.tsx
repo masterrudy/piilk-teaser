@@ -1,16 +1,17 @@
 // ═══════════════════════════════════════════════════════════
-// 📁 파일 위치: app/page.tsx — V5.0
+// 📁 파일 위치: app/page.tsx — V6.0
 // 📌 역할: / 메인 티저 페이지
 // 📌 API: /api/subscribe (Supabase + Klaviyo 서버사이드) — 변경 없음
 // 📌 트래킹: lib/ga4-main.ts — 이벤트명 유지
 //
-// ✅ V4.3 → V5.0 변경사항:
-//   1. 구조 변경: 3-stage → 단일 스크롤 페이지
-//   2. Flip 인터랙션 + Counting 애니메이션 제거
-//   3. 감정 bridge 1줄 추가 (스펙 선언 전)
-//   4. 비교 카드(15 vs 7) first viewport으로 이동
-//   5. 가격($2.99)은 비교 증거 아래 CTA 직전 배치
-//   6. Sticky bar: scroll 50% 이후 표시
+// ✅ V5.0 → V6.0 변경사항:
+//   1. 이메일 CTA를 first viewport(hero)로 이동
+//   2. "You know that feeling" 삭제 → 원인 1줄로 시작
+//   3. hero-closer + claims + benefit → Section 2로 이동
+//   4. Section 2 = 제품사진 배경 + 확신 + CTA 반복
+//   5. 모바일 spacing 최적화 (CTA가 first viewport 안에 보이도록)
+//   6. scroll-arrow 삭제 (first viewport에서 전환하므로 불필요)
+//   7. small-height 디바이스 대응 추가
 //
 // 🔒 변경하지 않은 것들:
 //   - import { track } from "@/lib/ga4-main" → 동일
@@ -59,8 +60,9 @@ export default function MainTeaser() {
   const [stickyVisible, setStickyVisible] = useState(false);
   const [stickyHidden, setStickyHidden] = useState(false);
 
-  const emailRef = useRef<HTMLInputElement>(null);
-  const emailSectionRef = useRef<HTMLDivElement>(null);
+  const heroEmailRef = useRef<HTMLInputElement>(null);
+  const ctaEmailRef = useRef<HTMLInputElement>(null);
+  const ctaSectionRef = useRef<HTMLDivElement>(null);
   const stickyShownRef = useRef(false);
   const emailFocusTracked = useRef(false);
   const comparisonTracked = useRef(false);
@@ -68,16 +70,14 @@ export default function MainTeaser() {
   // ─── Page View ───
   useEffect(() => { track.pageView(); }, []);
 
-  // ─── Scroll tracking: comparison section visibility ───
+  // ─── Scroll tracking ───
   useEffect(() => {
     const onScroll = () => {
-      // Sticky bar trigger
       if (!stickyShownRef.current && window.scrollY > window.innerHeight * 0.5) {
         stickyShownRef.current = true;
         setStickyVisible(true);
       }
-      // Track comparison view
-      if (!comparisonTracked.current && window.scrollY > window.innerHeight * 0.3) {
+      if (!comparisonTracked.current && window.scrollY > window.innerHeight * 0.15) {
         comparisonTracked.current = true;
         track.scrollDepth("comparison");
       }
@@ -86,9 +86,9 @@ export default function MainTeaser() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // ─── Sticky Bar: hide when email section visible ───
+  // ─── Sticky Bar: hide when CTA section visible ───
   useEffect(() => {
-    const el = emailSectionRef.current;
+    const el = ctaSectionRef.current;
     if (!el) return;
     const obs = new IntersectionObserver(
       (entries) => {
@@ -165,9 +165,16 @@ export default function MainTeaser() {
     []
   );
 
-  const scrollToEmail = () => {
+  const scrollToCta = () => {
     track.stickyClick();
-    emailSectionRef.current?.scrollIntoView({ behavior: "smooth" });
+    ctaSectionRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const handleEmailFocus = () => {
+    if (!emailFocusTracked.current) {
+      emailFocusTracked.current = true;
+      track.emailFocus();
+    }
   };
 
   return (
@@ -176,11 +183,7 @@ export default function MainTeaser() {
 
       {/* ── NAV ── */}
       <nav className="nav">
-        <a
-          className="nav-logo"
-          href="/"
-          style={{ cursor: "pointer" }}
-        >
+        <a className="nav-logo" href="/" style={{ cursor: "pointer" }}>
           <Image
             src="/pillk-logo.png"
             alt="PIILK"
@@ -194,28 +197,25 @@ export default function MainTeaser() {
       </nav>
 
       {/* ════════════════════════════════════════════════════════
-          SECTION 1: HERO — 감정 Bridge → 선언 → 비교(증거)
+          SECTION 1: HERO — 원인 → 선언 → 비교 → CTA (ALL IN FIRST VP)
           ════════════════════════════════════════════════════════ */}
       <section className="section section--hero">
         <div className="hero-content">
 
-          {/* ① 감정 bridge — 공감 + 원인 지목 */}
-          <p className="emotion-bridge anim-up">
-            You know that feeling after a protein shake.
-          </p>
-          <p className="emotion-cause anim-up d1">
+          {/* ① 원인 지목 1줄 */}
+          <p className="emotion-cause anim-up">
             It&apos;s not the protein. It&apos;s the other 14 ingredients.
           </p>
 
-          {/* ② 선언형 헤드라인 (숫자 우선) */}
-          <h1 className="hero-headline anim-up d2">
+          {/* ② 선언형 헤드라인 */}
+          <h1 className="hero-headline anim-up d1">
             <span className="headline-line">7 ingredients.</span>
             <span className="headline-line">30g protein.</span>
             <span className="headline-line accent">Nothing after.</span>
           </h1>
 
-          {/* ③ 비교 카드 — FIRST VIEWPORT */}
-          <div className="compare-cards anim-up d3">
+          {/* ③ 비교 카드 */}
+          <div className="compare-cards anim-up d2">
             <div className="ccard ccard--them">
               <span className="ccard-label">MOST SHAKES</span>
               <span className="ccard-num">15+</span>
@@ -228,59 +228,12 @@ export default function MainTeaser() {
             </div>
           </div>
 
-          {/* ④ 확신 라인 + claims */}
-          <p className="hero-closer anim-up d3">
-            We kept the protein. Removed the rest.
-          </p>
-          <p className="hero-claims anim-up d3">
-            No artificial sweeteners · No emulsifiers · Dairy free
-          </p>
-
-          {/* benefit bridge — 스펙 → 체감 번역 */}
-          <p className="hero-benefit anim-up d4">
-            Drink it. Forget about it. That&apos;s the point.
-          </p>
-
-          {/* 스크롤 화살표 */}
-          <div className="scroll-arrow anim-up d4" onClick={scrollToEmail}>
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-              <path d="M7 10l5 5 5-5" stroke="#ffffff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
-        </div>
-      </section>
-
-      {/* ════════════════════════════════════════════════════════
-          SECTION 2: EMAIL CTA — 가격은 증거 뒤에
-          ════════════════════════════════════════════════════════ */}
-      <section className="section section--cta" style={{
-        backgroundImage: "url(/piilk-hero.png)",
-        backgroundSize: "auto 85%",
-        backgroundPosition: "center 15%",
-        backgroundRepeat: "no-repeat",
-        backgroundAttachment: "fixed",
-      }}>
-        <div className="cta-spacer"></div>
-        <div className="cta-scroll">
-          <div className="cta-content" ref={emailSectionRef}>
+          {/* ④ 이메일 CTA — FIRST VIEWPORT */}
           {!emailSent ? (
-            <div className="email-box">
-              {/* ⑤ 긴급성 + credit 혜택 */}
-              <p className="email-scarcity">
-                1,000 spots only.
-              </p>
-              <p className="email-hook">
-                $2.99 credit on us.
-              </p>
-              <p className="email-offer">
-                3 bottles · $2.99 · Free shipping
-              </p>
-              <p className="email-tagline">
-                Pay once. Get $2.99 back toward your next order.
-              </p>
+            <div className="hero-email anim-up d3">
               <div className="email-row">
                 <input
-                  ref={emailRef}
+                  ref={heroEmailRef}
                   className="email-input"
                   type="email"
                   placeholder="your@email.com"
@@ -289,57 +242,126 @@ export default function MainTeaser() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
-                      doSubmitEmail(emailRef);
+                      doSubmitEmail(heroEmailRef);
                     }
                   }}
-                  onFocus={() => {
-                    if (!emailFocusTracked.current) {
-                      emailFocusTracked.current = true;
-                      track.emailFocus();
-                    }
-                  }}
+                  onFocus={handleEmailFocus}
                 />
                 <button
                   className="email-btn"
-                  onClick={() => doSubmitEmail(emailRef)}
+                  onClick={() => doSubmitEmail(heroEmailRef)}
                   disabled={emailLoading}
                 >
-                  {emailLoading ? "..." : "I'm in →"}
+                  {emailLoading ? "..." : "I\u2019m in \u2192"}
                 </button>
               </div>
               {emailError && <p className="email-error">{emailError}</p>}
-              <p className="email-fine">No spam. Unsubscribe anytime.</p>
+              <p className="hero-incentive">
+                First 1,000 &middot; $2.99 credit &middot; Free shipping
+              </p>
             </div>
           ) : (
-            <div className="success-msg">
-              <div className="check">✓</div>
-              <p className="success-title">You&apos;re one of the first 1,000.</p>
-              <p className="success-credit">Your $2.99 credit is locked in.</p>
-              <p className="success-sub">We&apos;ll email you before launch day.</p>
-              <div className="success-share">
-                <p className="success-share-text">Know someone who&apos;d want in?</p>
-                <button
-                  className="share-btn"
-                  onClick={() => {
-                    const url = window.location.origin;
-                    if (navigator.share) {
-                      navigator.share({
-                        title: "PIILK — 7 ingredients. 30g protein. Nothing after.",
-                        url,
-                      }).catch(() => {});
-                    } else {
-                      navigator.clipboard.writeText(url);
-                      const btn = document.querySelector(".share-btn");
-                      if (btn) btn.textContent = "Link copied ✓";
-                    }
-                  }}
-                >
-                  Share →
-                </button>
-              </div>
+            <div className="hero-success anim-up d3">
+              <p className="success-inline">
+                &#10003; You&apos;re in. We&apos;ll email you before launch.
+              </p>
             </div>
           )}
         </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════════
+          SECTION 2: 제품사진 배경 + 확신 + CTA 반복
+          ════════════════════════════════════════════════════════ */}
+      <section
+        className="section section--product"
+        style={{
+          backgroundImage: "url(/piilk-hero.png)",
+          backgroundSize: "auto 85%",
+          backgroundPosition: "center 15%",
+          backgroundRepeat: "no-repeat",
+          backgroundAttachment: "fixed",
+        }}
+      >
+        <div className="product-spacer"></div>
+        <div className="product-scroll">
+          <div className="product-content" ref={ctaSectionRef}>
+            <p className="product-closer">
+              We kept the protein. Removed the rest.
+            </p>
+            <p className="product-claims">
+              No artificial sweeteners &middot; No emulsifiers &middot; Dairy free
+            </p>
+            <p className="product-benefit">
+              Drink it. Forget about it. That&apos;s the point.
+            </p>
+
+            {!emailSent ? (
+              <div className="email-box">
+                <p className="email-scarcity">1,000 spots only.</p>
+                <p className="email-hook">$2.99 credit on us.</p>
+                <p className="email-offer">
+                  3 bottles &middot; $2.99 &middot; Free shipping
+                </p>
+                <p className="email-tagline">
+                  Pay once. Get $2.99 back toward your next order.
+                </p>
+                <div className="email-row">
+                  <input
+                    ref={ctaEmailRef}
+                    className="email-input"
+                    type="email"
+                    placeholder="your@email.com"
+                    autoComplete="email"
+                    inputMode="email"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        doSubmitEmail(ctaEmailRef);
+                      }
+                    }}
+                    onFocus={handleEmailFocus}
+                  />
+                  <button
+                    className="email-btn"
+                    onClick={() => doSubmitEmail(ctaEmailRef)}
+                    disabled={emailLoading}
+                  >
+                    {emailLoading ? "..." : "I\u2019m in \u2192"}
+                  </button>
+                </div>
+                {emailError && <p className="email-error">{emailError}</p>}
+              </div>
+            ) : (
+              <div className="success-msg">
+                <div className="check">&#10003;</div>
+                <p className="success-title">You&apos;re one of the first 1,000.</p>
+                <p className="success-credit">Your $2.99 credit is locked in.</p>
+                <p className="success-sub">We&apos;ll email you before launch day.</p>
+                <div className="success-share">
+                  <p className="success-share-text">Know someone who&apos;d want in?</p>
+                  <button
+                    className="share-btn"
+                    onClick={() => {
+                      const url = window.location.origin;
+                      if (navigator.share) {
+                        navigator.share({
+                          title: "PIILK \u2014 7 ingredients. 30g protein. Nothing after.",
+                          url,
+                        }).catch(() => {});
+                      } else {
+                        navigator.clipboard.writeText(url);
+                        const btn = document.querySelector(".share-btn");
+                        if (btn) btn.textContent = "Link copied \u2713";
+                      }
+                    }}
+                  >
+                    Share &rarr;
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
@@ -348,9 +370,9 @@ export default function MainTeaser() {
         <div
           className={`sticky-bar${stickyVisible ? " visible" : ""}${stickyHidden ? " hide" : ""}`}
         >
-          <span className="sticky-text">1,000 spots · $2.99 credit on us</span>
-          <button className="sticky-btn" onClick={scrollToEmail}>
-            I&apos;m in →
+          <span className="sticky-text">1,000 spots &middot; $2.99 credit on us</span>
+          <button className="sticky-btn" onClick={scrollToCta}>
+            I&apos;m in &rarr;
           </button>
         </div>
       )}
@@ -370,21 +392,22 @@ export default function MainTeaser() {
             }}
           />
         </div>
-        <div className="footer-brand">PIILK™ BY ARMORED FRESH</div>
+        <div className="footer-brand">PIILK&trade; BY ARMORED FRESH</div>
         <div className="footer-desc">RTD High Protein Shake.</div>
-        <div className="footer-copy">© 2026 Armoredfresh Inc.</div>
+        <div className="footer-copy">&copy; 2026 Armoredfresh Inc.</div>
       </footer>
     </>
   );
 }
 
 // ═══════════════════════════════════════════
-// CSS — V5.0
+// CSS — V6.0
 // ═══════════════════════════════════════════
 
 const CSS = `
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html { scroll-behavior: smooth; }
+body { background: #000; color: #f4f4f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 
 /* ── Nav ── */
 .nav {
@@ -400,33 +423,32 @@ html { scroll-behavior: smooth; }
 /* ── Sections ── */
 .section { display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; overflow: hidden; }
 
-/* HERO: 감정→선언→비교 */
+/* ════════════════════════════════════════════
+   HERO — ALL IN FIRST VIEWPORT
+   원인 1줄 → 선언 → 비교 → 이메일 CTA
+   ════════════════════════════════════════════ */
 .section--hero {
   min-height: 100vh; min-height: 100svh;
   justify-content: center;
-  padding: 60px 24px 60px;
+  padding: 52px 24px 32px;
 }
 .hero-content {
   display: flex; flex-direction: column; align-items: center;
   text-align: center; width: 100%; max-width: 440px;
 }
 
-/* ① 감정 bridge */
-.emotion-bridge {
-  font-size: 15px; color: #71717a; line-height: 1.6;
-  margin-bottom: 6px;
-}
+/* ① 원인 지목 */
 .emotion-cause {
   font-size: 15px; color: #D4FF2B; line-height: 1.6;
   font-weight: 600;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 /* ② 헤드라인 */
 .hero-headline {
   font-size: clamp(26px, 7vw, 38px); font-weight: 800;
   color: #fff; line-height: 1.2; letter-spacing: -0.03em;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 .hero-headline .accent { color: #D4FF2B; }
 .headline-line { display: block; }
@@ -438,7 +460,7 @@ html { scroll-behavior: smooth; }
 }
 .ccard {
   flex: 1; display: flex; flex-direction: column;
-  align-items: center; gap: 4px; padding: 18px 12px;
+  align-items: center; gap: 4px; padding: 16px 12px;
   border-radius: 14px; text-align: center;
 }
 .ccard--them {
@@ -457,56 +479,35 @@ html { scroll-behavior: smooth; }
 .ccard--them .ccard-label { color: #52525b; }
 .ccard--piilk .ccard-label { color: #D4FF2B; }
 .ccard-num {
-  font-size: 36px; font-weight: 800;
+  font-size: 34px; font-weight: 800;
   color: #71717a; letter-spacing: -0.03em;
 }
 .ccard-num.accent { color: #D4FF2B; }
 .ccard-sub { font-size: 11px; color: #52525b; }
 
-/* ④ 확신 */
-.hero-closer {
-  font-size: 16px; color: #D4FF2B; font-weight: 700;
-  margin-bottom: 8px;
+/* ④ Hero 이메일 CTA */
+.hero-email { width: 100%; }
+.hero-incentive {
+  font-size: 12px; color: #71717a;
+  margin-top: 8px;
 }
-.hero-claims {
-  font-size: 13px; color: #71717a; line-height: 1.6;
-  margin-bottom: 24px;
-}
-
-/* benefit bridge */
-.hero-benefit {
-  font-size: 15px; color: #a1a1aa; line-height: 1.6;
-  font-style: italic;
-  margin-bottom: 0;
+.hero-success { width: 100%; }
+.success-inline {
+  font-size: 15px; color: #D4FF2B; font-weight: 600;
+  padding: 12px 0;
 }
 
-/* scroll arrow - 화면 하단 고정, 고급 fade pulse */
-.scroll-arrow {
-  position: absolute;
-  bottom: 28px;
-  left: 50%;
-  transform: translateX(-50%);
-  cursor: pointer;
-  animation: arrowPulse 2.4s ease-in-out infinite;
-  -webkit-tap-highlight-color: transparent;
-}
-@keyframes arrowPulse {
-  0% { opacity: 0; transform: translateX(-50%) translateY(-4px); }
-  30% { opacity: 0.6; transform: translateX(-50%) translateY(0); }
-  50% { opacity: 0.6; transform: translateX(-50%) translateY(4px); }
-  70% { opacity: 0.3; transform: translateX(-50%) translateY(6px); }
-  100% { opacity: 0; transform: translateX(-50%) translateY(8px); }
-}
-
-/* ── CTA Section ── */
-.section--cta {
+/* ════════════════════════════════════════════
+   PRODUCT SECTION — 제품사진 + 확신 + CTA 반복
+   ════════════════════════════════════════════ */
+.section--product {
   position: relative;
   padding: 0;
 }
-.cta-spacer {
+.product-spacer {
   height: 100vh; height: 100svh;
 }
-.cta-scroll {
+.product-scroll {
   position: relative;
   z-index: 1;
   background: linear-gradient(
@@ -519,14 +520,27 @@ html { scroll-behavior: smooth; }
   padding: 60px 24px 48px;
   display: flex; flex-direction: column; align-items: center;
 }
-.cta-content {
+.product-content {
   width: 100%; max-width: 440px;
   display: flex; flex-direction: column; align-items: center;
   text-align: center;
 }
-.cta-bg, .cta-product { display: none; }
 
-/* Email box */
+.product-closer {
+  font-size: 16px; color: #D4FF2B; font-weight: 700;
+  margin-bottom: 8px;
+}
+.product-claims {
+  font-size: 13px; color: #71717a; line-height: 1.6;
+  margin-bottom: 8px;
+}
+.product-benefit {
+  font-size: 15px; color: #a1a1aa; line-height: 1.6;
+  font-style: italic;
+  margin-bottom: 32px;
+}
+
+/* ── Shared Email Styles ── */
 .email-box { width: 100%; text-align: center; }
 .email-scarcity {
   font-size: 18px; font-weight: 800; color: #fff;
@@ -573,12 +587,8 @@ html { scroll-behavior: smooth; }
   font-size: 13px; color: #ef4444;
   margin: 4px auto 8px; max-width: 340px;
 }
-.email-fine {
-  font-size: 11px; color: #3f3f46;
-  max-width: 300px; margin: 0 auto;
-}
 
-/* Success */
+/* ── Success ── */
 .success-msg {
   display: flex; flex-direction: column;
   align-items: center; gap: 6px; padding: 16px;
@@ -589,16 +599,9 @@ html { scroll-behavior: smooth; }
   display: flex; align-items: center; justify-content: center;
   font-size: 24px; margin-bottom: 4px;
 }
-.success-title {
-  font-size: 17px; color: #fff; font-weight: 700;
-}
-.success-credit {
-  font-size: 14px; color: #D4FF2B; font-weight: 600;
-}
-.success-sub {
-  font-size: 13px; color: #71717a;
-  margin-bottom: 8px;
-}
+.success-title { font-size: 17px; color: #fff; font-weight: 700; }
+.success-credit { font-size: 14px; color: #D4FF2B; font-weight: 600; }
+.success-sub { font-size: 13px; color: #71717a; margin-bottom: 8px; }
 .success-share {
   display: flex; flex-direction: column; align-items: center;
   gap: 8px; margin-top: 12px;
@@ -606,9 +609,7 @@ html { scroll-behavior: smooth; }
   border-top: 1px solid rgba(255,255,255,0.06);
   width: 100%;
 }
-.success-share-text {
-  font-size: 13px; color: #a1a1aa;
-}
+.success-share-text { font-size: 13px; color: #a1a1aa; }
 .share-btn {
   padding: 10px 28px; background: transparent;
   color: #D4FF2B; border: 1px solid rgba(212,255,43,0.3);
@@ -651,7 +652,6 @@ html { scroll-behavior: smooth; }
 .d1 { animation-delay: 0.1s; }
 .d2 { animation-delay: 0.2s; }
 .d3 { animation-delay: 0.35s; }
-.d4 { animation-delay: 0.5s; }
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(18px); }
   to { opacity: 1; transform: translateY(0); }
@@ -669,44 +669,45 @@ html { scroll-behavior: smooth; }
 .footer-desc { font-size: 12px; color: #71717a; }
 .footer-copy { font-size: 11px; color: #3f3f46; margin-top: 4px; }
 
-/* ── Mobile ── */
+/* ════════════════════════════════════════════
+   MOBILE — CTA가 first viewport 안에 보이도록
+   ════════════════════════════════════════════ */
 @media (max-width: 480px) {
   .section--hero {
-    padding: 48px 20px 48px;
+    padding: 44px 20px 24px;
     min-height: 100vh; min-height: 100svh;
   }
   .hero-content { max-width: 100%; }
-  .emotion-bridge { font-size: 13px; margin-bottom: 4px; }
-  .emotion-cause { font-size: 13px; margin-bottom: 12px; }
+  .emotion-cause { font-size: 13px; margin-bottom: 10px; }
   .hero-headline {
     font-size: clamp(22px, 6.2vw, 28px);
-    margin-bottom: 20px; line-height: 1.25;
+    margin-bottom: 14px; line-height: 1.25;
   }
-  .compare-cards { flex-direction: row; gap: 10px; }
-  .ccard {
-    padding: 14px 12px; flex-direction: column;
-    align-items: center; text-align: center;
+  .compare-cards { flex-direction: row; gap: 10px; margin-bottom: 16px; }
+  .ccard { padding: 12px 10px; }
+  .ccard-num { font-size: 30px; }
+  .ccard-label { font-size: 9px; }
+  .ccard-sub { font-size: 10px; }
+  .email-row { gap: 6px; }
+  .email-input { padding: 12px 12px; font-size: 16px; border-radius: 10px; }
+  .email-btn { padding: 12px 18px; font-size: 13px; border-radius: 10px; }
+  .hero-incentive { font-size: 11px; margin-top: 6px; }
+
+  .section--product {
+    background-attachment: scroll !important;
+    background-size: auto 70% !important;
+    background-position: center 10% !important;
   }
-  .ccard-num { font-size: 32px; }
-  .ccard-label { font-size: 10px; }
-  .ccard-sub { font-size: 11px; }
-  .hero-closer { font-size: 14px; }
-  .hero-claims { font-size: 12px; }
-  .hero-benefit { font-size: 13px; margin-bottom: 0; }
-  .scroll-arrow { bottom: 20px; }
-  .scroll-arrow svg { width: 28px; height: 28px; }
-  .section--cta { background-attachment: scroll !important; background-size: auto 70% !important; background-position: center 10% !important; }
-  .cta-spacer { height: 75vh; height: 75svh; }
-  .cta-scroll { padding: 40px 20px 36px; }
-  .cta-content { max-width: 100%; }
+  .product-spacer { height: 75vh; height: 75svh; }
+  .product-scroll { padding: 40px 20px 36px; }
+  .product-content { max-width: 100%; }
+  .product-closer { font-size: 14px; }
+  .product-claims { font-size: 12px; }
+  .product-benefit { font-size: 13px; margin-bottom: 24px; }
   .email-scarcity { font-size: 16px; }
   .email-hook { font-size: 14px; }
   .email-offer { font-size: 12px; }
   .email-tagline { font-size: 12px; margin-bottom: 14px; }
-  .email-row { gap: 6px; }
-  .email-input { padding: 11px 12px; font-size: 16px; border-radius: 10px; }
-  .email-btn { padding: 11px 18px; font-size: 13px; border-radius: 10px; }
-  .email-fine { font-size: 11px; margin-top: 2px; }
   .email-error { font-size: 11px; }
   .sticky-bar { padding: 10px 16px; gap: 10px; }
   .sticky-text { font-size: 12px; }
@@ -715,5 +716,20 @@ html { scroll-behavior: smooth; }
   .footer-brand { font-size: 11px; }
   .footer-desc { font-size: 10px; }
   .footer-copy { font-size: 10px; }
+}
+
+/* ── Small height devices — CTA 잘리지 않도록 ── */
+@media (max-height: 680px) and (max-width: 480px) {
+  .section--hero { padding-top: 40px; padding-bottom: 20px; }
+  .emotion-cause { font-size: 12px; margin-bottom: 8px; }
+  .hero-headline {
+    font-size: clamp(20px, 5.5vw, 24px);
+    margin-bottom: 10px;
+  }
+  .compare-cards { margin-bottom: 12px; }
+  .ccard { padding: 10px 8px; }
+  .ccard-num { font-size: 26px; }
+  .email-input { padding: 10px 12px; }
+  .email-btn { padding: 10px 16px; }
 }
 `;
