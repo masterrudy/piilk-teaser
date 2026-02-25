@@ -488,12 +488,6 @@ body { background: #000; color: #f4f4f5; font-family: -apple-system, BlinkMacSys
 /* ④ Hero 이메일 CTA */
 .hero-email { width: 100%; }
 .hero-email .email-row { margin: 0 auto 6px; }
-.hero-email .email-input {
-  padding: 11px 14px; font-size: 14px; border-radius: 10px;
-}
-.hero-email .email-btn {
-  padding: 11px 20px; font-size: 14px; border-radius: 10px;
-}
 .hero-incentive {
   font-size: 12px; color: #71717a;
   margin-top: 6px;
@@ -572,16 +566,16 @@ body { background: #000; color: #f4f4f5; font-family: -apple-system, BlinkMacSys
 .email-input {
   flex: 1; min-width: 0; background: #111113;
   border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 12px; padding: 14px 16px;
-  font-size: 15px; color: #f4f4f5;
+  border-radius: 10px; padding: 11px 14px;
+  font-size: 14px; color: #f4f4f5;
   font-family: inherit; outline: none;
   transition: border-color 0.2s;
 }
 .email-input::placeholder { color: #3f3f46; }
 .email-input:focus { border-color: rgba(212,255,43,0.4); }
 .email-btn {
-  padding: 14px 24px; background: #D4FF2B; color: #000;
-  border: none; border-radius: 12px; font-size: 15px;
+  padding: 11px 20px; background: #D4FF2B; color: #000;
+  border: none; border-radius: 10px; font-size: 14px;
   font-weight: 700; font-family: inherit; cursor: pointer;
   white-space: nowrap; flex-shrink: 0;
   transition: transform 0.15s, opacity 0.15s;
@@ -696,12 +690,12 @@ body { background: #000; color: #f4f4f5; font-family: -apple-system, BlinkMacSys
   .ccard-label { font-size: 9px; }
   .ccard-sub { font-size: 10px; }
   .hero-email .email-row { gap: 6px; }
-  .hero-email .email-input { padding: 11px 12px; font-size: 16px; border-radius: 10px; }
-  .hero-email .email-btn { padding: 11px 16px; font-size: 13px; border-radius: 10px; }
+  .hero-email .email-input { padding: 10px 12px; font-size: 16px; border-radius: 10px; }
+  .hero-email .email-btn { padding: 10px 16px; font-size: 13px; border-radius: 10px; }
   .hero-incentive { font-size: 11px; margin-top: 5px; }
   .email-row { gap: 6px; }
-  .email-input { padding: 11px 12px; font-size: 16px; border-radius: 10px; }
-  .email-btn { padding: 11px 18px; font-size: 13px; border-radius: 10px; }
+  .email-input { padding: 10px 12px; font-size: 16px; border-radius: 10px; }
+  .email-btn { padding: 10px 16px; font-size: 13px; border-radius: 10px; }
 
   .section--product {
     background-attachment: scroll !important;
