@@ -624,10 +624,10 @@ export default function DashboardPage() {
       else if (ev.um === 'paid') visitorPaidMap.set(vid, true); // Paid 우선
     });
 
-    const paidVisitorIds = new Set(
+    const paidVisitorIds = new Set<string>(
       Array.from(visitorPaidMap.entries()).filter(([, p]) => p).map(([id]) => id)
     );
-    const orgVisitorIds = new Set(
+    const orgVisitorIds = new Set<string>(
       Array.from(visitorPaidMap.entries()).filter(([, p]) => !p).map(([id]) => id)
     );
 
@@ -638,10 +638,10 @@ export default function DashboardPage() {
       evts
         .filter((ev: any) => ev.n === 'step4_submit')
         .map((ev: any) => (ev.v || ev.s) as string)
-        .filter((id): id is string => Boolean(id))
+        .filter((id: string) => Boolean(id))
     );
-    const pSubmits = Array.from(submitVisitorIds).filter(id => paidVisitorIds.has(id)).length;
-    const oSubmits = Array.from(submitVisitorIds).filter(id => orgVisitorIds.has(id)).length;
+    const pSubmits = Array.from(submitVisitorIds).filter((id: string) => paidVisitorIds.has(id)).length;
+    const oSubmits = Array.from(submitVisitorIds).filter((id: string) => orgVisitorIds.has(id)).length;
 
     const pCvr = pVisitors > 0 ? `${((pSubmits / pVisitors) * 100).toFixed(1)}%` : '—';
     const oCvr = oVisitors > 0 ? `${((oSubmits / oVisitors) * 100).toFixed(1)}%` : '—';
