@@ -906,8 +906,7 @@ export default function DashboardPage() {
             <button onClick={() => setActiveSource('klaviyo')} className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${activeSource === 'klaviyo' ? 'bg-purple-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>
               📧 Klaviyo
               {klaviyoData && <span className="text-xs opacity-80">({klaviyoData.total})</span>}
-              {/* ✅ 반대 variant Klaviyo 숫자 */}
-              {oppKlaviyoTotal > 0 && (
+              {oppKlaviyoTotal !== null && (
                 <span
                   className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold border ${variant === 'main' ? 'bg-purple-900/50 text-purple-300 border-purple-700/40' : 'bg-emerald-900/50 text-emerald-300 border-emerald-700/40'}`}
                   title={`${oppositeVariant === 'main' ? 'Main Teaser' : 'Quiz Type'} Klaviyo`}
@@ -921,8 +920,7 @@ export default function DashboardPage() {
             <button onClick={() => setActiveSource('supabase')} className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${activeSource === 'supabase' ? 'bg-emerald-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>
               🗄️ Supabase
               {supabaseData && <span className="text-xs opacity-80">({supabaseData.total})</span>}
-              {/* ✅ 반대 variant Supabase 숫자 */}
-              {oppSupabaseTotal > 0 && (
+              {oppSupabaseTotal !== null && (
                 <span
                   className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold border ${variant === 'main' ? 'bg-purple-900/50 text-purple-300 border-purple-700/40' : 'bg-emerald-900/50 text-emerald-300 border-emerald-700/40'}`}
                   title={`${oppositeVariant === 'main' ? 'Main Teaser' : 'Quiz Type'} Supabase`}
@@ -1097,9 +1095,9 @@ export default function DashboardPage() {
 
               // ✅ Main Teaser: Hot Leads 오늘 신규 + Visitors(Paid/Organic) + CVR(Paid/Organic)
               const todayA = currentParticipants.filter(p => isToday(p) && p.segment === 'A').length;
-              const otherTotal = variant === 'main' ? supabaseTotals.type : supabaseTotals.main;
+              const otherTotal: number | null = variant === 'main' ? supabaseTotals.type : supabaseTotals.main;
               const combinedTotal = otherTotal !== null
-                ? currentParticipants.length + otherTotal
+                ? currentParticipants.length + (otherTotal as number)
                 : currentParticipants.length;
               const isCombined = otherTotal !== null;
               const combinedTodayAll = currentParticipants.filter(isToday).length;
