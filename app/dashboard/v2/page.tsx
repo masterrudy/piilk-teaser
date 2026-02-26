@@ -161,6 +161,13 @@ export default function DashboardPage() {
   const [analyticsDateFrom, setAnalyticsDateFrom] = useState<string>('');
   const [analyticsDateTo, setAnalyticsDateTo] = useState<string>('');
   const [trafficFilter, setTrafficFilter] = useState<'all' | 'paid' | 'organic'>('all');
+  // ✅ 제외 IP 목록 (테스트/사무실 IP 필터링) - localStorage에 저장
+  const [excludeIPs, setExcludeIPs] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try { return JSON.parse(localStorage.getItem('piilk_exclude_ips') || '[]'); } catch { return []; }
+  });
+  const [excludeIPInput, setExcludeIPInput] = useState('');
+  const [showIPFilter, setShowIPFilter] = useState(false);
   const [metaAdsData, setMetaAdsData] = useState<any[]>([]);
   const [metaAdsDate, setMetaAdsDate] = useState<string>('');
   const metaFileRef = useRef<HTMLInputElement>(null);
@@ -624,7 +631,7 @@ export default function DashboardPage() {
     return {...analyticsData,funnel,daily:filteredDaily,weekly,weekday,monthly,utmPerformance,platformPerformance,campaignPerformance,paidVsOrganic,hourly,segmentDistribution:segDist,reasonDistribution:reasonDist,totalVisitors:uvVisitors.size,totalSessions:uvSessions.size};
   }, [analyticsData, analyticsPeriod, analyticsDateFrom, analyticsDateTo, trafficFilter, variant]);
 
-  /* ─── Today analytics helper (paid/organic 분리 포함) ─── */
+  /* ─── Today analytics helper (paid/organic 분리 + IP 제외 + 하루 visitor 유니크) ─── */
   const todayAnalytics = useMemo(() => {
     const empty = {
       visitors: 0, sessions: 0, submits: 0, cvr: '—',
@@ -633,52 +640,59 @@ export default function DashboardPage() {
     };
     if (!analyticsData?.rawEvents) return empty;
     const todayStr = getNYCDate(0);
-    const evts = analyticsData.rawEvents.filter((ev: any) => ev.d === todayStr);
 
-    // 전체
-    const visitors = new Set(evts.map((ev: any) => ev.v || ev.s).filter(Boolean)).size;
-    const sessions = new Set(evts.map((ev: any) => ev.s).filter(Boolean)).size;
-    const allViews = new Set(evts.filter((ev: any) => ev.n === 'page_view').map((ev: any) => ev.s)).size;
-    const submits  = new Set(evts.filter((ev: any) => ev.n === 'step4_submit').map((ev: any) => ev.s)).size;
-    const cvr = allViews > 0 ? `${((submits / allViews) * 100).toFixed(1)}%` : '—';
+    // ✅ 핵심: page_view 기준 유니크 visitor만 카운트 (하루 1회)
+    // step1: 오늘 page_view 이벤트에서 유니크 visitor 추출 (IP 제외 포함)
+    const uniqueVisitorMap = new Map<string, {isPaid: boolean}>(); // vid → paid 여부
+    analyticsData.rawEvents
+      .filter((ev: any) => ev.d === todayStr && ev.n === 'page_view')
+      .filter((ev: any) => !(ev.ip && excludeIPs.some((ip: string) => ev.ip.startsWith(ip))))
+      .forEach((ev: any) => {
+        const vid = ev.v || ev.s;
+        if (!vid) return;
+        if (!uniqueVisitorMap.has(vid)) {
+          uniqueVisitorMap.set(vid, { isPaid: ev.um === 'paid' });
+        } else if (ev.um === 'paid') {
+          uniqueVisitorMap.set(vid, { isPaid: true }); // Paid 우선
+        }
+      });
 
-    // 방문자별 paid 여부 분류 (Paid 우선: paid 이벤트 하나라도 있으면 Paid)
-    const visitorPaidMap = new Map<string, boolean>();
-    evts.forEach((ev: any) => {
-      const vid = ev.v || ev.s;
-      if (!vid) return;
-      if (!visitorPaidMap.has(vid)) visitorPaidMap.set(vid, ev.um === 'paid');
-      else if (ev.um === 'paid') visitorPaidMap.set(vid, true); // Paid 우선
-    });
-
-    const paidVisitorIds = new Set<string>(
-      Array.from(visitorPaidMap.entries()).filter(([, p]) => p).map(([id]) => id)
-    );
-    const orgVisitorIds = new Set<string>(
-      Array.from(visitorPaidMap.entries()).filter(([, p]) => !p).map(([id]) => id)
-    );
-
-    const pVisitors = paidVisitorIds.size;
-    const oVisitors = orgVisitorIds.size;
-
-    const submitVisitorIds = new Set<string>(
-      evts
-        .filter((ev: any) => ev.n === 'step4_submit')
+    // step2: submit은 별도로 — visitor가 submit했는지 확인
+    const submitVids = new Set<string>(
+      analyticsData.rawEvents
+        .filter((ev: any) => ev.d === todayStr && ev.n === 'step4_submit')
+        .filter((ev: any) => !(ev.ip && excludeIPs.some((ip: string) => ev.ip.startsWith(ip))))
         .map((ev: any) => (ev.v || ev.s) as string)
-        .filter((id: string) => Boolean(id))
+        .filter(Boolean)
     );
-    const pSubmits = Array.from(submitVisitorIds).filter((id: string) => paidVisitorIds.has(id)).length;
-    const oSubmits = Array.from(submitVisitorIds).filter((id: string) => orgVisitorIds.has(id)).length;
 
+    const visitors = uniqueVisitorMap.size;
+    const submits  = submitVids.size;
+    const cvr = visitors > 0 ? `${((submits / visitors) * 100).toFixed(1)}%` : '—';
+
+    // step3: Paid/Organic 분리
+    const paidVids = new Set<string>(Array.from(uniqueVisitorMap.entries()).filter(([,v]) => v.isPaid).map(([id]) => id));
+    const orgVids  = new Set<string>(Array.from(uniqueVisitorMap.entries()).filter(([,v]) => !v.isPaid).map(([id]) => id));
+
+    const pVisitors = paidVids.size;
+    const oVisitors = orgVids.size;
+    const pSubmits  = Array.from(submitVids).filter(id => paidVids.has(id)).length;
+    const oSubmits  = Array.from(submitVids).filter(id => orgVids.has(id)).length;
     const pCvr = pVisitors > 0 ? `${((pSubmits / pVisitors) * 100).toFixed(1)}%` : '—';
     const oCvr = oVisitors > 0 ? `${((oSubmits / oVisitors) * 100).toFixed(1)}%` : '—';
+
+    const sessions = new Set(
+      analyticsData.rawEvents
+        .filter((ev: any) => ev.d === todayStr)
+        .map((ev: any) => ev.s).filter(Boolean)
+    ).size;
 
     return {
       visitors, sessions, submits, cvr,
       paid:    { visitors: pVisitors, submits: pSubmits, cvr: pCvr },
       organic: { visitors: oVisitors, submits: oSubmits, cvr: oCvr },
     };
-  }, [analyticsData]);
+  }, [analyticsData, excludeIPs]);
 
   const segColor = (s?: string) => {
     if (variant === 'type') {
@@ -1430,7 +1444,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex items-center gap-3">
                 <span className={`inline-flex items-center px-3 py-1 text-xs font-bold rounded-lg border ${segColor(variant === 'type' ? (selectedParticipant.afterfeel_type || selectedParticipant.sub_reason) : selectedParticipant.segment)}`}>{segLabel(selectedParticipant.segment, selectedParticipant)}</span>
-                {selectedParticipant.sub_reason && <span className="text-sm text-zinc-400">{selectedParticipant.sub_reason}</span>}
+                {(() => { const s = trafficSourceLabel(selectedParticipant); return <span className={`inline-flex items-center px-2.5 py-1 text-xs font-bold rounded-lg border ${s.color}`}>{s.label}</span>; })()}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {[
@@ -1482,20 +1496,72 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Custom Date Range + Traffic Filter */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-              <div className="flex items-center gap-2">
-                <label className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Range:</label>
-                <input type="date" value={analyticsDateFrom} onChange={e => { setAnalyticsDateFrom(e.target.value); if (e.target.value && analyticsDateTo) setAnalyticsPeriod('custom_range'); }} className="px-2 py-1 bg-zinc-800 border border-zinc-700 rounded-lg text-xs text-white focus:outline-none focus:border-zinc-600" />
-                <span className="text-zinc-600 text-xs">→</span>
-                <input type="date" value={analyticsDateTo} onChange={e => { setAnalyticsDateTo(e.target.value); if (analyticsDateFrom && e.target.value) setAnalyticsPeriod('custom_range'); }} className="px-2 py-1 bg-zinc-800 border border-zinc-700 rounded-lg text-xs text-white focus:outline-none focus:border-zinc-600" />
-                {analyticsPeriod === 'custom_range' && <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">Custom</span>}
+            {/* Custom Date Range + Traffic Filter + IP 제외 */}
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <label className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Range:</label>
+                  <input type="date" value={analyticsDateFrom} onChange={e => { setAnalyticsDateFrom(e.target.value); if (e.target.value && analyticsDateTo) setAnalyticsPeriod('custom_range'); }} className="px-2 py-1 bg-zinc-800 border border-zinc-700 rounded-lg text-xs text-white focus:outline-none focus:border-zinc-600" />
+                  <span className="text-zinc-600 text-xs">→</span>
+                  <input type="date" value={analyticsDateTo} onChange={e => { setAnalyticsDateTo(e.target.value); if (analyticsDateFrom && e.target.value) setAnalyticsPeriod('custom_range'); }} className="px-2 py-1 bg-zinc-800 border border-zinc-700 rounded-lg text-xs text-white focus:outline-none focus:border-zinc-600" />
+                  {analyticsPeriod === 'custom_range' && <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">Custom</span>}
+                </div>
+                <div className="flex gap-1 bg-zinc-800 rounded-lg p-0.5">
+                  {([{key:'all' as const,label:'All',icon:'🌐'},{key:'paid' as const,label:'Paid',icon:'💰'},{key:'organic' as const,label:'Organic',icon:'🌱'}]).map(opt => (
+                    <button key={opt.key} onClick={() => setTrafficFilter(opt.key)} className={`px-2.5 py-1.5 rounded-md text-[10px] sm:text-xs font-bold transition-all flex items-center gap-1 ${trafficFilter === opt.key ? (opt.key === 'paid' ? 'bg-red-500 text-white' : opt.key === 'organic' ? 'bg-emerald-500 text-white' : 'bg-white text-black') : 'text-zinc-500 hover:text-zinc-300'}`}><span>{opt.icon}</span>{opt.label}</button>
+                  ))}
+                </div>
+                <button onClick={() => setShowIPFilter(v => !v)} className={`ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${excludeIPs.length > 0 ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:text-white'}`}>
+                  🚫 IP 제외 {excludeIPs.length > 0 && <span className="bg-red-500 text-white text-[9px] font-black rounded-full w-4 h-4 flex items-center justify-center">{excludeIPs.length}</span>}
+                </button>
               </div>
-              <div className="flex gap-1 bg-zinc-800 rounded-lg p-0.5 ml-auto">
-                {([{key:'all' as const,label:'All',icon:'🌐'},{key:'paid' as const,label:'Paid',icon:'💰'},{key:'organic' as const,label:'Organic',icon:'🌱'}]).map(opt => (
-                  <button key={opt.key} onClick={() => setTrafficFilter(opt.key)} className={`px-2.5 py-1.5 rounded-md text-[10px] sm:text-xs font-bold transition-all flex items-center gap-1 ${trafficFilter === opt.key ? (opt.key === 'paid' ? 'bg-red-500 text-white' : opt.key === 'organic' ? 'bg-emerald-500 text-white' : 'bg-white text-black') : 'text-zinc-500 hover:text-zinc-300'}`}><span>{opt.icon}</span>{opt.label}</button>
-                ))}
-              </div>
+
+              {/* ✅ IP 제외 필터 패널 */}
+              {showIPFilter && (
+                <div className="bg-zinc-900/60 border border-zinc-700 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-white">🚫 제외 IP 관리 <span className="text-zinc-500 font-normal">(테스트/사무실 IP)</span></p>
+                    {excludeIPs.length > 0 && <button onClick={() => { setExcludeIPs([]); localStorage.setItem('piilk_exclude_ips', '[]'); }} className="text-[10px] text-red-400 hover:text-red-300">전체 삭제</button>}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text" value={excludeIPInput} onChange={e => setExcludeIPInput(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && excludeIPInput.trim()) {
+                          const newIPs = [...excludeIPs, excludeIPInput.trim()];
+                          setExcludeIPs(newIPs);
+                          localStorage.setItem('piilk_exclude_ips', JSON.stringify(newIPs));
+                          setExcludeIPInput('');
+                        }
+                      }}
+                      placeholder="예: 123.456.789 또는 123.456 (앞부분만 입력 가능)"
+                      className="flex-1 px-3 py-1.5 bg-zinc-800 border border-zinc-700 rounded-lg text-xs text-white focus:outline-none focus:border-zinc-500 placeholder-zinc-600"
+                    />
+                    <button onClick={() => {
+                      if (!excludeIPInput.trim()) return;
+                      const newIPs = [...excludeIPs, excludeIPInput.trim()];
+                      setExcludeIPs(newIPs);
+                      localStorage.setItem('piilk_exclude_ips', JSON.stringify(newIPs));
+                      setExcludeIPInput('');
+                    }} className="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-500">추가</button>
+                  </div>
+                  {excludeIPs.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {excludeIPs.map((ip: string, i: number) => (
+                        <span key={i} className="flex items-center gap-1 bg-red-500/10 text-red-400 border border-red-500/30 text-[10px] font-mono px-2 py-0.5 rounded-full">
+                          {ip}
+                          <button onClick={() => {
+                            const newIPs = excludeIPs.filter((_: string, j: number) => j !== i);
+                            setExcludeIPs(newIPs);
+                            localStorage.setItem('piilk_exclude_ips', JSON.stringify(newIPs));
+                          }} className="text-red-500 hover:text-red-300 ml-0.5">✕</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-[10px] text-zinc-600">부분 IP 입력 가능 (예: <span className="font-mono text-zinc-500">192.168</span> → 해당 대역 전체 제외) · 설정은 브라우저에 저장됩니다</p>
+                </div>
+              )}
             </div>
 
             {/* Meta Ads Upload */}
