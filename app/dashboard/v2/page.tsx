@@ -647,7 +647,7 @@ export default function DashboardPage() {
     const uniqueVisitorMap = new Map<string, boolean>(); // vid → isPaid
     analyticsData.rawEvents
       .filter((ev: any) => ev.d === todayStr && ev.n === 'page_view')
-      .filter((ev: any) => !(ev.ip && excludeIPs.some((ip: string) => ev.ip.startsWith(ip))))
+      .filter((ev: any) => !(ev.ip_address && excludeIPs.some((ip: string) => ev.ip_address.startsWith(ip))))
       .forEach((ev: any) => {
         const vid = ev.v || ev.s;
         if (!vid) return;
@@ -664,7 +664,7 @@ export default function DashboardPage() {
     const submitVids = new Set<string>(
       analyticsData.rawEvents
         .filter((ev: any) => ev.d === todayStr && ev.n === 'step4_submit')
-        .filter((ev: any) => !(ev.ip && excludeIPs.some((ip: string) => ev.ip.startsWith(ip))))
+        .filter((ev: any) => !(ev.ip_address && excludeIPs.some((ip: string) => ev.ip_address.startsWith(ip))))
         .map((ev: any) => (ev.v || ev.s) as string)
         .filter(Boolean)
     );
