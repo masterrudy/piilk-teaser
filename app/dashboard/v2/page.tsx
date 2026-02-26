@@ -615,16 +615,27 @@ export default function DashboardPage() {
     const submits  = new Set(evts.filter((ev: any) => ev.n === 'step4_submit').map((ev: any) => ev.s)).size;
     const cvr = allViews > 0 ? `${((submits / allViews) * 100).toFixed(1)}%` : '—';
 
-    // Paid — CVR 분모: visitors 기준
-    const pEvts    = evts.filter((ev: any) => ev.um === 'paid');
-    const pVisitors = new Set(pEvts.map((ev: any) => ev.v || ev.s).filter(Boolean)).size;
-    const pSubmits  = new Set(pEvts.filter((ev: any) => ev.n === 'step4_submit').map((ev: any) => ev.v || ev.s).filter(Boolean)).size;
-    const pCvr = pVisitors > 0 ? `${((pSubmits / pVisitors) * 100).toFixed(1)}%` : '—';
+    // 방문자별 paid 여부 분류 (Paid 우선: paid 이벤트 하나라도 있으면 Paid)
+    const visitorPaidMap = new Map<string, boolean>();
+    evts.forEach((ev: any) => {
+      const vid = ev.v || ev.s;
+      if (!vid) return;
+      if (!visitorPaidMap.has(vid)) visitorPaidMap.set(vid, ev.um === 'paid');
+      else if (ev.um === 'paid') visitorPaidMap.set(vid, true); // Paid 우선
+    });
 
-    // Organic — CVR 분모: visitors 기준
-    const oEvts    = evts.filter((ev: any) => ev.um !== 'paid');
-    const oVisitors = new Set(oEvts.map((ev: any) => ev.v || ev.s).filter(Boolean)).size;
-    const oSubmits  = new Set(oEvts.filter((ev: any) => ev.n === 'step4_submit').map((ev: any) => ev.v || ev.s).filter(Boolean)).size;
+    const paidVisitorIds  = new Set([...visitorPaidMap.entries()].filter(([,p]) => p).map(([id]) => id));
+    const orgVisitorIds   = new Set([...visitorPaidMap.entries()].filter(([,p]) => !p).map(([id]) => id));
+
+    const pVisitors = paidVisitorIds.size;
+    const oVisitors = orgVisitorIds.size;
+
+    // submit도 visitor 기준 paid/organic 분류
+    const submitVisitorIds = new Set(evts.filter((ev: any) => ev.n === 'step4_submit').map((ev: any) => ev.v || ev.s).filter(Boolean));
+    const pSubmits = [...submitVisitorIds].filter(id => paidVisitorIds.has(id)).length;
+    const oSubmits = [...submitVisitorIds].filter(id => orgVisitorIds.has(id)).length;
+
+    const pCvr = pVisitors > 0 ? `${((pSubmits / pVisitors) * 100).toFixed(1)}%` : '—';
     const oCvr = oVisitors > 0 ? `${((oSubmits / oVisitors) * 100).toFixed(1)}%` : '—';
 
     return {
@@ -1105,14 +1116,14 @@ export default function DashboardPage() {
               return (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                   {/* Total 강조 카드 — Main+QuizType Supabase 합산 */}
-                  <div className="relative bg-gradient-to-br from-zinc-800/80 to-zinc-900 border-2 border-zinc-600 rounded-xl p-3 sm:p-4 overflow-hidden">
+                  <div className="relative bg-gradient-to-br from-zinc-800/80 to-zinc-900 border-2 border-zinc-600 rounded-xl p-3 sm:p-4 overflow-hidden flex flex-col items-center justify-center text-center min-h-[120px]">
                     <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 rounded-full blur-xl pointer-events-none" />
-                    <p className="text-[9px] sm:text-[10px] text-zinc-400 uppercase tracking-widest mb-0.5 font-bold">Total</p>
-                    <div className="flex items-baseline gap-1.5">
-                      <p className="text-2xl sm:text-3xl font-black text-white">{combinedTotal.toLocaleString()}</p>
-                      {!isCombined && <span className="text-[9px] text-zinc-600 animate-pulse">loading…</span>}
+                    <p className="text-[9px] sm:text-[10px] text-zinc-400 uppercase tracking-widest mb-1 font-bold">Total</p>
+                    <div className="flex items-baseline gap-1.5 justify-center">
+                      <p className="text-4xl sm:text-5xl font-black text-white leading-none">{combinedTotal.toLocaleString()}</p>
+                      {!isCombined && <span className="text-[9px] text-zinc-600 animate-pulse">…</span>}
                     </div>
-                    <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                    <div className="flex gap-1.5 mt-2 flex-wrap justify-center">
                       <span className="text-[9px] text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded" title="Main Teaser">🏠 {currentParticipants.length}</span>
                       <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${otherTotal !== null ? 'text-purple-400 bg-purple-500/10' : 'text-zinc-600 bg-zinc-800/50'}`} title="Quiz Type">
                         🧩 {otherTotal !== null ? otherTotal : '…'}
@@ -1122,12 +1133,12 @@ export default function DashboardPage() {
                   </div>
 
                   {/* Hot Leads (Seg A) — 오늘 신규만 */}
-                  <div className="bg-emerald-950/30 border border-emerald-900/30 rounded-xl p-3 sm:p-4 flex flex-col justify-between">
-                    <div className="flex items-center justify-between mb-1">
+                  <div className="bg-emerald-950/30 border border-emerald-900/30 rounded-xl p-3 sm:p-4 flex flex-col items-center justify-center text-center min-h-[120px]">
+                    <div className="flex items-center justify-between w-full mb-1">
                       <p className="text-[10px] sm:text-xs text-emerald-500 uppercase tracking-widest font-bold">Hot Leads</p>
                       <span className="text-[8px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-bold">TODAY</span>
                     </div>
-                    <p className="text-4xl sm:text-5xl font-black text-emerald-400 leading-none">{todayA}</p>
+                    <p className="text-4xl sm:text-5xl font-black text-emerald-400 leading-none mt-auto mb-auto">{todayA}</p>
                   </div>
 
                   {/* ✅ Visitors — Paid / Organic 분리 */}
