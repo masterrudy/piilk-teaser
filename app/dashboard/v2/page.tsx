@@ -1124,29 +1124,58 @@ export default function DashboardPage() {
               return (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                   {/* Total 강조 카드 — Main+QuizType Supabase 합산 */}
-                  <div className="relative bg-gradient-to-br from-zinc-800/80 to-zinc-900 border-2 border-zinc-600 rounded-xl p-3 sm:p-4 overflow-hidden flex flex-col items-center justify-center text-center min-h-[120px]">
+                  <div className="relative bg-gradient-to-br from-zinc-800/80 to-zinc-900 border-2 border-zinc-600 rounded-xl p-4 overflow-hidden flex flex-col items-center justify-center text-center min-h-[160px]">
                     <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 rounded-full blur-xl pointer-events-none" />
-                    <p className="text-[9px] sm:text-[10px] text-zinc-400 uppercase tracking-widest mb-1 font-bold">Total</p>
+                    <p className="text-[9px] text-zinc-400 uppercase tracking-widest font-bold mb-2">Total</p>
                     <div className="flex items-baseline gap-1.5 justify-center">
-                      <p className="text-4xl sm:text-5xl font-black text-white leading-none">{combinedTotal.toLocaleString()}</p>
+                      <p className="text-6xl sm:text-7xl font-black text-white leading-none">{combinedTotal.toLocaleString()}</p>
                       {!isCombined && <span className="text-[9px] text-zinc-600 animate-pulse">…</span>}
                     </div>
-                    <div className="flex gap-1.5 mt-2 flex-wrap justify-center">
-                      <span className="text-[9px] text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded" title="Main Teaser">🏠 {currentParticipants.length}</span>
-                      <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${otherTotal !== null ? 'text-purple-400 bg-purple-500/10' : 'text-zinc-600 bg-zinc-800/50'}`} title="Quiz Type">
+                    <div className="flex gap-1.5 mt-3 flex-wrap justify-center">
+                      <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded-full">🏠 {currentParticipants.length}</span>
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${otherTotal !== null ? 'text-purple-400 bg-purple-500/10' : 'text-zinc-600 bg-zinc-800/50'}`}>
                         🧩 {otherTotal !== null ? otherTotal : '…'}
                       </span>
                     </div>
-                    <p className="text-[9px] text-emerald-400 font-bold mt-1">+{combinedTodayAll} today</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-emerald-400 font-bold text-xs">+{combinedTodayAll} today</span>
+                      {(() => {
+                        const yStr = getNYCDate(-1);
+                        const yesterdayCount = currentParticipants.filter(p => p.signed_up_at?.slice(0,10) === yStr).length;
+                        if (yesterdayCount === 0) return null;
+                        const diff = combinedTodayAll - yesterdayCount;
+                        const pct = ((diff / yesterdayCount) * 100).toFixed(0);
+                        return (
+                          <span className={`text-[10px] font-bold ${diff >= 0 ? 'text-emerald-500' : 'text-red-400'}`}>
+                            {diff >= 0 ? '▲' : '▼'}{Math.abs(Number(pct))}% vs yesterday({yesterdayCount})
+                          </span>
+                        );
+                      })()}
+                    </div>
                   </div>
 
                   {/* Hot Leads (Seg A) — 오늘 신규만 */}
-                  <div className="bg-emerald-950/30 border border-emerald-900/30 rounded-xl p-3 sm:p-4 flex flex-col items-center justify-center text-center min-h-[120px]">
-                    <div className="flex items-center justify-between w-full mb-1">
-                      <p className="text-[10px] sm:text-xs text-emerald-500 uppercase tracking-widest font-bold">Hot Leads</p>
+                  <div className="bg-emerald-950/30 border border-emerald-900/30 rounded-xl p-4 flex flex-col items-center justify-center text-center min-h-[160px]">
+                    <div className="flex items-center justify-between w-full mb-2">
+                      <p className="text-[10px] text-emerald-500 uppercase tracking-widest font-bold">Hot Leads</p>
                       <span className="text-[8px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-bold">TODAY</span>
                     </div>
-                    <p className="text-4xl sm:text-5xl font-black text-emerald-400 leading-none mt-auto mb-auto">{todayA}</p>
+                    <p className="text-6xl sm:text-7xl font-black text-emerald-400 leading-none">{todayA}</p>
+                    {(() => {
+                      const yStr = getNYCDate(-1);
+                      const yesterdayA = currentParticipants.filter(p => p.signed_up_at?.slice(0,10) === yStr && p.segment === 'A').length;
+                      if (yesterdayA === 0) return <p className="text-[10px] text-zinc-600 mt-2">no data yesterday</p>;
+                      const diff = todayA - yesterdayA;
+                      const pct = ((diff / yesterdayA) * 100).toFixed(0);
+                      return (
+                        <div className="mt-2 flex items-center gap-1.5">
+                          <span className={`text-[11px] font-bold ${diff >= 0 ? 'text-emerald-500' : 'text-red-400'}`}>
+                            {diff >= 0 ? '▲' : '▼'}{Math.abs(Number(pct))}%
+                          </span>
+                          <span className="text-[10px] text-zinc-500">vs yesterday ({yesterdayA})</span>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* ✅ Visitors — Paid / Organic 분리 */}
