@@ -71,12 +71,18 @@ function computeInsights(rawEvents: any[], dayStr: string): Insights {
     if (adText) adCount.set(adText, (adCount.get(adText) || 0) + 1);
   }
 
+  // ✅ downlevelIteration 문제 회피: for..of + MapIterator 사용 금지
   const pickTop = <T,>(m: Map<T, number>) => {
     let topKey: T | null = null;
     let topVal = -1;
-    for (const [k, v] of m.entries()) {
-      if (v > topVal) { topVal = v; topKey = k; }
-    }
+
+    m.forEach((v, k) => {
+      if (v > topVal) {
+        topVal = v;
+        topKey = k;
+      }
+    });
+
     return topKey;
   };
 
@@ -97,9 +103,6 @@ export default function PulseClient() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
 
-  // ✅ 여기 API는 Master Rudy님 프로젝트에 맞춰 조정
-  // - participants(총합)은 /api/dashboard/stats?variant=all 의 supabase.total을 쓰는 구조가 가장 안전합니다.
-  // - 방문자/이벤트는 별도 analytics endpoint(있다면)로 rawEvents를 받는 것을 권장합니다.
   useEffect(() => {
     const run = async () => {
       try {
@@ -115,8 +118,7 @@ export default function PulseClient() {
 
   const totalParticipants = Number(stats?.supabase?.total || 0);
 
-  // ⚠️ rawEvents는 현재 API 응답에 없을 수 있습니다.
-  // 없으면 오늘/어제 visitors/cvr/insights는 “—”로 떨어집니다.
+  // ⚠️ rawEvents가 없으면 오늘/어제 visitors/cvr/insights는 0/—로 보입니다.
   const rawEvents = (stats?.analytics?.rawEvents || []) as any[];
 
   const todayStr = useMemo(() => getNYCDateStr(0), []);
