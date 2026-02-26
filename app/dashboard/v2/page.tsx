@@ -642,19 +642,22 @@ export default function DashboardPage() {
     const todayStr = getNYCDate(0);
 
     // ✅ 핵심: page_view 기준 유니크 visitor만 카운트 (하루 1회)
-    // step1: 오늘 page_view 이벤트에서 유니크 visitor 추출 (IP 제외 포함)
-    const uniqueVisitorMap = new Map<string, {isPaid: boolean}>(); // vid → paid 여부
+    // step1: 오늘 page_view 이벤트에서 유니크 visitor 추출
+    // Paid 우선: 한 visitor가 Paid/Organic 이벤트 둘 다 있으면 → Paid로 분류 (1명, 중복 없음)
+    const uniqueVisitorMap = new Map<string, boolean>(); // vid → isPaid
     analyticsData.rawEvents
       .filter((ev: any) => ev.d === todayStr && ev.n === 'page_view')
       .filter((ev: any) => !(ev.ip && excludeIPs.some((ip: string) => ev.ip.startsWith(ip))))
       .forEach((ev: any) => {
         const vid = ev.v || ev.s;
         if (!vid) return;
+        const isPaid = ev.um === 'paid';
         if (!uniqueVisitorMap.has(vid)) {
-          uniqueVisitorMap.set(vid, { isPaid: ev.um === 'paid' });
-        } else if (ev.um === 'paid') {
-          uniqueVisitorMap.set(vid, { isPaid: true }); // Paid 우선
+          uniqueVisitorMap.set(vid, isPaid);
+        } else if (isPaid && !uniqueVisitorMap.get(vid)) {
+          uniqueVisitorMap.set(vid, true); // Paid 우선 덮어쓰기
         }
+        // 이미 Paid면 그대로 유지 (Organic으로 덮어쓰지 않음)
       });
 
     // step2: submit은 별도로 — visitor가 submit했는지 확인
@@ -670,9 +673,9 @@ export default function DashboardPage() {
     const submits  = submitVids.size;
     const cvr = visitors > 0 ? `${((submits / visitors) * 100).toFixed(1)}%` : '—';
 
-    // step3: Paid/Organic 분리
-    const paidVids = new Set<string>(Array.from(uniqueVisitorMap.entries()).filter(([,v]) => v.isPaid).map(([id]) => id));
-    const orgVids  = new Set<string>(Array.from(uniqueVisitorMap.entries()).filter(([,v]) => !v.isPaid).map(([id]) => id));
+    // step3: Paid/Organic 분리 (완전 배타적 - 합산 = 전체)
+    const paidVids = new Set<string>(Array.from(uniqueVisitorMap.entries()).filter(([,isPaid]) => isPaid).map(([id]) => id));
+    const orgVids  = new Set<string>(Array.from(uniqueVisitorMap.entries()).filter(([,isPaid]) => !isPaid).map(([id]) => id));
 
     const pVisitors = paidVids.size;
     const oVisitors = orgVids.size;
@@ -1242,15 +1245,22 @@ export default function DashboardPage() {
                             });
                             const multiVisit = Array.from(vidMap.entries()).filter(([,c]) => c > 1);
                             const noV = todayPV.filter((ev: any) => !ev.v).length;
+                            // Paid/Organic 중복 체크
+                            const paidVidSet = new Set(todayPV.filter((ev:any)=>ev.um==='paid').map((ev:any)=>ev.v||ev.s).filter(Boolean));
+                            const orgVidSet  = new Set(todayPV.filter((ev:any)=>ev.um!=='paid').map((ev:any)=>ev.v||ev.s).filter(Boolean));
+                            const overlap = Array.from(paidVidSet).filter(id => orgVidSet.has(id)).length;
                             alert(
-                              `📊 Organic Visitor Debug (오늘)\n\n` +
+                              `📊 Visitor Debug (오늘)\n\n` +
                               `전체 page_view 이벤트: ${todayPV.length}개\n` +
                               `유니크 visitor_id: ${vidMap.size}명\n` +
                               `visitor_id 없음 (session 폴백): ${noV}개\n` +
                               `재방문 (2회↑): ${multiVisit.length}명\n` +
                               `  → 예: ${multiVisit.slice(0,3).map(([id,c])=>`${id.slice(-6)}(${c}회)`).join(', ')}\n\n` +
-                              `Paid page_views: ${todayPV.filter((ev:any)=>ev.um==='paid').length}개\n` +
-                              `Organic page_views: ${todayPV.filter((ev:any)=>ev.um!=='paid').length}개`
+                              `Paid visitors (raw): ${paidVidSet.size}명\n` +
+                              `Organic visitors (raw): ${orgVidSet.size}명\n` +
+                              `Paid+Organic 중복: ${overlap}명 (Paid로 분류됨)\n` +
+                              `보정 후 Organic: ${orgVidSet.size - overlap}명\n` +
+                              `Paid + Organic 합산: ${paidVidSet.size + (orgVidSet.size - overlap)}명 (= 유니크 ${vidMap.size}명)`
                             );
                           }}
                           className="text-[8px] bg-sky-500/10 text-sky-500 px-1.5 py-0.5 rounded border border-sky-500/20 hover:bg-sky-500/20"
