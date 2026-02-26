@@ -599,39 +599,38 @@ export default function DashboardPage() {
 
   /* ─── Today analytics helper (paid/organic 분리 포함) ─── */
   const todayAnalytics = useMemo(() => {
-    if (!analyticsData?.rawEvents) return {
+    const empty = {
       visitors: 0, sessions: 0, submits: 0, cvr: '—',
-      paid: { visitors: 0, views: 0, submits: 0, cvr: '—' },
-      organic: { visitors: 0, views: 0, submits: 0, cvr: '—' },
+      paid:    { visitors: 0, submits: 0, cvr: '—' },
+      organic: { visitors: 0, submits: 0, cvr: '—' },
     };
+    if (!analyticsData?.rawEvents) return empty;
     const todayStr = getNYCDate(0);
     const evts = analyticsData.rawEvents.filter((ev: any) => ev.d === todayStr);
 
     // 전체
     const visitors = new Set(evts.map((ev: any) => ev.v || ev.s).filter(Boolean)).size;
     const sessions = new Set(evts.map((ev: any) => ev.s).filter(Boolean)).size;
-    const views = new Set(evts.filter((ev: any) => ev.n === 'page_view').map((ev: any) => ev.s)).size;
-    const submits = new Set(evts.filter((ev: any) => ev.n === 'step4_submit').map((ev: any) => ev.s)).size;
-    const cvr = views > 0 ? `${((submits / views) * 100).toFixed(1)}%` : '—';
+    const allViews = new Set(evts.filter((ev: any) => ev.n === 'page_view').map((ev: any) => ev.s)).size;
+    const submits  = new Set(evts.filter((ev: any) => ev.n === 'step4_submit').map((ev: any) => ev.s)).size;
+    const cvr = allViews > 0 ? `${((submits / allViews) * 100).toFixed(1)}%` : '—';
 
-    // Paid
-    const pEvts = evts.filter((ev: any) => ev.um === 'paid');
+    // Paid — CVR 분모: visitors 기준
+    const pEvts    = evts.filter((ev: any) => ev.um === 'paid');
     const pVisitors = new Set(pEvts.map((ev: any) => ev.v || ev.s).filter(Boolean)).size;
-    const pViews = new Set(pEvts.filter((ev: any) => ev.n === 'page_view').map((ev: any) => ev.s)).size;
-    const pSubmits = new Set(pEvts.filter((ev: any) => ev.n === 'step4_submit').map((ev: any) => ev.s)).size;
-    const pCvr = pViews > 0 ? `${((pSubmits / pViews) * 100).toFixed(1)}%` : '—';
+    const pSubmits  = new Set(pEvts.filter((ev: any) => ev.n === 'step4_submit').map((ev: any) => ev.v || ev.s).filter(Boolean)).size;
+    const pCvr = pVisitors > 0 ? `${((pSubmits / pVisitors) * 100).toFixed(1)}%` : '—';
 
-    // Organic
-    const oEvts = evts.filter((ev: any) => ev.um !== 'paid');
+    // Organic — CVR 분모: visitors 기준
+    const oEvts    = evts.filter((ev: any) => ev.um !== 'paid');
     const oVisitors = new Set(oEvts.map((ev: any) => ev.v || ev.s).filter(Boolean)).size;
-    const oViews = new Set(oEvts.filter((ev: any) => ev.n === 'page_view').map((ev: any) => ev.s)).size;
-    const oSubmits = new Set(oEvts.filter((ev: any) => ev.n === 'step4_submit').map((ev: any) => ev.s)).size;
-    const oCvr = oViews > 0 ? `${((oSubmits / oViews) * 100).toFixed(1)}%` : '—';
+    const oSubmits  = new Set(oEvts.filter((ev: any) => ev.n === 'step4_submit').map((ev: any) => ev.v || ev.s).filter(Boolean)).size;
+    const oCvr = oVisitors > 0 ? `${((oSubmits / oVisitors) * 100).toFixed(1)}%` : '—';
 
     return {
       visitors, sessions, submits, cvr,
-      paid:    { visitors: pVisitors, views: pViews,  submits: pSubmits, cvr: pCvr },
-      organic: { visitors: oVisitors, views: oViews,  submits: oSubmits, cvr: oCvr },
+      paid:    { visitors: pVisitors, submits: pSubmits, cvr: pCvr },
+      organic: { visitors: oVisitors, submits: oSubmits, cvr: oCvr },
     };
   }, [analyticsData]);
 
@@ -1098,14 +1097,12 @@ export default function DashboardPage() {
 
               // ✅ Main Teaser: Hot Leads 오늘 신규 + Visitors(Paid/Organic) + CVR(Paid/Organic)
               const todayA = currentParticipants.filter(p => isToday(p) && p.segment === 'A').length;
-              // ✅ Total = Main + QuizType Supabase 합산 (반대 variant 로드 완료 후에만 합산)
               const otherTotal = variant === 'main' ? supabaseTotals.type : supabaseTotals.main;
               const combinedTotal = otherTotal !== null
                 ? currentParticipants.length + otherTotal
                 : currentParticipants.length;
               const isCombined = otherTotal !== null;
               const combinedTodayAll = currentParticipants.filter(isToday).length;
-              const totalA = currentParticipants.filter(p => p.segment === 'A').length;
 
               return (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
@@ -1126,14 +1123,13 @@ export default function DashboardPage() {
                     <p className="text-[9px] text-emerald-400 font-bold mt-1">+{combinedTodayAll} today</p>
                   </div>
 
-                  {/* Hot Leads (Seg A) — 오늘 신규 */}
-                  <div className="bg-emerald-950/30 border border-emerald-900/30 rounded-xl p-3 sm:p-4">
-                    <div className="flex items-center justify-between mb-0.5">
+                  {/* Hot Leads (Seg A) — 오늘 신규만 */}
+                  <div className="bg-emerald-950/30 border border-emerald-900/30 rounded-xl p-3 sm:p-4 flex flex-col justify-between">
+                    <div className="flex items-center justify-between mb-1">
                       <p className="text-[10px] sm:text-xs text-emerald-500 uppercase tracking-widest font-bold">Hot Leads</p>
                       <span className="text-[8px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-bold">TODAY</span>
                     </div>
-                    <p className="text-2xl sm:text-3xl font-black text-emerald-400">{todayA}</p>
-                    <p className="text-[9px] text-zinc-500 mt-1">Total <span className="text-zinc-400 font-semibold">{totalA}</span></p>
+                    <p className="text-4xl sm:text-5xl font-black text-emerald-400 leading-none">{todayA}</p>
                   </div>
 
                   {/* ✅ Visitors — Paid / Organic 분리 */}
@@ -1173,14 +1169,14 @@ export default function DashboardPage() {
                         <div className="flex items-center justify-between">
                           <span className="flex items-center gap-1.5 text-xs text-red-400 font-bold"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Paid</span>
                           <div className="flex items-baseline gap-1.5">
-                            <span className="text-[11px] text-zinc-500 font-mono">{todayAnalytics.paid.submits}/{todayAnalytics.paid.views}</span>
+                            <span className="text-[11px] text-zinc-500 font-mono">{todayAnalytics.paid.submits}/{todayAnalytics.paid.visitors}</span>
                             <span className="text-2xl sm:text-3xl font-black text-amber-400">{todayAnalytics.paid.cvr}</span>
                           </div>
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-bold"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />Organic</span>
                           <div className="flex items-baseline gap-1.5">
-                            <span className="text-[11px] text-zinc-500 font-mono">{todayAnalytics.organic.submits}/{todayAnalytics.organic.views}</span>
+                            <span className="text-[11px] text-zinc-500 font-mono">{todayAnalytics.organic.submits}/{todayAnalytics.organic.visitors}</span>
                             <span className="text-2xl sm:text-3xl font-black text-amber-400">{todayAnalytics.organic.cvr}</span>
                           </div>
                         </div>
