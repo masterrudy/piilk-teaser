@@ -1,11 +1,7 @@
-let topKey: T | null = null;
-let topVal = -1;
+import PulseClient from './pulse.client';
 
-m.forEach((v, k) => {
-  if (v > topVal) {
-    topVal = v;
-    topKey = k;
-  }
-});
+export const dynamic = 'force-dynamic';
 
-return topKey;
+export default function Page() {
+  return <PulseClient />;
+}
