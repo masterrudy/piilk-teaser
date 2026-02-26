@@ -1161,12 +1161,8 @@ export default function DashboardPage() {
                           <span className="text-2xl sm:text-3xl font-black text-amber-400">{todayAnalytics.organic.cvr}</span>
                         </div>
                         <div className="flex items-center justify-between pt-1.5 border-t border-zinc-800">
-                          <p className="text-[10px] text-zinc-500 font-semibold">Avg CVR</p>
+                          <p className="text-[10px] text-zinc-500 font-semibold">Avg CVR <span className="text-zinc-600">(Submits {todayAnalytics.submits})</span></p>
                           <p className="text-base font-black text-purple-300">{todayAnalytics.cvr}</p>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <p className="text-[10px] text-zinc-500 font-semibold">Submits</p>
-                          <p className="text-base font-black text-emerald-400">{todayAnalytics.submits}</p>
                         </div>
                       </div>
                     ) : (
