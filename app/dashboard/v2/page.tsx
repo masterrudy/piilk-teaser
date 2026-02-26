@@ -1131,14 +1131,8 @@ export default function DashboardPage() {
                       <p className="text-6xl sm:text-7xl font-black text-white leading-none">{combinedTotal.toLocaleString()}</p>
                       {!isCombined && <span className="text-[9px] text-zinc-600 animate-pulse">…</span>}
                     </div>
-                    <div className="flex gap-1.5 mt-3 flex-wrap justify-center">
-                      <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded-full">🏠 {currentParticipants.length}</span>
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${otherTotal !== null ? 'text-purple-400 bg-purple-500/10' : 'text-zinc-600 bg-zinc-800/50'}`}>
-                        🧩 {otherTotal !== null ? otherTotal : '…'}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-emerald-400 font-bold text-xs">+{combinedTodayAll} today</span>
+                    <div className="flex items-center gap-3 mt-3">
+                      <span className="text-lg sm:text-xl font-black text-emerald-400">+{combinedTodayAll} today</span>
                       {(() => {
                         const yStr = getNYCDate(-1);
                         const yesterdayCount = currentParticipants.filter(p => p.signed_up_at?.slice(0,10) === yStr).length;
@@ -1146,8 +1140,9 @@ export default function DashboardPage() {
                         const diff = combinedTodayAll - yesterdayCount;
                         const pct = ((diff / yesterdayCount) * 100).toFixed(0);
                         return (
-                          <span className={`text-[10px] font-bold ${diff >= 0 ? 'text-emerald-500' : 'text-red-400'}`}>
-                            {diff >= 0 ? '▲' : '▼'}{Math.abs(Number(pct))}% vs yesterday({yesterdayCount})
+                          <span className="text-lg sm:text-xl font-black flex items-center gap-1">
+                            <span className={diff >= 0 ? 'text-sky-400' : 'text-red-400'}>{diff >= 0 ? '▲' : '▼'}{Math.abs(Number(pct))}%</span>
+                            <span className="text-zinc-500 text-sm font-medium">vs yesterday ({yesterdayCount})</span>
                           </span>
                         );
                       })()}
@@ -1168,11 +1163,11 @@ export default function DashboardPage() {
                       const diff = todayA - yesterdayA;
                       const pct = ((diff / yesterdayA) * 100).toFixed(0);
                       return (
-                        <div className="mt-2 flex items-center gap-1.5">
-                          <span className={`text-[11px] font-bold ${diff >= 0 ? 'text-emerald-500' : 'text-red-400'}`}>
+                        <div className="mt-3 flex items-center gap-2">
+                          <span className={`text-lg sm:text-xl font-black ${diff >= 0 ? 'text-sky-400' : 'text-red-400'}`}>
                             {diff >= 0 ? '▲' : '▼'}{Math.abs(Number(pct))}%
                           </span>
-                          <span className="text-[10px] text-zinc-500">vs yesterday ({yesterdayA})</span>
+                          <span className="text-sm text-zinc-500 font-medium">vs yesterday ({yesterdayA})</span>
                         </div>
                       );
                     })()}
