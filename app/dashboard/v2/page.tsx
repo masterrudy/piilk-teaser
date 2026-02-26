@@ -1229,7 +1229,34 @@ export default function DashboardPage() {
                   <div className="bg-sky-950/30 border border-sky-900/30 rounded-xl p-3 sm:p-5">
                     <div className="flex items-center justify-between mb-3">
                       <p className="text-[10px] sm:text-xs text-sky-400 uppercase tracking-widest font-bold">Visitors</p>
-                      <span className="text-[8px] bg-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded font-bold">TODAY</span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => {
+                            if (!analyticsData?.rawEvents) return;
+                            const todayStr = getNYCDate(0);
+                            const todayPV = analyticsData.rawEvents.filter((ev: any) => ev.d === todayStr && ev.n === 'page_view');
+                            const vidMap = new Map<string, number>();
+                            todayPV.forEach((ev: any) => {
+                              const vid = ev.v || ev.s || 'no-id';
+                              vidMap.set(vid, (vidMap.get(vid) || 0) + 1);
+                            });
+                            const multiVisit = Array.from(vidMap.entries()).filter(([,c]) => c > 1);
+                            const noV = todayPV.filter((ev: any) => !ev.v).length;
+                            alert(
+                              `📊 Organic Visitor Debug (오늘)\n\n` +
+                              `전체 page_view 이벤트: ${todayPV.length}개\n` +
+                              `유니크 visitor_id: ${vidMap.size}명\n` +
+                              `visitor_id 없음 (session 폴백): ${noV}개\n` +
+                              `재방문 (2회↑): ${multiVisit.length}명\n` +
+                              `  → 예: ${multiVisit.slice(0,3).map(([id,c])=>`${id.slice(-6)}(${c}회)`).join(', ')}\n\n` +
+                              `Paid page_views: ${todayPV.filter((ev:any)=>ev.um==='paid').length}개\n` +
+                              `Organic page_views: ${todayPV.filter((ev:any)=>ev.um!=='paid').length}개`
+                            );
+                          }}
+                          className="text-[8px] bg-sky-500/10 text-sky-500 px-1.5 py-0.5 rounded border border-sky-500/20 hover:bg-sky-500/20"
+                        >Debug</button>
+                        <span className="text-[8px] bg-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded font-bold">TODAY</span>
+                      </div>
                     </div>
                     {analyticsData ? (
                       <div className="space-y-2">
