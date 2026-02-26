@@ -88,8 +88,8 @@ export default function PrivacyPolicy() {
           <h2>7. Contact</h2>
           <p>
             For any privacy-related requests or questions, please contact us at:<br />
-            <a href="mailto:hello@piilk.com" className="privacy-email">hello@piilk.com</a><br />
-            Armored Fresh Inc., 228 Park Ave S, PMB 93918, New York, NY 10003
+            <a href="mailto:piilk@armoredfresh.com" className="privacy-email">piilk@armoredfresh.com</a><br />
+            Armored Fresh Inc., 154 W 14TH STREET, 2ND FLOOR, NEW YORK, NY, 10011
           </p>
         </section>
       </div>
