@@ -145,9 +145,9 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState('');
 
-  // ✅ 두 variant의 supabase/klaviyo total 캐싱
-  const [supabaseTotals, setSupabaseTotals] = useState<{ main: number; type: number }>({ main: 0, type: 0 });
-  const [klaviyoTotals, setKlaviyoTotals] = useState<{ main: number; type: number }>({ main: 0, type: 0 });
+  // ✅ 두 variant의 supabase/klaviyo total 캐싱 (null = 아직 미로드)
+  const [supabaseTotals, setSupabaseTotals] = useState<{ main: number | null; type: number | null }>({ main: null, type: null });
+  const [klaviyoTotals, setKlaviyoTotals] = useState<{ main: number | null; type: number | null }>({ main: null, type: null });
 
   // View mode
   const [viewMode, setViewMode] = useState<'overview' | 'participants' | 'analytics'>('participants');
@@ -222,27 +222,36 @@ export default function DashboardPage() {
     finally { setLoading(false); }
   }, [variant]);
 
-  // ✅ fetchParticipants: 현재 variant total 캐싱
+  // ✅ fetchParticipants: 현재 + 반대 variant total 동시 캐싱 (깜빡임 방지)
   const fetchParticipants = useCallback(async () => {
     setParticipantsLoading(true);
+    const otherVariant = variant === 'main' ? 'type' : 'main';
     try {
-      const [kRes, sRes] = await Promise.all([
+      // 현재 variant 전체 데이터 + 반대 variant total만 동시 fetch
+      const [kRes, sRes, sOtherRes, kOtherRes] = await Promise.all([
         fetch(`/api/dashboard/participants?source=klaviyo&variant=${variant}`),
         fetch(`/api/dashboard/participants?source=supabase&variant=${variant}`),
+        fetch(`/api/dashboard/participants?source=supabase&variant=${otherVariant}&limit=1`),
+        fetch(`/api/dashboard/participants?source=klaviyo&variant=${otherVariant}&limit=1`),
       ]);
       const kResult: ParticipantsResponse = await kRes.json();
       const sResult: ParticipantsResponse = await sRes.json();
+      const sOtherResult: ParticipantsResponse = await sOtherRes.json();
+      const kOtherResult: ParticipantsResponse = await kOtherRes.json();
+
       setParticipants({
         klaviyo: kResult.success ? kResult.data : [],
         supabase: sResult.success ? sResult.data : [],
       });
-      // ✅ 현재 variant total 캐싱
-      if (sResult.success) {
-        setSupabaseTotals(prev => ({ ...prev, [variant]: sResult.total }));
-      }
-      if (kResult.success) {
-        setKlaviyoTotals(prev => ({ ...prev, [variant]: kResult.total }));
-      }
+
+      // 현재 variant 캐싱
+      if (sResult.success) setSupabaseTotals(prev => ({ ...prev, [variant]: sResult.total }));
+      if (kResult.success) setKlaviyoTotals(prev => ({ ...prev, [variant]: kResult.total }));
+
+      // 반대 variant total 캐싱 (깜빡임 원인 제거)
+      if (sOtherResult.success) setSupabaseTotals(prev => ({ ...prev, [otherVariant]: sOtherResult.total }));
+      if (kOtherResult.success) setKlaviyoTotals(prev => ({ ...prev, [otherVariant]: kOtherResult.total }));
+
     } catch (err) { console.error(err); }
     finally { setParticipantsLoading(false); }
   }, [variant]);
@@ -838,7 +847,7 @@ export default function DashboardPage() {
   const goal = 15000;
   const progress = data ? Math.min((data.total / goal) * 100, 100) : 0;
 
-  // ✅ 반대 variant 숫자
+  // ✅ 반대 variant 숫자 (null이면 미로드 = 표시 안 함)
   const oppositeVariant = variant === 'main' ? 'type' : 'main';
   const oppSupabaseTotal = supabaseTotals[oppositeVariant];
   const oppKlaviyoTotal = klaviyoTotals[oppositeVariant];
@@ -1089,8 +1098,12 @@ export default function DashboardPage() {
 
               // ✅ Main Teaser: Hot Leads 오늘 신규 + Visitors(Paid/Organic) + CVR(Paid/Organic)
               const todayA = currentParticipants.filter(p => isToday(p) && p.segment === 'A').length;
-              // ✅ Total = 현재 variant + 반대 variant Supabase 합산
-              const combinedTotal = currentParticipants.length + (variant === 'main' ? supabaseTotals.type : supabaseTotals.main);
+              // ✅ Total = Main + QuizType Supabase 합산 (반대 variant 로드 완료 후에만 합산)
+              const otherTotal = variant === 'main' ? supabaseTotals.type : supabaseTotals.main;
+              const combinedTotal = otherTotal !== null
+                ? currentParticipants.length + otherTotal
+                : currentParticipants.length;
+              const isCombined = otherTotal !== null;
               const combinedTodayAll = currentParticipants.filter(isToday).length;
               const totalA = currentParticipants.filter(p => p.segment === 'A').length;
 
@@ -1100,10 +1113,15 @@ export default function DashboardPage() {
                   <div className="relative bg-gradient-to-br from-zinc-800/80 to-zinc-900 border-2 border-zinc-600 rounded-xl p-3 sm:p-4 overflow-hidden">
                     <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 rounded-full blur-xl pointer-events-none" />
                     <p className="text-[9px] sm:text-[10px] text-zinc-400 uppercase tracking-widest mb-0.5 font-bold">Total</p>
-                    <p className="text-2xl sm:text-3xl font-black text-white">{combinedTotal.toLocaleString()}</p>
+                    <div className="flex items-baseline gap-1.5">
+                      <p className="text-2xl sm:text-3xl font-black text-white">{combinedTotal.toLocaleString()}</p>
+                      {!isCombined && <span className="text-[9px] text-zinc-600 animate-pulse">loading…</span>}
+                    </div>
                     <div className="flex gap-1.5 mt-1.5 flex-wrap">
                       <span className="text-[9px] text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded" title="Main Teaser">🏠 {currentParticipants.length}</span>
-                      <span className="text-[9px] text-purple-400 font-semibold bg-purple-500/10 px-1.5 py-0.5 rounded" title="Quiz Type">🧩 {variant === 'main' ? supabaseTotals.type : supabaseTotals.main}</span>
+                      <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${otherTotal !== null ? 'text-purple-400 bg-purple-500/10' : 'text-zinc-600 bg-zinc-800/50'}`} title="Quiz Type">
+                        🧩 {otherTotal !== null ? otherTotal : '…'}
+                      </span>
                     </div>
                     <p className="text-[9px] text-emerald-400 font-bold mt-1">+{combinedTodayAll} today</p>
                   </div>
