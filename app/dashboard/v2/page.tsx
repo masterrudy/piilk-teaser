@@ -110,17 +110,17 @@ function getNYCDate(offset = 0): string {
 /* ─────────────────────────── Quiz Type Labels ─────────────────────────── */
 
 const QUIZ_TYPE_LABELS: Record<string, { name: string; icon: string; color: string; bgColor: string; borderColor: string }> = {
-  brick: { name: 'Brick Stomach', icon: '🧱', color: 'text-orange-400', bgColor: 'from-orange-950/40 to-zinc-900/60', borderColor: 'border-orange-900/40' },
-  chalk: { name: 'Chalk Mouth', icon: '🦷', color: 'text-slate-300', bgColor: 'from-slate-900/40 to-zinc-900/60', borderColor: 'border-slate-700/40' },
-  zombie: { name: 'Post-Shake Zombie', icon: '🧟', color: 'text-green-400', bgColor: 'from-green-950/40 to-zinc-900/60', borderColor: 'border-green-900/40' },
-  gambler: { name: '30-Min Gambler', icon: '🎰', color: 'text-yellow-400', bgColor: 'from-yellow-950/40 to-zinc-900/60', borderColor: 'border-yellow-900/40' },
+  brick:   { name: 'Brick Stomach',     icon: '🧱', color: 'text-orange-400', bgColor: 'from-orange-950/40 to-zinc-900/60', borderColor: 'border-orange-900/40' },
+  chalk:   { name: 'Chalk Mouth',       icon: '🦷', color: 'text-slate-300',  bgColor: 'from-slate-900/40 to-zinc-900/60',  borderColor: 'border-slate-700/40'  },
+  zombie:  { name: 'Post-Shake Zombie', icon: '🧟', color: 'text-green-400',  bgColor: 'from-green-950/40 to-zinc-900/60',  borderColor: 'border-green-900/40'  },
+  gambler: { name: '30-Min Gambler',    icon: '🎰', color: 'text-yellow-400', bgColor: 'from-yellow-950/40 to-zinc-900/60', borderColor: 'border-yellow-900/40' },
 };
 
 const UTM_SOURCE_COLORS: Record<string, { bg: string; text: string; border: string; dot: string }> = {
-  meta: { bg: 'bg-blue-500/10', text: 'text-blue-400', border: 'border-blue-500/30', dot: 'bg-blue-500' },
-  tonic: { bg: 'bg-pink-500/10', text: 'text-pink-400', border: 'border-pink-500/30', dot: 'bg-pink-500' },
-  '10almonds': { bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/30', dot: 'bg-amber-500' },
-  Direct: { bg: 'bg-zinc-500/10', text: 'text-zinc-400', border: 'border-zinc-500/30', dot: 'bg-zinc-500' },
+  meta:       { bg: 'bg-blue-500/10',   text: 'text-blue-400',   border: 'border-blue-500/30',   dot: 'bg-blue-500'   },
+  tonic:      { bg: 'bg-pink-500/10',   text: 'text-pink-400',   border: 'border-pink-500/30',   dot: 'bg-pink-500'   },
+  '10almonds':{ bg: 'bg-amber-500/10',  text: 'text-amber-400',  border: 'border-amber-500/30',  dot: 'bg-amber-500'  },
+  Direct:     { bg: 'bg-zinc-500/10',   text: 'text-zinc-400',   border: 'border-zinc-500/30',   dot: 'bg-zinc-500'   },
 };
 
 function getUtmColor(source: string) {
@@ -135,7 +135,7 @@ export default function DashboardPage() {
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
 
-  // ✅ Variant tab (Main Teaser vs Quiz Type)
+  // Variant tab
   const [variant, setVariant] = useState<'main' | 'type'>('main');
 
   // Dashboard data
@@ -145,6 +145,10 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState('');
 
+  // ✅ 두 variant의 supabase/klaviyo total 캐싱
+  const [supabaseTotals, setSupabaseTotals] = useState<{ main: number; type: number }>({ main: 0, type: 0 });
+  const [klaviyoTotals, setKlaviyoTotals] = useState<{ main: number; type: number }>({ main: 0, type: 0 });
+
   // View mode
   const [viewMode, setViewMode] = useState<'overview' | 'participants' | 'analytics'>('participants');
 
@@ -153,14 +157,13 @@ export default function DashboardPage() {
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsPeriod, setAnalyticsPeriod] = useState<string>('today');
 
-  // ✅ NEW: Custom date range, traffic filter, meta ads
+  // Custom date range, traffic filter, meta ads
   const [analyticsDateFrom, setAnalyticsDateFrom] = useState<string>('');
   const [analyticsDateTo, setAnalyticsDateTo] = useState<string>('');
   const [trafficFilter, setTrafficFilter] = useState<'all' | 'paid' | 'organic'>('all');
   const [metaAdsData, setMetaAdsData] = useState<any[]>([]);
   const [metaAdsDate, setMetaAdsDate] = useState<string>('');
   const metaFileRef = useRef<HTMLInputElement>(null);
-  
 
   // Participant list
   const [participants, setParticipants] = useState<{ klaviyo: Participant[]; supabase: Participant[] }>({ klaviyo: [], supabase: [] });
@@ -206,7 +209,6 @@ export default function DashboardPage() {
     }
   };
 
-  // ✅ All fetch functions now include variant parameter
   const fetchData = useCallback(async () => {
     try {
       const res = await fetch(`/api/dashboard/stats?variant=${variant}`);
@@ -220,6 +222,7 @@ export default function DashboardPage() {
     finally { setLoading(false); }
   }, [variant]);
 
+  // ✅ fetchParticipants: 현재 variant total 캐싱
   const fetchParticipants = useCallback(async () => {
     setParticipantsLoading(true);
     try {
@@ -233,6 +236,13 @@ export default function DashboardPage() {
         klaviyo: kResult.success ? kResult.data : [],
         supabase: sResult.success ? sResult.data : [],
       });
+      // ✅ 현재 variant total 캐싱
+      if (sResult.success) {
+        setSupabaseTotals(prev => ({ ...prev, [variant]: sResult.total }));
+      }
+      if (kResult.success) {
+        setKlaviyoTotals(prev => ({ ...prev, [variant]: kResult.total }));
+      }
     } catch (err) { console.error(err); }
     finally { setParticipantsLoading(false); }
   }, [variant]);
@@ -247,7 +257,7 @@ export default function DashboardPage() {
     finally { setAnalyticsLoading(false); }
   }, [variant]);
 
-  // ✅ Reset data when variant changes
+  // Reset data when variant changes
   useEffect(() => {
     if (authenticated) {
       setLoading(true);
@@ -257,7 +267,7 @@ export default function DashboardPage() {
       setAnalyticsData(null);
       fetchData();
       fetchParticipants();
-      if (viewMode === 'analytics') fetchAnalytics();
+      fetchAnalytics();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [variant]);
@@ -271,30 +281,20 @@ export default function DashboardPage() {
     }
   }, [authenticated, fetchData]);
 
-  // Load participants on first auth
+  // Load on first auth
   useEffect(() => {
     if (authenticated && participants.klaviyo.length === 0 && participants.supabase.length === 0) {
       fetchParticipants();
-    }
-  }, [authenticated, fetchParticipants, participants.klaviyo.length, participants.supabase.length]);
-
-  // Load analytics when tab switches
-  useEffect(() => {
-    if (authenticated && viewMode === 'analytics' && !analyticsData) {
       fetchAnalytics();
     }
-  }, [authenticated, viewMode, analyticsData, fetchAnalytics]);
+  }, [authenticated, fetchParticipants, fetchAnalytics, participants.klaviyo.length, participants.supabase.length]);
 
   const currentParticipants = activeSource === 'klaviyo' ? participants.klaviyo : participants.supabase;
 
   /* ─── Today's signups (NYC timezone) ─── */
   const todaySignups = useMemo(() => {
-    const nowNYC = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-    const todayStr = `${nowNYC.getFullYear()}-${String(nowNYC.getMonth() + 1).padStart(2, '0')}-${String(nowNYC.getDate()).padStart(2, '0')}`;
-    return currentParticipants.filter(p => {
-      if (!p.signed_up_at) return false;
-      return p.signed_up_at.slice(0, 10) === todayStr;
-    }).length;
+    const todayStr = getNYCDate(0);
+    return currentParticipants.filter(p => p.signed_up_at?.slice(0, 10) === todayStr).length;
   }, [currentParticipants]);
 
   /* ─── Daily signups for chart ─── */
@@ -344,8 +344,7 @@ export default function DashboardPage() {
     const s = new Set<string>(); currentParticipants.forEach(p => { if (p.device_type) s.add(p.device_type); }); return Array.from(s).sort();
   }, [currentParticipants]);
 
-  
-const trackingAnalytics = useMemo(() => {
+  const trackingAnalytics = useMemo(() => {
     const p = currentParticipants;
     if (p.length === 0) return null;
     const countryCounts: Record<string, number> = {};
@@ -363,7 +362,6 @@ const trackingAnalytics = useMemo(() => {
       hasTrackingData: p.some(x => x.country || x.device_type || x.utm_source),
     };
   }, [currentParticipants]);
-  
 
   const activeFilterCount = useMemo(() => {
     let c = 0;
@@ -386,7 +384,6 @@ const trackingAnalytics = useMemo(() => {
       list = list.filter(p => p.email?.toLowerCase().includes(q) || p.name?.toLowerCase().includes(q) || p.segment?.toLowerCase().includes(q) || p.sub_reason?.toLowerCase().includes(q) || p.country?.toLowerCase().includes(q) || p.city?.toLowerCase().includes(q) || p.ip_address?.includes(q));
     }
     if (segmentFilter !== 'all') {
-      // ✅ Quiz Type: afterfeel_type으로 필터
       if (variant === 'type') {
         list = list.filter(p => p.sub_reason === segmentFilter || p.afterfeel_type === segmentFilter);
       } else {
@@ -426,7 +423,7 @@ const trackingAnalytics = useMemo(() => {
     link.click(); URL.revokeObjectURL(url);
   };
 
-  // ✅ Quiz Type: afterfeel_type별 카운트
+  // Quiz Type: afterfeel_type별 카운트
   const quizTypeCounts = useMemo(() => {
     if (variant !== 'type') return null;
     const counts: Record<string, number> = { brick: 0, chalk: 0, zombie: 0, gambler: 0 };
@@ -443,99 +440,211 @@ const trackingAnalytics = useMemo(() => {
     analyticsData.daily.forEach((d: any) => { if (d.date) months.add(d.date.slice(0, 7)); });
     return Array.from(months).sort().reverse();
   }, [analyticsData]);
-const filteredAnalytics = useMemo(() => {
+
+  const filteredAnalytics = useMemo(() => {
     if (!analyticsData) return null;
     let startDate = '', endDate = '';
     const hasDateFilter = analyticsPeriod !== 'all';
 
-    if (analyticsPeriod === 'custom_range') { startDate = analyticsDateFrom || '2000-01-01'; endDate = analyticsDateTo || '2099-12-31'; }
-    else if (analyticsPeriod !== 'all') {
+    if (analyticsPeriod === 'custom_range') {
+      startDate = analyticsDateFrom || '2000-01-01';
+      endDate = analyticsDateTo || '2099-12-31';
+    } else if (analyticsPeriod !== 'all') {
       const nowNYC = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
       if (analyticsPeriod === 'today') { startDate = endDate = getNYCDate(0); }
       else if (analyticsPeriod === 'yesterday') { startDate = endDate = getNYCDate(-1); }
       else if (analyticsPeriod === 'last_7_days') { startDate = getNYCDate(-6); endDate = getNYCDate(0); }
-      else if (analyticsPeriod === 'this_week') { const dow = nowNYC.getDay(); const mon = new Date(nowNYC); mon.setDate(nowNYC.getDate() - (dow === 0 ? 6 : dow - 1)); startDate = `${mon.getFullYear()}-${String(mon.getMonth()+1).padStart(2,'0')}-${String(mon.getDate()).padStart(2,'0')}`; endDate = getNYCDate(0); }
+      else if (analyticsPeriod === 'this_week') {
+        const dow = nowNYC.getDay();
+        const mon = new Date(nowNYC);
+        mon.setDate(nowNYC.getDate() - (dow === 0 ? 6 : dow - 1));
+        startDate = `${mon.getFullYear()}-${String(mon.getMonth()+1).padStart(2,'0')}-${String(mon.getDate()).padStart(2,'0')}`;
+        endDate = getNYCDate(0);
+      }
       else if (analyticsPeriod === 'this_month') { startDate = `${nowNYC.getFullYear()}-${String(nowNYC.getMonth()+1).padStart(2,'0')}-01`; endDate = getNYCDate(0); }
-      else if (analyticsPeriod === 'last_month') { const lm = new Date(nowNYC.getFullYear(), nowNYC.getMonth()-1, 1); startDate = `${lm.getFullYear()}-${String(lm.getMonth()+1).padStart(2,'0')}-01`; const lmEnd = new Date(nowNYC.getFullYear(), nowNYC.getMonth(), 0); endDate = `${lmEnd.getFullYear()}-${String(lmEnd.getMonth()+1).padStart(2,'0')}-${String(lmEnd.getDate()).padStart(2,'0')}`; }
-      else { startDate = `${analyticsPeriod}-01`; const [y, m] = analyticsPeriod.split('-').map(Number); endDate = new Date(y, m, 0).toISOString().slice(0, 10); }
+      else if (analyticsPeriod === 'last_month') {
+        const lm = new Date(nowNYC.getFullYear(), nowNYC.getMonth()-1, 1);
+        startDate = `${lm.getFullYear()}-${String(lm.getMonth()+1).padStart(2,'0')}-01`;
+        const lmEnd = new Date(nowNYC.getFullYear(), nowNYC.getMonth(), 0);
+        endDate = `${lmEnd.getFullYear()}-${String(lmEnd.getMonth()+1).padStart(2,'0')}-${String(lmEnd.getDate()).padStart(2,'0')}`;
+      }
+      else {
+        startDate = `${analyticsPeriod}-01`;
+        const [y, m] = analyticsPeriod.split('-').map(Number);
+        endDate = new Date(y, m, 0).toISOString().slice(0, 10);
+      }
     }
 
     const filteredDaily = hasDateFilter ? (analyticsData.daily||[]).filter((d:any) => d.date >= startDate && d.date <= endDate) : (analyticsData.daily||[]);
     let filteredRaw = hasDateFilter ? (analyticsData.rawEvents||[]).filter((ev:any) => ev.d >= startDate && ev.d <= endDate) : (analyticsData.rawEvents||[]);
 
-    // Paid vs Organic filter
-    if (trafficFilter !== 'all') { filteredRaw = filteredRaw.filter((ev: any) => { const isPaid = ev.um === 'paid'; return trafficFilter === 'paid' ? isPaid : !isPaid; }); }
+    if (trafficFilter !== 'all') {
+      filteredRaw = filteredRaw.filter((ev: any) => {
+        const isPaid = ev.um === 'paid';
+        return trafficFilter === 'paid' ? isPaid : !isPaid;
+      });
+    }
 
     const funnelEvents = ['page_view','step1_cta_click','step2_answer','step3_email_focus','step3_reason_select','step4_submit'];
-    const sessionsByEvt: Record<string,Set<string>> = {}; funnelEvents.forEach(e => { sessionsByEvt[e] = new Set(); });
-  filteredRaw.forEach((ev:any) => { if (funnelEvents.includes(ev.n) && ev.s) sessionsByEvt[ev.n].add(ev.s); });
-    const funnel: Record<string,number> = {}; funnelEvents.forEach(e => { funnel[e] = sessionsByEvt[e].size; });
+    const sessionsByEvt: Record<string,Set<string>> = {};
+    funnelEvents.forEach(e => { sessionsByEvt[e] = new Set(); });
+    filteredRaw.forEach((ev:any) => { if (funnelEvents.includes(ev.n) && ev.s) sessionsByEvt[ev.n].add(ev.s); });
+    const funnel: Record<string,number> = {};
+    funnelEvents.forEach(e => { funnel[e] = sessionsByEvt[e].size; });
 
     const weeklyMap: Record<string,{views:number;submits:number}> = {};
-    filteredDaily.forEach((d:any) => { const dt = new Date(d.date); const jan1 = new Date(dt.getFullYear(),0,1); const wn = Math.ceil(((dt.getTime()-jan1.getTime())/86400000+jan1.getDay()+1)/7); const key = `${dt.getFullYear()}-W${String(wn).padStart(2,'0')}`; if (!weeklyMap[key]) weeklyMap[key] = {views:0,submits:0}; weeklyMap[key].views += d.page_view||0; weeklyMap[key].submits += d.step4_submit||0; });
+    filteredDaily.forEach((d:any) => {
+      const dt = new Date(d.date);
+      const jan1 = new Date(dt.getFullYear(),0,1);
+      const wn = Math.ceil(((dt.getTime()-jan1.getTime())/86400000+jan1.getDay()+1)/7);
+      const key = `${dt.getFullYear()}-W${String(wn).padStart(2,'0')}`;
+      if (!weeklyMap[key]) weeklyMap[key] = {views:0,submits:0};
+      weeklyMap[key].views += d.page_view||0;
+      weeklyMap[key].submits += d.step4_submit||0;
+    });
     const weekly = Object.entries(weeklyMap).sort((a,b)=>a[0].localeCompare(b[0])).map(([week,data])=>({week,...data}));
 
-    // UTM normalized
     const utmMap: Record<string,{views:Set<string>;submits:Set<string>}> = {};
-    filteredRaw.forEach((ev:any) => { const src = normalizeUtmSource(ev.u); if (!utmMap[src]) utmMap[src]={views:new Set(),submits:new Set()}; if (ev.n==='page_view') utmMap[src].views.add(ev.s); if (ev.n==='step4_submit') utmMap[src].submits.add(ev.s); });
+    filteredRaw.forEach((ev:any) => {
+      const src = normalizeUtmSource(ev.u);
+      if (!utmMap[src]) utmMap[src]={views:new Set(),submits:new Set()};
+      if (ev.n==='page_view') utmMap[src].views.add(ev.s);
+      if (ev.n==='step4_submit') utmMap[src].submits.add(ev.s);
+    });
     const utmPerformance = Object.entries(utmMap).map(([source,data])=>({source,views:data.views.size,submits:data.submits.size,cvr:data.views.size>0?((data.submits.size/data.views.size)*100).toFixed(1):'0'})).sort((a,b)=>b.views-a.views);
 
-    // Platform sub-breakdown (fb vs ig)
     const platformMap: Record<string,{views:Set<string>;submits:Set<string>}> = {};
-    filteredRaw.forEach((ev:any) => { const src = getRawPlatformLabel(ev.u); if (!platformMap[src]) platformMap[src]={views:new Set(),submits:new Set()}; if (ev.n==='page_view') platformMap[src].views.add(ev.s); if (ev.n==='step4_submit') platformMap[src].submits.add(ev.s); });
+    filteredRaw.forEach((ev:any) => {
+      const src = getRawPlatformLabel(ev.u);
+      if (!platformMap[src]) platformMap[src]={views:new Set(),submits:new Set()};
+      if (ev.n==='page_view') platformMap[src].views.add(ev.s);
+      if (ev.n==='step4_submit') platformMap[src].submits.add(ev.s);
+    });
     const platformPerformance = Object.entries(platformMap).map(([platform,data])=>({platform,views:data.views.size,submits:data.submits.size,cvr:data.views.size>0?((data.submits.size/data.views.size)*100).toFixed(1):'0'})).sort((a,b)=>b.views-a.views);
 
-    // Campaign performance
     const campaignMap: Record<string,{views:Set<string>;submits:Set<string>;source:string;medium:string}> = {};
-    filteredRaw.forEach((ev:any) => { const camp = ev.uc || '(no campaign)'; const src = normalizeUtmSource(ev.u); const med = ev.um || ''; if (!campaignMap[camp]) campaignMap[camp]={views:new Set(),submits:new Set(),source:src,medium:med}; if (ev.n==='page_view') campaignMap[camp].views.add(ev.s); if (ev.n==='step4_submit') campaignMap[camp].submits.add(ev.s); });
+    filteredRaw.forEach((ev:any) => {
+      const camp = ev.uc || '(no campaign)';
+      const src = normalizeUtmSource(ev.u);
+      const med = ev.um || '';
+      if (!campaignMap[camp]) campaignMap[camp]={views:new Set(),submits:new Set(),source:src,medium:med};
+      if (ev.n==='page_view') campaignMap[camp].views.add(ev.s);
+      if (ev.n==='step4_submit') campaignMap[camp].submits.add(ev.s);
+    });
     const campaignPerformance = Object.entries(campaignMap).map(([campaign,data])=>({campaign,source:data.source,medium:data.medium,views:data.views.size,submits:data.submits.size,cvr:data.views.size>0?((data.submits.size/data.views.size)*100).toFixed(1):'0',isPaid:data.medium==='paid'})).sort((a,b)=>b.views-a.views);
 
-    // Paid vs Organic summary
     const allRawP = hasDateFilter ? (analyticsData.rawEvents||[]).filter((ev:any) => ev.d >= startDate && ev.d <= endDate) : (analyticsData.rawEvents||[]);
-    const pS = new Set<string>(); const oS = new Set<string>(); const pSub = new Set<string>(); const oSub = new Set<string>();
-    allRawP.forEach((ev:any) => { const ip = ev.um === 'paid'; if (ev.n==='page_view') { if(ip) pS.add(ev.s); else oS.add(ev.s); } if (ev.n==='step4_submit') { if(ip) pSub.add(ev.s); else oSub.add(ev.s); } });
-    const paidVsOrganic = { paid: { views: pS.size, submits: pSub.size, cvr: pS.size > 0 ? ((pSub.size/pS.size)*100).toFixed(1) : '0' }, organic: { views: oS.size, submits: oSub.size, cvr: oS.size > 0 ? ((oSub.size/oS.size)*100).toFixed(1) : '0' } };
+    const pS = new Set<string>(); const oS = new Set<string>();
+    const pSub = new Set<string>(); const oSub = new Set<string>();
+    allRawP.forEach((ev:any) => {
+      const ip = ev.um === 'paid';
+      if (ev.n==='page_view') { if(ip) pS.add(ev.s); else oS.add(ev.s); }
+      if (ev.n==='step4_submit') { if(ip) pSub.add(ev.s); else oSub.add(ev.s); }
+    });
+    const paidVsOrganic = {
+      paid: { views: pS.size, submits: pSub.size, cvr: pS.size > 0 ? ((pSub.size/pS.size)*100).toFixed(1) : '0' },
+      organic: { views: oS.size, submits: oSub.size, cvr: oS.size > 0 ? ((oSub.size/oS.size)*100).toFixed(1) : '0' }
+    };
 
-    const hourMapF: Record<number,number> = {}; filteredRaw.filter((ev:any)=>ev.n==='step4_submit').forEach((ev:any)=>{hourMapF[ev.h]=(hourMapF[ev.h]||0)+1;});
+    const hourMapF: Record<number,number> = {};
+    filteredRaw.filter((ev:any)=>ev.n==='step4_submit').forEach((ev:any)=>{hourMapF[ev.h]=(hourMapF[ev.h]||0)+1;});
     const hourly = Array.from({length:24},(_,i)=>({hour:i,label:`${i.toString().padStart(2,'0')}:00`,count:hourMapF[i]||0}));
+
     const wdNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-    const wdMap: Record<number,{views:number;submits:number}> = {}; for(let i=0;i<7;i++) wdMap[i]={views:0,submits:0};
-    filteredRaw.forEach((ev:any) => { const dow=new Date(ev.d).getDay(); if(ev.n==='page_view')wdMap[dow].views++; if(ev.n==='step4_submit')wdMap[dow].submits++; });
+    const wdMap: Record<number,{views:number;submits:number}> = {};
+    for(let i=0;i<7;i++) wdMap[i]={views:0,submits:0};
+    filteredRaw.forEach((ev:any) => {
+      const dow=new Date(ev.d).getDay();
+      if(ev.n==='page_view')wdMap[dow].views++;
+      if(ev.n==='step4_submit')wdMap[dow].submits++;
+    });
     const weekday = Array.from({length:7},(_,i)=>({day:wdNames[i],views:wdMap[i].views,submits:wdMap[i].submits}));
+
     const moMap: Record<string,{views:number;submits:number}> = {};
-    filteredRaw.forEach((ev:any) => { const k=ev.d?.slice(0,7); if(!k)return; if(!moMap[k])moMap[k]={views:0,submits:0}; if(ev.n==='page_view')moMap[k].views++; if(ev.n==='step4_submit')moMap[k].submits++; });
+    filteredRaw.forEach((ev:any) => {
+      const k=ev.d?.slice(0,7);
+      if(!k)return;
+      if(!moMap[k])moMap[k]={views:0,submits:0};
+      if(ev.n==='page_view')moMap[k].views++;
+      if(ev.n==='step4_submit')moMap[k].submits++;
+    });
     const monthly = Object.entries(moMap).sort((a,b)=>a[0].localeCompare(b[0])).map(([month,data])=>({month,...data}));
-    const segDist: Record<string,number> = {}; filteredRaw.filter((ev:any)=>ev.n==='step2_answer').forEach((ev:any)=>{segDist[ev.ed?.segment||'Unknown']=(segDist[ev.ed?.segment||'Unknown']||0)+1;});
-    const reasonDist: Record<string,number> = {}; filteredRaw.filter((ev:any)=>ev.n==='step3_reason_select').forEach((ev:any)=>{reasonDist[ev.ed?.reason||'Unknown']=(reasonDist[ev.ed?.reason||'Unknown']||0)+1;});
+
+    const segDist: Record<string,number> = {};
+    filteredRaw.filter((ev:any)=>ev.n==='step2_answer').forEach((ev:any)=>{segDist[ev.ed?.segment||'Unknown']=(segDist[ev.ed?.segment||'Unknown']||0)+1;});
+
+    const reasonDist: Record<string,number> = {};
+    filteredRaw.filter((ev:any)=>ev.n==='step3_reason_select').forEach((ev:any)=>{reasonDist[ev.ed?.reason||'Unknown']=(reasonDist[ev.ed?.reason||'Unknown']||0)+1;});
+
     const uvSessions = new Set(filteredRaw.map((ev:any)=>ev.s).filter(Boolean));
     const uvVisitors = new Set(filteredRaw.map((ev:any)=>ev.v || ev.s).filter(Boolean));
-    if (variant === 'type') { const submitSids = sessionsByEvt['step4_submit']; submitSids.forEach((sid:string) => { sessionsByEvt['step3_email_focus'].add(sid); }); funnel['step3_email_focus'] = sessionsByEvt['step3_email_focus'].size; }
+
+    if (variant === 'type') {
+      const submitSids = sessionsByEvt['step4_submit'];
+      submitSids.forEach((sid:string) => { sessionsByEvt['step3_email_focus'].add(sid); });
+      funnel['step3_email_focus'] = sessionsByEvt['step3_email_focus'].size;
+    }
 
     return {...analyticsData,funnel,daily:filteredDaily,weekly,weekday,monthly,utmPerformance,platformPerformance,campaignPerformance,paidVsOrganic,hourly,segmentDistribution:segDist,reasonDistribution:reasonDist,totalVisitors:uvVisitors.size,totalSessions:uvSessions.size};
   }, [analyticsData, analyticsPeriod, analyticsDateFrom, analyticsDateTo, trafficFilter, variant]);
 
-
-  
+  /* ─── Today analytics helper ─── */
+  const todayAnalytics = useMemo(() => {
+    if (!analyticsData?.rawEvents) return { visitors: 0, sessions: 0, submits: 0, cvr: '—' };
+    const todayStr = getNYCDate(0);
+    const evts = analyticsData.rawEvents.filter((ev: any) => ev.d === todayStr);
+    const visitors = new Set(evts.map((ev: any) => ev.v || ev.s).filter(Boolean)).size;
+    const sessions = new Set(evts.map((ev: any) => ev.s).filter(Boolean)).size;
+    const views = new Set(evts.filter((ev: any) => ev.n === 'page_view').map((ev: any) => ev.s)).size;
+    const submits = new Set(evts.filter((ev: any) => ev.n === 'step4_submit').map((ev: any) => ev.s)).size;
+    const cvr = views > 0 ? `${((submits / views) * 100).toFixed(1)}%` : '—';
+    return { visitors, sessions, submits, cvr };
+  }, [analyticsData]);
 
   const segColor = (s?: string) => {
     if (variant === 'type') {
       const t = QUIZ_TYPE_LABELS[s || ''];
       if (t) return `bg-zinc-800/30 ${t.color} border-zinc-700/30`;
     }
-    switch(s) { case 'A': return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'; case 'B': return 'bg-amber-500/20 text-amber-400 border-amber-500/30'; case 'C': return 'bg-sky-500/20 text-sky-400 border-sky-500/30'; default: return 'bg-zinc-700/30 text-zinc-400 border-zinc-600/30'; }
+    switch(s) {
+      case 'A': return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+      case 'B': return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
+      case 'C': return 'bg-sky-500/20 text-sky-400 border-sky-500/30';
+      default:  return 'bg-zinc-700/30 text-zinc-400 border-zinc-600/30';
+    }
   };
+
   const segLabel = (s?: string, p?: Participant) => {
-    // ✅ Quiz Type: afterfeel_type 라벨 사용
     if (variant === 'type') {
       const type = p?.afterfeel_type || p?.sub_reason || s || '';
       const t = QUIZ_TYPE_LABELS[type];
       return t ? t.name : type || 'afterfeel_quiz';
     }
-    switch(s) { case 'A': return 'Switcher'; case 'B': return 'Skeptic'; case 'C': return 'Newbie'; default: return s||'—'; }
+    switch(s) {
+      case 'A': return 'Switcher';
+      case 'B': return 'Skeptic';
+      case 'C': return 'Newbie';
+      default:  return s||'—';
+    }
   };
-  const fmtDate = (d?: string) => { if(!d)return'—'; try{ const dt=new Date(d); return dt.toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'})+' '+dt.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}); }catch{return d;} };
+
+  const fmtDate = (d?: string) => {
+    if(!d)return'—';
+    try {
+      const dt=new Date(d);
+      return dt.toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'})+' '+dt.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+    } catch { return d; }
+  };
+
   const fmtShortDate = (d: string) => { const p=d.split('-'); return `${p[1]}/${p[2]}`; };
-  const deviceIcon = (d?: string) => { switch(d) { case 'mobile': return '\u{1F4F1}'; case 'desktop': return '\u{1F4BB}'; case 'tablet': return '\u{1F4DF}'; default: return '—'; } };
+  const deviceIcon = (d?: string) => {
+    switch(d) {
+      case 'mobile':  return '📱';
+      case 'desktop': return '💻';
+      case 'tablet':  return '📟';
+      default:        return '—';
+    }
+  };
 
   const BarChart = ({ data, color, total }: { data: [string, number][]; color: string; total: number }) => (
     <div className="space-y-1.5">
@@ -559,7 +668,7 @@ const filteredAnalytics = useMemo(() => {
     return (
       <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5">
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2"><span className="text-base">{'\u{1F4C8}'}</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Signup Trend</h3></div>
+          <div className="flex items-center gap-2"><span className="text-base">📈</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Signup Trend</h3></div>
           <div className="flex gap-1 bg-zinc-800 rounded-lg p-0.5">
             <button onClick={() => setChartMode('daily')} className={`px-2.5 py-1 rounded-md text-[10px] sm:text-xs font-medium transition-all ${chartMode === 'daily' ? 'bg-white text-black' : 'text-zinc-500 hover:text-zinc-300'}`}>Daily</button>
             <button onClick={() => setChartMode('cumulative')} className={`px-2.5 py-1 rounded-md text-[10px] sm:text-xs font-medium transition-all ${chartMode === 'cumulative' ? 'bg-white text-black' : 'text-zinc-500 hover:text-zinc-300'}`}>Cumulative</button>
@@ -600,36 +709,34 @@ const filteredAnalytics = useMemo(() => {
   /* ─── UTM Source Stats Section ─── */
   const UtmSourceStatsSection = () => {
     const [utmView, setUtmView] = useState<'today' | 'total'>('today');
-
-
-
-    
-const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.[utmView];
+    const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.[utmView];
     const utmStats = useMemo(() => {
       if (!rawUtmStats) return undefined;
       const merged: Record<string, UtmSourceStat> = {};
-      rawUtmStats.forEach(stat => { const n = normalizeUtmSource(stat.source); if (!merged[n]) { merged[n] = { ...stat, source: n }; } else { merged[n].visitors += stat.visitors; merged[n].sessions += stat.sessions; merged[n].events += stat.events; merged[n].page_views += stat.page_views; merged[n].submits += stat.submits; } });
+      rawUtmStats.forEach(stat => {
+        const n = normalizeUtmSource(stat.source);
+        if (!merged[n]) { merged[n] = { ...stat, source: n }; }
+        else {
+          merged[n].visitors += stat.visitors; merged[n].sessions += stat.sessions;
+          merged[n].events += stat.events; merged[n].page_views += stat.page_views;
+          merged[n].submits += stat.submits;
+        }
+      });
       Object.values(merged).forEach(m => { m.cvr = m.page_views > 0 ? ((m.submits / m.page_views) * 100).toFixed(1) : '0'; });
       return Object.values(merged).sort((a, b) => b.visitors - a.visitors);
     }, [rawUtmStats]);
-    const rawMetaStats = useMemo(() => {
-      if (!rawUtmStats) return [];
-      return rawUtmStats.filter(s => META_SOURCES.includes((s.source || '').toLowerCase()));
-    }, [rawUtmStats]);
 
-
-
-    
     const visitorStatsData: { total: VisitorStat; today: VisitorStat } | undefined = analyticsData?.visitorStats;
     if (!utmStats && !visitorStatsData) return null;
     const currentVS = visitorStatsData?.[utmView];
     const totalVisitorsSum = utmStats?.reduce((s, u) => s + u.visitors, 0) || 0;
     const totalSubmitsSum = utmStats?.reduce((s, u) => s + u.submits, 0) || 0;
+
     return (
       <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4 sm:mb-5">
           <div className="flex items-center gap-2">
-            <span className="text-base">{'\u{1F4E1}'}</span>
+            <span className="text-base">📡</span>
             <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Traffic Source Breakdown</h3>
             <span className={`text-[10px] px-2 py-0.5 rounded border ${variant === 'main' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-purple-500/10 text-purple-400 border-purple-500/30'}`}>{variant === 'main' ? 'Main Teaser' : 'Quiz Type'}</span>
           </div>
@@ -706,6 +813,10 @@ const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.
   const goal = 15000;
   const progress = data ? Math.min((data.total / goal) * 100, 100) : 0;
 
+  // ✅ 반대 variant 숫자
+  const oppositeVariant = variant === 'main' ? 'type' : 'main';
+  const oppSupabaseTotal = supabaseTotals[oppositeVariant];
+  const oppKlaviyoTotal = klaviyoTotals[oppositeVariant];
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-zinc-950 via-black to-zinc-900 text-white">
@@ -721,7 +832,7 @@ const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
             <span className="text-zinc-500 text-[10px] sm:text-xs font-mono">{lastUpdated}</span>
-            <button onClick={() => { fetchData(); fetchParticipants(); if (viewMode === 'analytics') fetchAnalytics(); }} className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center hover:bg-zinc-800 active:scale-95">
+            <button onClick={() => { fetchData(); fetchParticipants(); fetchAnalytics(); }} className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center hover:bg-zinc-800 active:scale-95">
               <svg className="w-3 h-3 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
             </button>
             <button onClick={() => { localStorage.removeItem('piilk_dash'); localStorage.removeItem('piilk_saved_pw'); setAuthenticated(false); setPassword(''); setRememberMe(false); }} className="text-[10px] sm:text-xs text-zinc-500 hover:text-white transition-colors">Logout</button>
@@ -731,7 +842,7 @@ const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.
 
       <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6">
 
-        {/* ✅ Variant Tabs — TOP LEVEL */}
+        {/* Variant Tabs */}
         <div className="flex items-center gap-2 bg-zinc-900/80 border border-zinc-800 rounded-xl p-1">
           <button onClick={() => setVariant('main')} className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all ${variant === 'main' ? 'bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50'}`}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
@@ -757,14 +868,37 @@ const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.
 
         {/* Data Source Tabs */}
         {viewMode !== 'analytics' && (
-        <div className="flex gap-2">
-          <button onClick={() => setActiveSource('klaviyo')} className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${activeSource === 'klaviyo' ? 'bg-purple-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>
-            {'\u{1F4E7}'} Klaviyo{klaviyoData && <span className="ml-2 text-xs opacity-70">({klaviyoData.total})</span>}
-          </button>
-          <button onClick={() => setActiveSource('supabase')} className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${activeSource === 'supabase' ? 'bg-emerald-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>
-            {'\u{1F5C4}\uFE0F'} Supabase{supabaseData && <span className="ml-2 text-xs opacity-70">({supabaseData.total})</span>}
-          </button>
-        </div>
+          <div className="flex gap-2">
+            {/* Klaviyo 버튼 */}
+            <button onClick={() => setActiveSource('klaviyo')} className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${activeSource === 'klaviyo' ? 'bg-purple-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>
+              📧 Klaviyo
+              {klaviyoData && <span className="text-xs opacity-80">({klaviyoData.total})</span>}
+              {/* ✅ 반대 variant Klaviyo 숫자 */}
+              {oppKlaviyoTotal > 0 && (
+                <span
+                  className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold border ${variant === 'main' ? 'bg-purple-900/50 text-purple-300 border-purple-700/40' : 'bg-emerald-900/50 text-emerald-300 border-emerald-700/40'}`}
+                  title={`${oppositeVariant === 'main' ? 'Main Teaser' : 'Quiz Type'} Klaviyo`}
+                >
+                  {oppositeVariant === 'main' ? '🏠' : '🧩'} {oppKlaviyoTotal}
+                </span>
+              )}
+            </button>
+
+            {/* Supabase 버튼 */}
+            <button onClick={() => setActiveSource('supabase')} className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${activeSource === 'supabase' ? 'bg-emerald-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>
+              🗄️ Supabase
+              {supabaseData && <span className="text-xs opacity-80">({supabaseData.total})</span>}
+              {/* ✅ 반대 variant Supabase 숫자 */}
+              {oppSupabaseTotal > 0 && (
+                <span
+                  className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold border ${variant === 'main' ? 'bg-purple-900/50 text-purple-300 border-purple-700/40' : 'bg-emerald-900/50 text-emerald-300 border-emerald-700/40'}`}
+                  title={`${oppositeVariant === 'main' ? 'Main Teaser' : 'Quiz Type'} Supabase`}
+                >
+                  {oppositeVariant === 'main' ? '🏠' : '🧩'} {oppSupabaseTotal}
+                </span>
+              )}
+            </button>
+          </div>
         )}
 
         {/* ══════ OVERVIEW ══════ */}
@@ -797,9 +931,8 @@ const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.
 
             {dailySignups.length > 0 && <SignupChart daily={dailySignups} cumulative={cumulativeSignups} />}
 
-            {/* ✅ Segments — Quiz Type vs Main Teaser */}
+            {/* Segments */}
             {variant === 'type' ? (
-              /* ═══ QUIZ TYPE: 4개 타입 카드 ═══ */
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 {Object.entries(QUIZ_TYPE_LABELS).map(([key, label]) => {
                   const count = data.quizBreakdown?.[key as keyof typeof data.quizBreakdown] ?? quizTypeCounts?.[key] ?? 0;
@@ -808,10 +941,7 @@ const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.
                     <div key={key} className={`bg-gradient-to-br ${label.bgColor} border ${label.borderColor} rounded-xl sm:rounded-2xl p-4 sm:p-5 relative overflow-hidden`}>
                       <div className="absolute top-0 right-0 w-20 h-20 opacity-10 text-6xl flex items-center justify-center pointer-events-none">{label.icon}</div>
                       <div className="relative">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-lg">{label.icon}</span>
-                          <p className={`text-[9px] sm:text-xs uppercase tracking-widest font-bold ${label.color}`}>{label.name}</p>
-                        </div>
+                        <div className="flex items-center gap-2 mb-2"><span className="text-lg">{label.icon}</span><p className={`text-[9px] sm:text-xs uppercase tracking-widest font-bold ${label.color}`}>{label.name}</p></div>
                         <div className="flex items-end justify-between mt-3">
                           <p className={`text-3xl sm:text-4xl font-black ${label.color}`}>{count}</p>
                           <p className={`text-sm sm:text-base font-bold ${label.color} opacity-70`}>{pct}%</p>
@@ -822,7 +952,6 @@ const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.
                 })}
               </div>
             ) : (
-              /* ═══ MAIN TEASER: 기존 A/B/C 세그먼트 ═══ */
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
                 <div className="lg:col-span-2 bg-gradient-to-br from-emerald-950/40 to-zinc-900/60 border border-emerald-900/40 rounded-xl sm:rounded-2xl p-4 sm:p-6 relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-32 sm:w-48 h-32 sm:h-48 bg-emerald-500/10 rounded-full blur-3xl" />
@@ -840,11 +969,11 @@ const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.
                     </div>
                     <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
                       {data.segments.A.breakdown && [
-                        { label: 'Residue', value: data.segments.A.breakdown.residue },
+                        { label: 'Residue',    value: data.segments.A.breakdown.residue    },
                         { label: 'Aftertaste', value: data.segments.A.breakdown.aftertaste },
-                        { label: 'Heaviness', value: data.segments.A.breakdown.heaviness },
-                        { label: 'Habit', value: data.segments.A.breakdown.habit },
-                        { label: 'Lapsed', value: data.segments.A.breakdown.lapsed },
+                        { label: 'Heaviness',  value: data.segments.A.breakdown.heaviness  },
+                        { label: 'Habit',      value: data.segments.A.breakdown.habit      },
+                        { label: 'Lapsed',     value: data.segments.A.breakdown.lapsed     },
                       ].map((item) => (
                         <div key={item.label} className="bg-black/40 rounded-lg sm:rounded-xl p-2 sm:p-3 text-center border border-emerald-900/20">
                           <p className="text-lg sm:text-2xl font-black text-white">{item.value}</p>
@@ -875,10 +1004,10 @@ const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.
                 <h2 className="text-sm sm:text-base font-bold text-zinc-400 uppercase tracking-widest">Audience Insights</h2>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
                   {[
-                    { icon: '\u{1F30D}', title: 'Country', data: trackingAnalytics.countries, color: 'bg-emerald-500' },
-                    { icon: '\u{1F3D9}\uFE0F', title: 'Top Cities', data: trackingAnalytics.cities, color: 'bg-purple-500' },
-                    { icon: '\u{1F4F1}', title: 'Device', data: trackingAnalytics.devices, color: 'bg-amber-500' },
-                    { icon: '\u{1F517}', title: 'Traffic Source', data: trackingAnalytics.utmSources, color: 'bg-sky-500' },
+                    { icon: '🌍', title: 'Country',        data: trackingAnalytics.countries,   color: 'bg-emerald-500' },
+                    { icon: '🏙️', title: 'Top Cities',     data: trackingAnalytics.cities,      color: 'bg-purple-500'  },
+                    { icon: '📱', title: 'Device',         data: trackingAnalytics.devices,     color: 'bg-amber-500'   },
+                    { icon: '🔗', title: 'Traffic Source', data: trackingAnalytics.utmSources,  color: 'bg-sky-500'     },
                   ].map(section => (
                     <div key={section.title} className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5">
                       <div className="flex items-center gap-2 mb-3 sm:mb-4"><span className="text-base">{section.icon}</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">{section.title}</h3></div>
@@ -896,14 +1025,10 @@ const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.
         {/* ══════ PARTICIPANTS ══════ */}
         {viewMode === 'participants' && (
           <div className="space-y-4">
-            {/* ✅ Participants 상단 카드 — Quiz Type vs Main */}
-
-
-{(() => {
-              const nowNYC = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-              const todayStr = `${nowNYC.getFullYear()}-${String(nowNYC.getMonth()+1).padStart(2,'0')}-${String(nowNYC.getDate()).padStart(2,'0')}`;
-              const isToday = (p: Participant) => p.signed_up_at?.slice(0,10) === todayStr;
-              const combinedTotal = (participants.klaviyo.length + participants.supabase.length) / 2; // dedup 불가하므로 각각 표시
+            {/* ✅ 상단 카드 — Quiz Type vs Main Teaser */}
+            {(() => {
+              const todayStr = getNYCDate(0);
+              const isToday = (p: Participant) => p.signed_up_at?.slice(0, 10) === todayStr;
               const kTotal = participants.klaviyo.length;
               const sTotal = participants.supabase.length;
 
@@ -911,13 +1036,13 @@ const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.
                 const todayQuizCounts: Record<string, number> = { brick: 0, chalk: 0, zombie: 0, gambler: 0 };
                 currentParticipants.filter(isToday).forEach(p => {
                   const type = p.afterfeel_type || p.sub_reason || '';
-                  if (todayQuizCounts.hasOwnProperty(type)) todayQuizCounts[type]++;
+                  if (Object.prototype.hasOwnProperty.call(todayQuizCounts, type)) todayQuizCounts[type]++;
                 });
                 return (
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3">
-                    {/* Total — combined highlight */}
+                    {/* Total 강조 카드 */}
                     <div className="relative bg-gradient-to-br from-zinc-800/80 to-zinc-900 border-2 border-zinc-600 rounded-xl p-3 sm:p-4 overflow-hidden">
-                      <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 rounded-full blur-xl" />
+                      <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 rounded-full blur-xl pointer-events-none" />
                       <p className="text-[9px] sm:text-[10px] text-zinc-400 uppercase tracking-widest mb-0.5 font-bold">Total</p>
                       <p className="text-2xl sm:text-3xl font-black text-white">{currentParticipants.length}</p>
                       <div className="flex gap-1.5 mt-1.5">
@@ -937,19 +1062,15 @@ const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.
                 );
               }
 
-              // Main Teaser — Seg A/B/C 오늘 수
+              // ✅ Main Teaser: Seg A 오늘 신규 + 오늘 Visitors + 오늘 CVR
               const todayA = currentParticipants.filter(p => isToday(p) && p.segment === 'A').length;
-              const todayB = currentParticipants.filter(p => isToday(p) && p.segment === 'B').length;
-              const todayC = currentParticipants.filter(p => isToday(p) && p.segment === 'C').length;
               const totalA = currentParticipants.filter(p => p.segment === 'A').length;
-              const totalB = currentParticipants.filter(p => p.segment === 'B').length;
-              const totalC = currentParticipants.filter(p => p.segment === 'C').length;
 
               return (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-                  {/* Total — 눈에 띄는 강조 카드 */}
+                  {/* Total 강조 카드 */}
                   <div className="relative bg-gradient-to-br from-zinc-800/80 to-zinc-900 border-2 border-zinc-600 rounded-xl p-3 sm:p-4 overflow-hidden">
-                    <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 rounded-full blur-xl" />
+                    <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 rounded-full blur-xl pointer-events-none" />
                     <p className="text-[9px] sm:text-[10px] text-zinc-400 uppercase tracking-widest mb-0.5 font-bold">Total</p>
                     <p className="text-2xl sm:text-3xl font-black text-white">{currentParticipants.length}</p>
                     <div className="flex gap-1.5 mt-1.5">
@@ -969,36 +1090,44 @@ const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.
                     <p className="text-[9px] text-zinc-500 mt-1">Total <span className="text-zinc-400 font-semibold">{totalA}</span></p>
                   </div>
 
-                  {/* Seg B — 오늘 신규 */}
-                  <div className="bg-amber-950/30 border border-amber-900/30 rounded-xl p-3 sm:p-4">
-                    <div className="flex items-center justify-between mb-0.5">
-                      <p className="text-[10px] sm:text-xs text-amber-500 uppercase tracking-widest font-bold">Seg B</p>
-                      <span className="text-[8px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-bold">TODAY</span>
-                    </div>
-                    <p className="text-2xl sm:text-3xl font-black text-amber-400">{todayB}</p>
-                    <p className="text-[9px] text-zinc-500 mt-1">Total <span className="text-zinc-400 font-semibold">{totalB}</span></p>
-                  </div>
-
-                  {/* Seg C — 오늘 신규 */}
+                  {/* ✅ 오늘 Visitors (Analytics 데이터) */}
                   <div className="bg-sky-950/30 border border-sky-900/30 rounded-xl p-3 sm:p-4">
                     <div className="flex items-center justify-between mb-0.5">
-                      <p className="text-[10px] sm:text-xs text-sky-500 uppercase tracking-widest font-bold">Seg C</p>
+                      <p className="text-[10px] sm:text-xs text-sky-400 uppercase tracking-widest font-bold">Visitors</p>
                       <span className="text-[8px] bg-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded font-bold">TODAY</span>
                     </div>
-                    <p className="text-2xl sm:text-3xl font-black text-sky-400">{todayC}</p>
-                    <p className="text-[9px] text-zinc-500 mt-1">Total <span className="text-zinc-400 font-semibold">{totalC}</span></p>
+                    <p className="text-2xl sm:text-3xl font-black text-sky-400">
+                      {analyticsData ? todayAnalytics.visitors : '—'}
+                    </p>
+                    <p className="text-[9px] text-zinc-500 mt-1">
+                      Sessions <span className="text-zinc-400 font-semibold">{analyticsData ? todayAnalytics.sessions : '—'}</span>
+                    </p>
+                  </div>
+
+                  {/* ✅ 오늘 CVR + Submits (Analytics 데이터) */}
+                  <div className="bg-purple-950/30 border border-purple-900/30 rounded-xl p-3 sm:p-4">
+                    <div className="flex items-center justify-between mb-0.5">
+                      <p className="text-[10px] sm:text-xs text-purple-400 uppercase tracking-widest font-bold">CVR</p>
+                      <span className="text-[8px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded font-bold">TODAY</span>
+                    </div>
+                    <p className="text-2xl sm:text-3xl font-black text-purple-400">
+                      {analyticsData ? todayAnalytics.cvr : '—'}
+                    </p>
+                    <p className="text-[9px] text-zinc-500 mt-1">
+                      Submits <span className="text-emerald-400 font-semibold">{analyticsData ? todayAnalytics.submits : '—'}</span>
+                    </p>
                   </div>
                 </div>
               );
             })()}
 
+            {/* Search & Filters */}
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
               <div className="relative flex-1">
                 <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                 <input type="text" placeholder="Search email, country, city, IP..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-white text-sm focus:outline-none focus:border-zinc-600 placeholder-zinc-600" />
                 {searchQuery && <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg></button>}
               </div>
-              {/* ✅ 세그먼트 필터 — Quiz Type vs Main */}
               <select value={segmentFilter} onChange={e => setSegmentFilter(e.target.value)} className="px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-white text-sm focus:outline-none focus:border-zinc-600 cursor-pointer min-w-[140px]">
                 <option value="all">All Segments</option>
                 {variant === 'type' ? (
@@ -1033,16 +1162,18 @@ const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.
                 <div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-white">Advanced Filters</h3>{activeFilterCount > 0 && <button onClick={clearAllFilters} className="text-xs text-purple-400 hover:text-purple-300">Clear all filters</button>}</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   {[
-                    { label: 'Reason', value: reasonFilter, onChange: (v:string)=>setReasonFilter(v), options: [{ v: 'all', l: 'All Reasons' }, ...uniqueReasons.map(r=>({v:r,l:r}))] },
-                    { label: 'Country', value: countryFilter, onChange: (v:string)=>setCountryFilter(v), options: [{ v: '', l: 'All Countries' }, ...uniqueCountries.map(c=>({v:c,l:c}))] },
-                    { label: 'City', value: cityFilter, onChange: (v:string)=>setCityFilter(v), options: [{ v: '', l: 'All Cities' }, ...uniqueCities.map(c=>({v:c,l:c}))] },
-                    { label: 'Device', value: deviceFilter, onChange: (v:string)=>setDeviceFilter(v), options: [{ v: '', l: 'All Devices' }, ...uniqueDevices.map(d=>({v:d,l:d}))] },
-                    { label: 'Email Domain', value: domainFilter, onChange: (v:string)=>setDomainFilter(v), options: [{ v: '', l: 'All Domains' }, ...uniqueDomains.map(d=>({v:d,l:`@${d}`}))] },
+                    { label: 'Reason',      value: reasonFilter,  onChange: (v:string)=>setReasonFilter(v),  options: [{ v: 'all', l: 'All Reasons' },   ...uniqueReasons.map(r=>({v:r,l:r}))]       },
+                    { label: 'Country',     value: countryFilter, onChange: (v:string)=>setCountryFilter(v), options: [{ v: '', l: 'All Countries' },    ...uniqueCountries.map(c=>({v:c,l:c}))]    },
+                    { label: 'City',        value: cityFilter,    onChange: (v:string)=>setCityFilter(v),    options: [{ v: '', l: 'All Cities' },        ...uniqueCities.map(c=>({v:c,l:c}))]      },
+                    { label: 'Device',      value: deviceFilter,  onChange: (v:string)=>setDeviceFilter(v),  options: [{ v: '', l: 'All Devices' },       ...uniqueDevices.map(d=>({v:d,l:d}))]     },
+                    { label: 'Email Domain',value: domainFilter,  onChange: (v:string)=>setDomainFilter(v),  options: [{ v: '', l: 'All Domains' },       ...uniqueDomains.map(d=>({v:d,l:`@${d}`}))] },
                   ].map(f => (
-                    <div key={f.label}><label className="block text-[10px] text-zinc-500 uppercase tracking-widest mb-1.5">{f.label}</label>
-                    <select value={f.value} onChange={e => f.onChange(e.target.value)} className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:border-zinc-600 cursor-pointer">
-                      {f.options.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
-                    </select></div>
+                    <div key={f.label}>
+                      <label className="block text-[10px] text-zinc-500 uppercase tracking-widest mb-1.5">{f.label}</label>
+                      <select value={f.value} onChange={e => f.onChange(e.target.value)} className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:border-zinc-600 cursor-pointer">
+                        {f.options.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+                      </select>
+                    </div>
                   ))}
                   <div><label className="block text-[10px] text-zinc-500 uppercase tracking-widest mb-1.5">Date From</label><input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:border-zinc-600" /></div>
                   <div><label className="block text-[10px] text-zinc-500 uppercase tracking-widest mb-1.5">Date To</label><input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:border-zinc-600" /></div>
@@ -1068,6 +1199,7 @@ const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.
               </div>
             ) : (
               <>
+                {/* Desktop Table */}
                 <div className="hidden sm:block bg-zinc-900/40 border border-zinc-800 rounded-xl overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left">
@@ -1075,7 +1207,7 @@ const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.
                         <th className="px-3 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold w-10">#</th>
                         {[{f:'email' as const,l:'Email'},{f:'segment' as const,l:variant === 'type' ? 'Type' : 'Seg'},{f:null,l:'Reason'},{f:'country' as const,l:'Location'},{f:null,l:'Device'},{f:'signed_up_at' as const,l:'Date'}].map(col => (
                           <th key={col.l} className={`px-3 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold ${col.f ? 'cursor-pointer hover:text-zinc-300 select-none' : ''}`} onClick={() => col.f && handleSort(col.f)}>
-                            <span className="flex items-center gap-1">{col.l}{col.f && sortField === col.f && <span className="text-white">{sortDir === 'asc' ? '\u2191' : '\u2193'}</span>}</span>
+                            <span className="flex items-center gap-1">{col.l}{col.f && sortField === col.f && <span className="text-white">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                           </th>
                         ))}
                         <th className="px-3 py-3 w-10"></th>
@@ -1098,6 +1230,7 @@ const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.
                   </div>
                 </div>
 
+                {/* Mobile Cards */}
                 <div className="sm:hidden space-y-2">
                   {filteredParticipants.map((p, i) => (
                     <div key={p.id || i} className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-3 space-y-2" onClick={() => setSelectedParticipant(p)}>
@@ -1127,8 +1260,26 @@ const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.
                 {selectedParticipant.sub_reason && <span className="text-sm text-zinc-400">{selectedParticipant.sub_reason}</span>}
               </div>
               <div className="grid grid-cols-2 gap-3">
-                {[{l:'Country',v:selectedParticipant.country},{l:'Region',v:selectedParticipant.region},{l:'City',v:selectedParticipant.city},{l:'Device',v:selectedParticipant.device_type},{l:'Language',v:selectedParticipant.language},{l:'Timezone',v:selectedParticipant.timezone},{l:'IP Address',v:selectedParticipant.ip_address},{l:'Referrer',v:selectedParticipant.referrer},{l:'UTM Source',v:selectedParticipant.utm_source},{l:'UTM Medium',v:selectedParticipant.utm_medium},{l:'UTM Campaign',v:selectedParticipant.utm_campaign},{l:'Source',v:selectedParticipant.source},{l:'Afterfeel Type',v:selectedParticipant.afterfeel_type},{l:'Signed Up',v:fmtDate(selectedParticipant.signed_up_at)}].map(item => (
-                  <div key={item.l} className="bg-zinc-800/50 rounded-lg p-2.5"><p className="text-[9px] text-zinc-500 uppercase tracking-widest font-semibold mb-0.5">{item.l}</p><p className="text-xs text-white font-medium truncate">{item.v || '—'}</p></div>
+                {[
+                  {l:'Country',      v:selectedParticipant.country},
+                  {l:'Region',       v:selectedParticipant.region},
+                  {l:'City',         v:selectedParticipant.city},
+                  {l:'Device',       v:selectedParticipant.device_type},
+                  {l:'Language',     v:selectedParticipant.language},
+                  {l:'Timezone',     v:selectedParticipant.timezone},
+                  {l:'IP Address',   v:selectedParticipant.ip_address},
+                  {l:'Referrer',     v:selectedParticipant.referrer},
+                  {l:'UTM Source',   v:selectedParticipant.utm_source},
+                  {l:'UTM Medium',   v:selectedParticipant.utm_medium},
+                  {l:'UTM Campaign', v:selectedParticipant.utm_campaign},
+                  {l:'Source',       v:selectedParticipant.source},
+                  {l:'Afterfeel Type',v:selectedParticipant.afterfeel_type},
+                  {l:'Signed Up',    v:fmtDate(selectedParticipant.signed_up_at)},
+                ].map(item => (
+                  <div key={item.l} className="bg-zinc-800/50 rounded-lg p-2.5">
+                    <p className="text-[9px] text-zinc-500 uppercase tracking-widest font-semibold mb-0.5">{item.l}</p>
+                    <p className="text-xs text-white font-medium truncate">{item.v || '—'}</p>
+                  </div>
                 ))}
               </div>
             </div>
@@ -1144,7 +1295,7 @@ const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.
                 <span className={`text-xs px-2 py-0.5 rounded border ${variant === 'main' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-purple-500/10 text-purple-400 border-purple-500/30'}`}>{variant === 'main' ? 'Main Teaser' : 'Quiz Type'}</span>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-{[{key:'all',label:'All'},{key:'today',label:'Today'},{key:'yesterday',label:'Yesterday'},{key:'last_7_days',label:'Last 7D'},{key:'this_week',label:'This Week'},{key:'this_month',label:'This Month'},{key:'last_month',label:'Last Month'}].map(opt => (
+                {[{key:'all',label:'All'},{key:'today',label:'Today'},{key:'yesterday',label:'Yesterday'},{key:'last_7_days',label:'Last 7D'},{key:'this_week',label:'This Week'},{key:'this_month',label:'This Month'},{key:'last_month',label:'Last Month'}].map(opt => (
                   <button key={opt.key} onClick={() => { setAnalyticsPeriod(opt.key); setAnalyticsDateFrom(''); setAnalyticsDateTo(''); }} className={`px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-medium transition-all ${analyticsPeriod === opt.key ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-500 hover:text-zinc-300'}`}>{opt.label}</button>
                 ))}
                 {availableMonths.length > 1 && (
@@ -1158,7 +1309,7 @@ const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.
               </div>
             </div>
 
-            {/* Custom Date Range + Paid/Organic Toggle */}
+            {/* Custom Date Range + Traffic Filter */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
               <div className="flex items-center gap-2">
                 <label className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Range:</label>
@@ -1176,37 +1327,142 @@ const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.
 
             {/* Meta Ads Upload */}
             <div className="flex items-center gap-3">
-              <input ref={metaFileRef} type="file" accept=".xlsx,.xls,.csv" onChange={async (e) => { const file = e.target.files?.[0]; if (!file) return; try { const XLSX = await import('xlsx'); const buf = await file.arrayBuffer(); const wb = XLSX.read(buf, {type:'array'}); const ws = wb.Sheets[wb.SheetNames[0]]; const rows: any[] = XLSX.utils.sheet_to_json(ws); const parsed = rows.map((r:any) => { const name = r['광고 이름']||r['Ad Name']||''; const nl = name.toLowerCase(); return { adName:name, date:r['보고 시작']||'', status:r['광고 게재']||'', results:Number(r['결과']||0)||0, reach:Number(r['도달']||0)||0, spend:Number(r['지출 금액 (USD)']||0)||0, impressions:Number(r['노출']||0)||0, linkClicks:Number(r['링크 클릭']||0)||0, cpc:Number(r['CPC(링크 클릭당 비용) (USD)']||0)||0, ctrLink:Number(r['CTR(링크 클릭률)']||0)||0, allClicks:Number(r['클릭(전체)']||0)||0, landingPageViews:Number(r['랜딩 페이지 조회']||0)||0, variant: nl.includes('_main')||nl.includes('main') ? 'main' : nl.includes('_type')||nl.includes('type') ? 'type' : 'unknown' }; }).filter((r:any) => r.spend > 0 || r.impressions > 0); setMetaAdsData(parsed); if (parsed.length > 0) setMetaAdsDate(parsed[0].date); } catch(err) { alert('파일 파싱 실패'); } }} className="hidden" />
+              <input ref={metaFileRef} type="file" accept=".xlsx,.xls,.csv" onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                try {
+                  const XLSX = await import('xlsx');
+                  const buf = await file.arrayBuffer();
+                  const wb = XLSX.read(buf, {type:'array'});
+                  const ws = wb.Sheets[wb.SheetNames[0]];
+                  const rows: any[] = XLSX.utils.sheet_to_json(ws);
+                  const parsed = rows.map((r:any) => {
+                    const name = r['광고 이름']||r['Ad Name']||'';
+                    const nl = name.toLowerCase();
+                    return {
+                      adName: name,
+                      date: r['보고 시작']||'',
+                      status: r['광고 게재']||'',
+                      results: Number(r['결과']||0)||0,
+                      reach: Number(r['도달']||0)||0,
+                      spend: Number(r['지출 금액 (USD)']||0)||0,
+                      impressions: Number(r['노출']||0)||0,
+                      linkClicks: Number(r['링크 클릭']||0)||0,
+                      cpc: Number(r['CPC(링크 클릭당 비용) (USD)']||0)||0,
+                      ctrLink: Number(r['CTR(링크 클릭률)']||0)||0,
+                      allClicks: Number(r['클릭(전체)']||0)||0,
+                      landingPageViews: Number(r['랜딩 페이지 조회']||0)||0,
+                      variant: nl.includes('_main')||nl.includes('main') ? 'main' : nl.includes('_type')||nl.includes('type') ? 'type' : 'unknown'
+                    };
+                  }).filter((r:any) => r.spend > 0 || r.impressions > 0);
+                  setMetaAdsData(parsed);
+                  if (parsed.length > 0) setMetaAdsDate(parsed[0].date);
+                } catch(err) { alert('파일 파싱 실패'); }
+              }} className="hidden" />
               <button onClick={() => metaFileRef.current?.click()} className="px-3 py-1.5 bg-blue-600/20 border border-blue-600/30 rounded-lg text-xs text-blue-400 hover:bg-blue-600/30 transition-colors flex items-center gap-1.5"><span>📊</span>Upload Meta Ads Report</button>
               {metaAdsDate && <span className="text-[10px] text-blue-400">✓ {metaAdsDate} ({metaAdsData.length} ads)</span>}
             </div>
-            
+
             {analyticsLoading && !analyticsData ? (
               <div className="flex items-center justify-center py-16"><div className="w-8 h-8 border-2 border-zinc-800 border-t-emerald-500 rounded-full animate-spin" /></div>
-              ) : analyticsData ? (
+            ) : analyticsData ? (
               <>
-<UtmSourceStatsSection />
+                <UtmSourceStatsSection />
 
-                {/* ✅ Meta Ads Comparison */}
+                {/* Meta Ads Comparison */}
                 {metaAdsData.length > 0 && (() => {
-                  const metaTotal = metaAdsData.reduce((acc:any, ad:any) => ({ spend: acc.spend + ad.spend, impressions: acc.impressions + ad.impressions, linkClicks: acc.linkClicks + ad.linkClicks, landingPageViews: acc.landingPageViews + ad.landingPageViews, results: acc.results + ad.results }), { spend:0, impressions:0, linkClicks:0, landingPageViews:0, results:0 });
+                  const metaTotal = metaAdsData.reduce((acc:any, ad:any) => ({
+                    spend: acc.spend + ad.spend, impressions: acc.impressions + ad.impressions,
+                    linkClicks: acc.linkClicks + ad.linkClicks, landingPageViews: acc.landingPageViews + ad.landingPageViews,
+                    results: acc.results + ad.results
+                  }), { spend:0, impressions:0, linkClicks:0, landingPageViews:0, results:0 });
                   const ourSubmits = currentParticipants.filter(p => p.signed_up_at?.slice(0,10) === metaAdsDate && normalizeUtmSource(p.utm_source) === 'meta').length;
                   return (
                     <div className="bg-gradient-to-br from-blue-950/30 to-zinc-900/60 border border-blue-900/40 rounded-xl p-4 sm:p-6">
-                      <div className="flex items-center justify-between mb-4"><div className="flex items-center gap-2"><span className="text-base">📊</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Meta Ads vs Dashboard</h3><span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">{metaAdsDate}</span></div><button onClick={() => { setMetaAdsData([]); setMetaAdsDate(''); }} className="text-[10px] text-zinc-500 hover:text-red-400">✕ Remove</button></div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4"><div className="bg-zinc-800/50 border border-zinc-700/30 rounded-lg p-3"><p className="text-[8px] text-zinc-500 uppercase tracking-widest font-semibold mb-0.5">Meta Spend</p><p className="text-xl font-black text-white">${metaTotal.spend.toFixed(2)}</p></div><div className="bg-zinc-800/50 border border-zinc-700/30 rounded-lg p-3"><p className="text-[8px] text-zinc-500 uppercase tracking-widest font-semibold mb-0.5">Link Clicks</p><p className="text-xl font-black text-white">{metaTotal.linkClicks}</p></div><div className="bg-zinc-800/50 border border-zinc-700/30 rounded-lg p-3"><p className="text-[8px] text-zinc-500 uppercase tracking-widest font-semibold mb-0.5">LP Views</p><p className="text-xl font-black text-amber-400">{metaTotal.landingPageViews}</p></div><div className="bg-emerald-950/30 border border-emerald-900/30 rounded-lg p-3"><p className="text-[8px] text-emerald-500 uppercase tracking-widest font-semibold mb-0.5">Our Submits</p><p className="text-xl font-black text-emerald-400">{ourSubmits}</p></div></div>
-                      <div className="bg-zinc-800/30 rounded-lg p-3 mb-4"><p className="text-[9px] text-zinc-500 uppercase tracking-widest font-semibold mb-2">Full Funnel</p><div className="flex items-center gap-2 text-xs flex-wrap"><span className="text-zinc-400">Impressions <span className="text-white font-bold">{metaTotal.impressions.toLocaleString()}</span></span><span className="text-zinc-600">→</span><span className="text-zinc-400">Clicks <span className="text-white font-bold">{metaTotal.linkClicks}</span></span><span className="text-zinc-600">→</span><span className="text-zinc-400">LP Views <span className="text-amber-400 font-bold">{metaTotal.landingPageViews}</span></span><span className="text-zinc-600">→</span><span className="text-zinc-400">Submits <span className="text-emerald-400 font-bold">{ourSubmits}</span></span></div><div className="flex items-center gap-4 mt-2 text-[10px]"><span className="text-zinc-500">CTR: <span className="text-white font-bold">{metaTotal.impressions > 0 ? ((metaTotal.linkClicks / metaTotal.impressions) * 100).toFixed(2) : '0'}%</span></span><span className="text-zinc-500">Click→Submit: <span className="text-emerald-400 font-bold">{metaTotal.linkClicks > 0 ? ((ourSubmits / metaTotal.linkClicks) * 100).toFixed(1) : '0'}%</span></span><span className="text-zinc-500">CPA: <span className="text-amber-400 font-bold">{ourSubmits > 0 ? `$${(metaTotal.spend / ourSubmits).toFixed(2)}` : 'N/A'}</span></span></div></div>
-                      <div className="overflow-x-auto"><table className="w-full text-left"><thead><tr className="border-b border-zinc-800/80"><th className="px-2 py-1.5 text-[9px] text-zinc-500 uppercase font-semibold">Ad</th><th className="px-2 py-1.5 text-[9px] text-zinc-500 uppercase font-semibold">Variant</th><th className="px-2 py-1.5 text-[9px] text-zinc-500 uppercase font-semibold text-right">Spend</th><th className="px-2 py-1.5 text-[9px] text-zinc-500 uppercase font-semibold text-right">Clicks</th><th className="px-2 py-1.5 text-[9px] text-zinc-500 uppercase font-semibold text-right">LP Views</th><th className="px-2 py-1.5 text-[9px] text-zinc-500 uppercase font-semibold text-right">CTR</th><th className="px-2 py-1.5 text-[9px] text-zinc-500 uppercase font-semibold text-right">Results</th></tr></thead><tbody>{metaAdsData.map((ad:any, i:number) => (<tr key={i} className="border-b border-zinc-800/30 hover:bg-zinc-800/20"><td className="px-2 py-1.5 text-xs text-white max-w-[180px] truncate">{ad.adName}</td><td className="px-2 py-1.5"><span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${ad.variant === 'main' ? 'bg-emerald-500/20 text-emerald-400' : ad.variant === 'type' ? 'bg-purple-500/20 text-purple-400' : 'bg-zinc-700/30 text-zinc-500'}`}>{ad.variant}</span></td><td className="px-2 py-1.5 text-xs text-white text-right font-mono">${ad.spend.toFixed(2)}</td><td className="px-2 py-1.5 text-xs text-zinc-300 text-right font-mono">{ad.linkClicks}</td><td className="px-2 py-1.5 text-xs text-amber-400 text-right font-mono">{ad.landingPageViews}</td><td className="px-2 py-1.5 text-xs text-zinc-400 text-right font-mono">{ad.ctrLink?.toFixed(2)}%</td><td className="px-2 py-1.5 text-xs text-emerald-400 text-right font-mono font-bold">{ad.results}</td></tr>))}</tbody></table></div>
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2"><span className="text-base">📊</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Meta Ads vs Dashboard</h3><span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">{metaAdsDate}</span></div>
+                        <button onClick={() => { setMetaAdsData([]); setMetaAdsDate(''); }} className="text-[10px] text-zinc-500 hover:text-red-400">✕ Remove</button>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+                        <div className="bg-zinc-800/50 border border-zinc-700/30 rounded-lg p-3"><p className="text-[8px] text-zinc-500 uppercase tracking-widest font-semibold mb-0.5">Meta Spend</p><p className="text-xl font-black text-white">${metaTotal.spend.toFixed(2)}</p></div>
+                        <div className="bg-zinc-800/50 border border-zinc-700/30 rounded-lg p-3"><p className="text-[8px] text-zinc-500 uppercase tracking-widest font-semibold mb-0.5">Link Clicks</p><p className="text-xl font-black text-white">{metaTotal.linkClicks}</p></div>
+                        <div className="bg-zinc-800/50 border border-zinc-700/30 rounded-lg p-3"><p className="text-[8px] text-zinc-500 uppercase tracking-widest font-semibold mb-0.5">LP Views</p><p className="text-xl font-black text-amber-400">{metaTotal.landingPageViews}</p></div>
+                        <div className="bg-emerald-950/30 border border-emerald-900/30 rounded-lg p-3"><p className="text-[8px] text-emerald-500 uppercase tracking-widest font-semibold mb-0.5">Our Submits</p><p className="text-xl font-black text-emerald-400">{ourSubmits}</p></div>
+                      </div>
+                      <div className="bg-zinc-800/30 rounded-lg p-3 mb-4">
+                        <p className="text-[9px] text-zinc-500 uppercase tracking-widest font-semibold mb-2">Full Funnel</p>
+                        <div className="flex items-center gap-2 text-xs flex-wrap">
+                          <span className="text-zinc-400">Impressions <span className="text-white font-bold">{metaTotal.impressions.toLocaleString()}</span></span>
+                          <span className="text-zinc-600">→</span>
+                          <span className="text-zinc-400">Clicks <span className="text-white font-bold">{metaTotal.linkClicks}</span></span>
+                          <span className="text-zinc-600">→</span>
+                          <span className="text-zinc-400">LP Views <span className="text-amber-400 font-bold">{metaTotal.landingPageViews}</span></span>
+                          <span className="text-zinc-600">→</span>
+                          <span className="text-zinc-400">Submits <span className="text-emerald-400 font-bold">{ourSubmits}</span></span>
+                        </div>
+                        <div className="flex items-center gap-4 mt-2 text-[10px]">
+                          <span className="text-zinc-500">CTR: <span className="text-white font-bold">{metaTotal.impressions > 0 ? ((metaTotal.linkClicks / metaTotal.impressions) * 100).toFixed(2) : '0'}%</span></span>
+                          <span className="text-zinc-500">Click→Submit: <span className="text-emerald-400 font-bold">{metaTotal.linkClicks > 0 ? ((ourSubmits / metaTotal.linkClicks) * 100).toFixed(1) : '0'}%</span></span>
+                          <span className="text-zinc-500">CPA: <span className="text-amber-400 font-bold">{ourSubmits > 0 ? `$${(metaTotal.spend / ourSubmits).toFixed(2)}` : 'N/A'}</span></span>
+                        </div>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                          <thead><tr className="border-b border-zinc-800/80">
+                            <th className="px-2 py-1.5 text-[9px] text-zinc-500 uppercase font-semibold">Ad</th>
+                            <th className="px-2 py-1.5 text-[9px] text-zinc-500 uppercase font-semibold">Variant</th>
+                            <th className="px-2 py-1.5 text-[9px] text-zinc-500 uppercase font-semibold text-right">Spend</th>
+                            <th className="px-2 py-1.5 text-[9px] text-zinc-500 uppercase font-semibold text-right">Clicks</th>
+                            <th className="px-2 py-1.5 text-[9px] text-zinc-500 uppercase font-semibold text-right">LP Views</th>
+                            <th className="px-2 py-1.5 text-[9px] text-zinc-500 uppercase font-semibold text-right">CTR</th>
+                            <th className="px-2 py-1.5 text-[9px] text-zinc-500 uppercase font-semibold text-right">Results</th>
+                          </tr></thead>
+                          <tbody>
+                            {metaAdsData.map((ad:any, i:number) => (
+                              <tr key={i} className="border-b border-zinc-800/30 hover:bg-zinc-800/20">
+                                <td className="px-2 py-1.5 text-xs text-white max-w-[180px] truncate">{ad.adName}</td>
+                                <td className="px-2 py-1.5"><span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${ad.variant === 'main' ? 'bg-emerald-500/20 text-emerald-400' : ad.variant === 'type' ? 'bg-purple-500/20 text-purple-400' : 'bg-zinc-700/30 text-zinc-500'}`}>{ad.variant}</span></td>
+                                <td className="px-2 py-1.5 text-xs text-white text-right font-mono">${ad.spend.toFixed(2)}</td>
+                                <td className="px-2 py-1.5 text-xs text-zinc-300 text-right font-mono">{ad.linkClicks}</td>
+                                <td className="px-2 py-1.5 text-xs text-amber-400 text-right font-mono">{ad.landingPageViews}</td>
+                                <td className="px-2 py-1.5 text-xs text-zinc-400 text-right font-mono">{ad.ctrLink?.toFixed(2)}%</td>
+                                <td className="px-2 py-1.5 text-xs text-emerald-400 text-right font-mono font-bold">{ad.results}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   );
                 })()}
 
-                {/* ✅ Paid vs Organic */}
-                {filteredAnalytics?.paidVsOrganic && (<div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-6"><div className="flex items-center gap-2 mb-4"><span className="text-base">💰</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Paid vs Organic</h3></div><div className="grid grid-cols-1 sm:grid-cols-2 gap-3"><div className="bg-red-950/20 border border-red-900/30 rounded-xl p-4"><div className="flex items-center gap-2 mb-3"><span className="w-2.5 h-2.5 rounded-full bg-red-500" /><span className="text-sm font-bold text-red-400">Paid</span></div><div className="grid grid-cols-3 gap-3"><div className="text-center"><p className="text-2xl font-black text-white">{filteredAnalytics.paidVsOrganic.paid.views}</p><p className="text-[8px] text-zinc-500 uppercase mt-1">Views</p></div><div className="text-center"><p className="text-2xl font-black text-emerald-400">{filteredAnalytics.paidVsOrganic.paid.submits}</p><p className="text-[8px] text-zinc-500 uppercase mt-1">Submits</p></div><div className="text-center"><p className={`text-2xl font-black ${Number(filteredAnalytics.paidVsOrganic.paid.cvr) > 0 ? 'text-amber-400' : 'text-zinc-500'}`}>{filteredAnalytics.paidVsOrganic.paid.cvr}%</p><p className="text-[8px] text-zinc-500 uppercase mt-1">CVR</p></div></div></div><div className="bg-emerald-950/20 border border-emerald-900/30 rounded-xl p-4"><div className="flex items-center gap-2 mb-3"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /><span className="text-sm font-bold text-emerald-400">Organic</span></div><div className="grid grid-cols-3 gap-3"><div className="text-center"><p className="text-2xl font-black text-white">{filteredAnalytics.paidVsOrganic.organic.views}</p><p className="text-[8px] text-zinc-500 uppercase mt-1">Views</p></div><div className="text-center"><p className="text-2xl font-black text-emerald-400">{filteredAnalytics.paidVsOrganic.organic.submits}</p><p className="text-[8px] text-zinc-500 uppercase mt-1">Submits</p></div><div className="text-center"><p className={`text-2xl font-black ${Number(filteredAnalytics.paidVsOrganic.organic.cvr) > 0 ? 'text-amber-400' : 'text-zinc-500'}`}>{filteredAnalytics.paidVsOrganic.organic.cvr}%</p><p className="text-[8px] text-zinc-500 uppercase mt-1">CVR</p></div></div></div></div></div>)}
+                {/* Paid vs Organic */}
+                {filteredAnalytics?.paidVsOrganic && (
+                  <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-6">
+                    <div className="flex items-center gap-2 mb-4"><span className="text-base">💰</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Paid vs Organic</h3></div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="bg-red-950/20 border border-red-900/30 rounded-xl p-4">
+                        <div className="flex items-center gap-2 mb-3"><span className="w-2.5 h-2.5 rounded-full bg-red-500" /><span className="text-sm font-bold text-red-400">Paid</span></div>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="text-center"><p className="text-2xl font-black text-white">{filteredAnalytics.paidVsOrganic.paid.views}</p><p className="text-[8px] text-zinc-500 uppercase mt-1">Views</p></div>
+                          <div className="text-center"><p className="text-2xl font-black text-emerald-400">{filteredAnalytics.paidVsOrganic.paid.submits}</p><p className="text-[8px] text-zinc-500 uppercase mt-1">Submits</p></div>
+                          <div className="text-center"><p className={`text-2xl font-black ${Number(filteredAnalytics.paidVsOrganic.paid.cvr) > 0 ? 'text-amber-400' : 'text-zinc-500'}`}>{filteredAnalytics.paidVsOrganic.paid.cvr}%</p><p className="text-[8px] text-zinc-500 uppercase mt-1">CVR</p></div>
+                        </div>
+                      </div>
+                      <div className="bg-emerald-950/20 border border-emerald-900/30 rounded-xl p-4">
+                        <div className="flex items-center gap-2 mb-3"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /><span className="text-sm font-bold text-emerald-400">Organic</span></div>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="text-center"><p className="text-2xl font-black text-white">{filteredAnalytics.paidVsOrganic.organic.views}</p><p className="text-[8px] text-zinc-500 uppercase mt-1">Views</p></div>
+                          <div className="text-center"><p className="text-2xl font-black text-emerald-400">{filteredAnalytics.paidVsOrganic.organic.submits}</p><p className="text-[8px] text-zinc-500 uppercase mt-1">Submits</p></div>
+                          <div className="text-center"><p className={`text-2xl font-black ${Number(filteredAnalytics.paidVsOrganic.organic.cvr) > 0 ? 'text-amber-400' : 'text-zinc-500'}`}>{filteredAnalytics.paidVsOrganic.organic.cvr}%</p><p className="text-[8px] text-zinc-500 uppercase mt-1">CVR</p></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
+                {/* Summary Cards */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-
-                  
                   <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-3 sm:p-4"><p className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-widest mb-1">Visitors</p><p className="text-xl sm:text-2xl font-black text-white">{filteredAnalytics?.totalVisitors}</p></div>
                   <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-3 sm:p-4"><p className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-widest mb-1">Sessions</p><p className="text-xl sm:text-2xl font-black text-white">{filteredAnalytics?.totalSessions}</p></div>
                   <div className="bg-emerald-950/30 border border-emerald-900/30 rounded-xl p-3 sm:p-4"><p className="text-[10px] sm:text-xs text-emerald-500 uppercase tracking-widest mb-1">Submits</p><p className="text-xl sm:text-2xl font-black text-emerald-400">{filteredAnalytics?.funnel?.step4_submit || 0}</p></div>
@@ -1215,12 +1471,19 @@ const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.
 
                 {/* Funnel */}
                 <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-6">
-                  <div className="flex items-center gap-2 mb-4 sm:mb-6"><span className="text-base">{'\u{1F3AF}'}</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Conversion Funnel</h3></div>
+                  <div className="flex items-center gap-2 mb-4 sm:mb-6"><span className="text-base">🎯</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Conversion Funnel</h3></div>
                   <div className="space-y-3">
-                    {[{key:'page_view',label:'Page View',desc:'Landed on site',color:'bg-zinc-500'},{key:'step1_cta_click',label:'Get in Line',desc:'Clicked CTA',color:'bg-sky-500'},{key:'step2_answer',label:'Answered',desc:'Selected Yes/No/Never',color:'bg-amber-500'},{key:'step3_email_focus',label:'Email Focus',desc:'Started typing email',color:'bg-purple-500'},{key:'step4_submit',label:'Submitted',desc:'Completed signup',color:'bg-emerald-500'}].map((step, idx) => {
+                    {[
+                      {key:'page_view',        label:'Page View',    desc:'Landed on site',         color:'bg-zinc-500'   },
+                      {key:'step1_cta_click',   label:'Get in Line',  desc:'Clicked CTA',            color:'bg-sky-500'    },
+                      {key:'step2_answer',      label:'Answered',     desc:'Selected Yes/No/Never',  color:'bg-amber-500'  },
+                      {key:'step3_email_focus', label:'Email Focus',  desc:'Started typing email',   color:'bg-purple-500' },
+                      {key:'step4_submit',      label:'Submitted',    desc:'Completed signup',        color:'bg-emerald-500'},
+                    ].map((step, idx) => {
                       const count = filteredAnalytics?.funnel?.[step.key] || 0;
                       const pv = filteredAnalytics?.funnel?.page_view || 1;
-                      const prev = idx === 0 ? count : (filteredAnalytics?.funnel?.[['page_view','step1_cta_click','step2_answer','step3_email_focus','step4_submit'][idx-1]] || 1);
+                      const prevKey = ['page_view','step1_cta_click','step2_answer','step3_email_focus','step4_submit'][idx-1];
+                      const prev = idx === 0 ? count : (filteredAnalytics?.funnel?.[prevKey] || 1);
                       const pct = pv > 0 ? (count / pv) * 100 : 0;
                       const drop = idx > 0 && prev > 0 ? ((1 - count / prev) * 100).toFixed(0) : null;
                       return (
@@ -1243,31 +1506,65 @@ const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.
                 {/* UTM Performance */}
                 {filteredAnalytics?.utmPerformance?.length > 0 && (
                   <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-6">
-                    <div className="flex items-center gap-2 mb-4"><span className="text-base">{'\u{1F517}'}</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">UTM Source Performance</h3></div>
-                    <div className="overflow-x-auto"><table className="w-full text-left"><thead><tr className="border-b border-zinc-800/80">
-                      <th className="px-3 py-2 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Source</th>
-                      <th className="px-3 py-2 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">Views</th>
-                      <th className="px-3 py-2 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">Submits</th>
-                      <th className="px-3 py-2 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">CVR</th>
-                    </tr></thead><tbody>
-                      {filteredAnalytics.utmPerformance.map((utm: any) => (
-                        <tr key={utm.source} className="border-b border-zinc-800/40">
-                          <td className="px-3 py-2.5 text-sm text-white font-medium">{utm.source}</td>
-                          <td className="px-3 py-2.5 text-sm text-zinc-400 text-right font-mono">{utm.views}</td>
-                          <td className="px-3 py-2.5 text-sm text-emerald-400 text-right font-mono font-bold">{utm.submits}</td>
-                          <td className="px-3 py-2.5 text-right"><span className={`text-sm font-bold font-mono ${Number(utm.cvr) > 5 ? 'text-emerald-400' : Number(utm.cvr) > 0 ? 'text-amber-400' : 'text-zinc-500'}`}>{utm.cvr}%</span></td>
-                        </tr>
-                      ))}
-                    </tbody></table></div>
+                    <div className="flex items-center gap-2 mb-4"><span className="text-base">🔗</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">UTM Source Performance</h3></div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead><tr className="border-b border-zinc-800/80">
+                          <th className="px-3 py-2 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Source</th>
+                          <th className="px-3 py-2 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">Views</th>
+                          <th className="px-3 py-2 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">Submits</th>
+                          <th className="px-3 py-2 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">CVR</th>
+                        </tr></thead>
+                        <tbody>
+                          {filteredAnalytics.utmPerformance.map((utm: any) => (
+                            <tr key={utm.source} className="border-b border-zinc-800/40">
+                              <td className="px-3 py-2.5 text-sm text-white font-medium">{utm.source}</td>
+                              <td className="px-3 py-2.5 text-sm text-zinc-400 text-right font-mono">{utm.views}</td>
+                              <td className="px-3 py-2.5 text-sm text-emerald-400 text-right font-mono font-bold">{utm.submits}</td>
+                              <td className="px-3 py-2.5 text-right"><span className={`text-sm font-bold font-mono ${Number(utm.cvr) > 5 ? 'text-emerald-400' : Number(utm.cvr) > 0 ? 'text-amber-400' : 'text-zinc-500'}`}>{utm.cvr}%</span></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
-{/* ✅ Campaign Performance */}
-                {filteredAnalytics?.campaignPerformance?.length > 0 && (<div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-6"><div className="flex items-center gap-2 mb-4"><span className="text-base">🎯</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Campaign Performance</h3></div><div className="overflow-x-auto"><table className="w-full text-left"><thead><tr className="border-b border-zinc-800/80"><th className="px-3 py-2 text-[10px] text-zinc-500 uppercase font-semibold">Campaign</th><th className="px-3 py-2 text-[10px] text-zinc-500 uppercase font-semibold">Source</th><th className="px-3 py-2 text-[10px] text-zinc-500 uppercase font-semibold">Type</th><th className="px-3 py-2 text-[10px] text-zinc-500 uppercase font-semibold text-right">Views</th><th className="px-3 py-2 text-[10px] text-zinc-500 uppercase font-semibold text-right">Submits</th><th className="px-3 py-2 text-[10px] text-zinc-500 uppercase font-semibold text-right">CVR</th></tr></thead><tbody>{filteredAnalytics.campaignPerformance.map((c:any) => (<tr key={c.campaign} className="border-b border-zinc-800/40 hover:bg-zinc-800/20"><td className="px-3 py-2.5 text-sm text-white max-w-[200px] truncate" title={c.campaign}>{c.campaign}</td><td className="px-3 py-2.5 text-xs text-zinc-400">{c.source}</td><td className="px-3 py-2.5">{c.isPaid ? <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30 font-bold">PAID</span> : <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold">ORG</span>}</td><td className="px-3 py-2.5 text-sm text-zinc-400 text-right font-mono">{c.views}</td><td className="px-3 py-2.5 text-sm text-emerald-400 text-right font-mono font-bold">{c.submits}</td><td className="px-3 py-2.5 text-right"><span className={`text-sm font-bold font-mono ${Number(c.cvr) > 5 ? 'text-emerald-400' : Number(c.cvr) > 0 ? 'text-amber-400' : 'text-zinc-500'}`}>{c.cvr}%</span></td></tr>))}</tbody></table></div></div>)}
-                
+
+                {/* Campaign Performance */}
+                {filteredAnalytics?.campaignPerformance?.length > 0 && (
+                  <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-6">
+                    <div className="flex items-center gap-2 mb-4"><span className="text-base">🎯</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Campaign Performance</h3></div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead><tr className="border-b border-zinc-800/80">
+                          <th className="px-3 py-2 text-[10px] text-zinc-500 uppercase font-semibold">Campaign</th>
+                          <th className="px-3 py-2 text-[10px] text-zinc-500 uppercase font-semibold">Source</th>
+                          <th className="px-3 py-2 text-[10px] text-zinc-500 uppercase font-semibold">Type</th>
+                          <th className="px-3 py-2 text-[10px] text-zinc-500 uppercase font-semibold text-right">Views</th>
+                          <th className="px-3 py-2 text-[10px] text-zinc-500 uppercase font-semibold text-right">Submits</th>
+                          <th className="px-3 py-2 text-[10px] text-zinc-500 uppercase font-semibold text-right">CVR</th>
+                        </tr></thead>
+                        <tbody>
+                          {filteredAnalytics.campaignPerformance.map((c:any) => (
+                            <tr key={c.campaign} className="border-b border-zinc-800/40 hover:bg-zinc-800/20">
+                              <td className="px-3 py-2.5 text-sm text-white max-w-[200px] truncate" title={c.campaign}>{c.campaign}</td>
+                              <td className="px-3 py-2.5 text-xs text-zinc-400">{c.source}</td>
+                              <td className="px-3 py-2.5">{c.isPaid ? <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30 font-bold">PAID</span> : <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold">ORG</span>}</td>
+                              <td className="px-3 py-2.5 text-sm text-zinc-400 text-right font-mono">{c.views}</td>
+                              <td className="px-3 py-2.5 text-sm text-emerald-400 text-right font-mono font-bold">{c.submits}</td>
+                              <td className="px-3 py-2.5 text-right"><span className={`text-sm font-bold font-mono ${Number(c.cvr) > 5 ? 'text-emerald-400' : Number(c.cvr) > 0 ? 'text-amber-400' : 'text-zinc-500'}`}>{c.cvr}%</span></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
                 {/* Hourly */}
                 {filteredAnalytics?.hourly?.some((h: any) => h.count > 0) && (
                   <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5">
-                    <div className="flex items-center gap-2 mb-4"><span className="text-base">{'\u{1F552}'}</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Signup by Hour</h3></div>
+                    <div className="flex items-center gap-2 mb-4"><span className="text-base">🕒</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Signup by Hour</h3></div>
                     <div className="h-24 sm:h-32 flex items-end gap-[2px]">
                       {filteredAnalytics.hourly.map((h: any) => {
                         const maxH = Math.max(...filteredAnalytics.hourly.map((x: any) => x.count), 1);
@@ -1285,88 +1582,142 @@ const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.
 
                 {/* Period Breakdown */}
                 <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-6">
-                  <div className="flex items-center gap-2 mb-4"><span className="text-base">{'\u{1F4C5}'}</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Period Breakdown</h3></div>
+                  <div className="flex items-center gap-2 mb-4"><span className="text-base">📅</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Period Breakdown</h3></div>
 
                   {filteredAnalytics?.daily?.length > 0 && (
-                    <div className="mb-6"><p className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-2">Daily</p>
-                      <div className="overflow-x-auto max-h-60 overflow-y-auto"><table className="w-full text-left"><thead className="sticky top-0 bg-zinc-900"><tr className="border-b border-zinc-800/80">
-                        <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Date</th>
-                        <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">Views</th>
-                        <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">CTA</th>
-                        <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">Submits</th>
-                      </tr></thead><tbody>
-                        {[...filteredAnalytics.daily].reverse().map((d: any) => (
-                          <tr key={d.date} className="border-b border-zinc-800/30 hover:bg-zinc-800/20">
-                            <td className="px-3 py-1.5 text-xs text-zinc-300 font-mono">{d.date}</td>
-                            <td className="px-3 py-1.5 text-xs text-zinc-400 text-right font-mono">{d.page_view || 0}</td>
-                            <td className="px-3 py-1.5 text-xs text-zinc-400 text-right font-mono">{d.step1_cta_click || 0}</td>
-                            <td className="px-3 py-1.5 text-xs text-emerald-400 text-right font-mono font-bold">{d.step4_submit || 0}</td>
-                          </tr>
-                        ))}
-                      </tbody></table></div>
+                    <div className="mb-6">
+                      <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-2">Daily</p>
+                      <div className="overflow-x-auto max-h-60 overflow-y-auto">
+                        <table className="w-full text-left">
+                          <thead className="sticky top-0 bg-zinc-900"><tr className="border-b border-zinc-800/80">
+                            <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Date</th>
+                            <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">Views</th>
+                            <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">CTA</th>
+                            <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">Submits</th>
+                          </tr></thead>
+                          <tbody>
+                            {[...filteredAnalytics.daily].reverse().map((d: any) => (
+                              <tr key={d.date} className="border-b border-zinc-800/30 hover:bg-zinc-800/20">
+                                <td className="px-3 py-1.5 text-xs text-zinc-300 font-mono">{d.date}</td>
+                                <td className="px-3 py-1.5 text-xs text-zinc-400 text-right font-mono">{d.page_view || 0}</td>
+                                <td className="px-3 py-1.5 text-xs text-zinc-400 text-right font-mono">{d.step1_cta_click || 0}</td>
+                                <td className="px-3 py-1.5 text-xs text-emerald-400 text-right font-mono font-bold">{d.step4_submit || 0}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   )}
 
                   {filteredAnalytics?.weekly?.length > 0 && (
-                    <div className="mb-6"><p className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-2">Weekly</p>
-                      <div className="overflow-x-auto"><table className="w-full text-left"><thead><tr className="border-b border-zinc-800/80">
-                        <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Week</th>
-                        <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">Views</th>
-                        <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">Submits</th>
-                        <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">CVR</th>
-                      </tr></thead><tbody>
-                        {[...filteredAnalytics.weekly].reverse().map((w: any) => (
-                          <tr key={w.week} className="border-b border-zinc-800/30 hover:bg-zinc-800/20">
-                            <td className="px-3 py-1.5 text-xs text-zinc-300 font-mono">{w.week}</td>
-                            <td className="px-3 py-1.5 text-xs text-zinc-400 text-right font-mono">{w.views}</td>
-                            <td className="px-3 py-1.5 text-xs text-emerald-400 text-right font-mono font-bold">{w.submits}</td>
-                            <td className="px-3 py-1.5 text-xs text-purple-400 text-right font-mono">{w.views > 0 ? ((w.submits / w.views) * 100).toFixed(1) : '0'}%</td>
-                          </tr>
-                        ))}
-                      </tbody></table></div>
+                    <div className="mb-6">
+                      <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-2">Weekly</p>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                          <thead><tr className="border-b border-zinc-800/80">
+                            <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Week</th>
+                            <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">Views</th>
+                            <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">Submits</th>
+                            <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">CVR</th>
+                          </tr></thead>
+                          <tbody>
+                            {[...filteredAnalytics.weekly].reverse().map((w: any) => (
+                              <tr key={w.week} className="border-b border-zinc-800/30 hover:bg-zinc-800/20">
+                                <td className="px-3 py-1.5 text-xs text-zinc-300 font-mono">{w.week}</td>
+                                <td className="px-3 py-1.5 text-xs text-zinc-400 text-right font-mono">{w.views}</td>
+                                <td className="px-3 py-1.5 text-xs text-emerald-400 text-right font-mono font-bold">{w.submits}</td>
+                                <td className="px-3 py-1.5 text-xs text-purple-400 text-right font-mono">{w.views > 0 ? ((w.submits / w.views) * 100).toFixed(1) : '0'}%</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   )}
 
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {filteredAnalytics?.weekday && (
-                      <div><p className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-2">By Weekday</p>
-                        <div className="space-y-1">{filteredAnalytics.weekday.map((wd: any) => {
-                          const mv = Math.max(...filteredAnalytics.weekday.map((x: any) => x.views), 1);
-                          return (<div key={wd.day} className="flex items-center gap-2"><span className="text-[10px] text-zinc-400 w-8 text-right font-mono">{wd.day}</span><div className="flex-1 h-5 bg-zinc-800/50 rounded-md overflow-hidden relative"><div className="h-full rounded-md bg-sky-500/70 transition-all" style={{width:`${mv>0?Math.max((wd.views/mv)*100,wd.views>0?2:0):0}%`}} /><span className="absolute inset-0 flex items-center px-2 text-[10px] text-white font-medium">{wd.views}v / {wd.submits}s</span></div></div>);
-                        })}</div>
+                      <div>
+                        <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-2">By Weekday</p>
+                        <div className="space-y-1">
+                          {filteredAnalytics.weekday.map((wd: any) => {
+                            const mv = Math.max(...filteredAnalytics.weekday.map((x: any) => x.views), 1);
+                            return (
+                              <div key={wd.day} className="flex items-center gap-2">
+                                <span className="text-[10px] text-zinc-400 w-8 text-right font-mono">{wd.day}</span>
+                                <div className="flex-1 h-5 bg-zinc-800/50 rounded-md overflow-hidden relative">
+                                  <div className="h-full rounded-md bg-sky-500/70 transition-all" style={{width:`${mv>0?Math.max((wd.views/mv)*100,wd.views>0?2:0):0}%`}} />
+                                  <span className="absolute inset-0 flex items-center px-2 text-[10px] text-white font-medium">{wd.views}v / {wd.submits}s</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
                     {filteredAnalytics?.monthly?.length > 0 && (
-                      <div><p className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-2">By Month</p>
-                        <div className="space-y-1">{filteredAnalytics.monthly.map((m: any) => {
-                          const mv = Math.max(...filteredAnalytics.monthly.map((x: any) => x.views), 1);
-                          return (<div key={m.month} className="flex items-center gap-2"><span className="text-[10px] text-zinc-400 w-16 text-right font-mono">{m.month}</span><div className="flex-1 h-5 bg-zinc-800/50 rounded-md overflow-hidden relative"><div className="h-full rounded-md bg-amber-500/70 transition-all" style={{width:`${mv>0?Math.max((m.views/mv)*100,m.views>0?2:0):0}%`}} /><span className="absolute inset-0 flex items-center px-2 text-[10px] text-white font-medium">{m.views}v / {m.submits}s</span></div></div>);
-                        })}</div>
+                      <div>
+                        <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-2">By Month</p>
+                        <div className="space-y-1">
+                          {filteredAnalytics.monthly.map((m: any) => {
+                            const mv = Math.max(...filteredAnalytics.monthly.map((x: any) => x.views), 1);
+                            return (
+                              <div key={m.month} className="flex items-center gap-2">
+                                <span className="text-[10px] text-zinc-400 w-16 text-right font-mono">{m.month}</span>
+                                <div className="flex-1 h-5 bg-zinc-800/50 rounded-md overflow-hidden relative">
+                                  <div className="h-full rounded-md bg-amber-500/70 transition-all" style={{width:`${mv>0?Math.max((m.views/mv)*100,m.views>0?2:0):0}%`}} />
+                                  <span className="absolute inset-0 flex items-center px-2 text-[10px] text-white font-medium">{m.views}v / {m.submits}s</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Segment & Reason */}
+                {/* Segment & Reason Distribution */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
                   {filteredAnalytics?.segmentDistribution && Object.keys(filteredAnalytics.segmentDistribution).length > 0 && (
                     <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5">
-                      <div className="flex items-center gap-2 mb-3"><span className="text-base">{'\u{1F4CA}'}</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Segment Split (Events)</h3></div>
-                      <div className="space-y-2">{Object.entries(filteredAnalytics.segmentDistribution).sort((a:any,b:any) => b[1]-a[1]).map(([seg, count]:any) => {
-                        const total = Object.values(filteredAnalytics.segmentDistribution).reduce((s:any,v:any) => s+v, 0) as number;
-                        const sn: Record<string,string> = {A:'Switcher',B:'Skeptic',C:'Newbie'};
-                        const sc: Record<string,string> = {A:'bg-emerald-500',B:'bg-amber-500',C:'bg-sky-500'};
-                        return (<div key={seg} className="flex items-center gap-2"><span className="text-xs text-zinc-400 w-16 text-right">{sn[seg]||seg}</span><div className="flex-1 h-5 bg-zinc-800/50 rounded-md overflow-hidden relative"><div className={`h-full rounded-md ${sc[seg]||'bg-zinc-500'}`} style={{width:`${total>0?Math.max((count/total)*100,2):0}%`}} /><span className="absolute inset-0 flex items-center px-2 text-[10px] text-white font-medium">{count} ({total>0?((count/total)*100).toFixed(0):0}%)</span></div></div>);
-                      })}</div>
+                      <div className="flex items-center gap-2 mb-3"><span className="text-base">📊</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Segment Split (Events)</h3></div>
+                      <div className="space-y-2">
+                        {Object.entries(filteredAnalytics.segmentDistribution).sort((a:any,b:any) => b[1]-a[1]).map(([seg, count]:any) => {
+                          const total = Object.values(filteredAnalytics.segmentDistribution).reduce((s:any,v:any) => s+v, 0) as number;
+                          const sn: Record<string,string> = {A:'Switcher',B:'Skeptic',C:'Newbie'};
+                          const sc: Record<string,string> = {A:'bg-emerald-500',B:'bg-amber-500',C:'bg-sky-500'};
+                          return (
+                            <div key={seg} className="flex items-center gap-2">
+                              <span className="text-xs text-zinc-400 w-16 text-right">{sn[seg]||seg}</span>
+                              <div className="flex-1 h-5 bg-zinc-800/50 rounded-md overflow-hidden relative">
+                                <div className={`h-full rounded-md ${sc[seg]||'bg-zinc-500'}`} style={{width:`${total>0?Math.max((count/total)*100,2):0}%`}} />
+                                <span className="absolute inset-0 flex items-center px-2 text-[10px] text-white font-medium">{count} ({total>0?((count/total)*100).toFixed(0):0}%)</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                   {filteredAnalytics?.reasonDistribution && Object.keys(filteredAnalytics.reasonDistribution).length > 0 && (
                     <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5">
-                      <div className="flex items-center gap-2 mb-3"><span className="text-base">{'\u{1F50D}'}</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Pain Points (Seg A)</h3></div>
-                      <div className="space-y-2">{Object.entries(filteredAnalytics.reasonDistribution).sort((a:any,b:any) => b[1]-a[1]).map(([reason, count]:any) => {
-                        const total = Object.values(filteredAnalytics.reasonDistribution).reduce((s:any,v:any) => s+v, 0) as number;
-                        return (<div key={reason} className="flex items-center gap-2"><span className="text-xs text-zinc-400 w-20 text-right capitalize">{reason}</span><div className="flex-1 h-5 bg-zinc-800/50 rounded-md overflow-hidden relative"><div className="h-full rounded-md bg-emerald-500" style={{width:`${total>0?Math.max((count/total)*100,2):0}%`}} /><span className="absolute inset-0 flex items-center px-2 text-[10px] text-white font-medium">{count} ({total>0?((count/total)*100).toFixed(0):0}%)</span></div></div>);
-                      })}</div>
+                      <div className="flex items-center gap-2 mb-3"><span className="text-base">🔍</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Pain Points (Seg A)</h3></div>
+                      <div className="space-y-2">
+                        {Object.entries(filteredAnalytics.reasonDistribution).sort((a:any,b:any) => b[1]-a[1]).map(([reason, count]:any) => {
+                          const total = Object.values(filteredAnalytics.reasonDistribution).reduce((s:any,v:any) => s+v, 0) as number;
+                          return (
+                            <div key={reason} className="flex items-center gap-2">
+                              <span className="text-xs text-zinc-400 w-20 text-right capitalize">{reason}</span>
+                              <div className="flex-1 h-5 bg-zinc-800/50 rounded-md overflow-hidden relative">
+                                <div className="h-full rounded-md bg-emerald-500" style={{width:`${total>0?Math.max((count/total)*100,2):0}%`}} />
+                                <span className="absolute inset-0 flex items-center px-2 text-[10px] text-white font-medium">{count} ({total>0?((count/total)*100).toFixed(0):0}%)</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>
