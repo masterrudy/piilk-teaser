@@ -588,17 +588,42 @@ export default function DashboardPage() {
     return {...analyticsData,funnel,daily:filteredDaily,weekly,weekday,monthly,utmPerformance,platformPerformance,campaignPerformance,paidVsOrganic,hourly,segmentDistribution:segDist,reasonDistribution:reasonDist,totalVisitors:uvVisitors.size,totalSessions:uvSessions.size};
   }, [analyticsData, analyticsPeriod, analyticsDateFrom, analyticsDateTo, trafficFilter, variant]);
 
-  /* ─── Today analytics helper ─── */
+  /* ─── Today analytics helper (paid/organic 분리 포함) ─── */
   const todayAnalytics = useMemo(() => {
-    if (!analyticsData?.rawEvents) return { visitors: 0, sessions: 0, submits: 0, cvr: '—' };
+    if (!analyticsData?.rawEvents) return {
+      visitors: 0, sessions: 0, submits: 0, cvr: '—',
+      paid: { visitors: 0, views: 0, submits: 0, cvr: '—' },
+      organic: { visitors: 0, views: 0, submits: 0, cvr: '—' },
+    };
     const todayStr = getNYCDate(0);
     const evts = analyticsData.rawEvents.filter((ev: any) => ev.d === todayStr);
+
+    // 전체
     const visitors = new Set(evts.map((ev: any) => ev.v || ev.s).filter(Boolean)).size;
     const sessions = new Set(evts.map((ev: any) => ev.s).filter(Boolean)).size;
     const views = new Set(evts.filter((ev: any) => ev.n === 'page_view').map((ev: any) => ev.s)).size;
     const submits = new Set(evts.filter((ev: any) => ev.n === 'step4_submit').map((ev: any) => ev.s)).size;
     const cvr = views > 0 ? `${((submits / views) * 100).toFixed(1)}%` : '—';
-    return { visitors, sessions, submits, cvr };
+
+    // Paid
+    const pEvts = evts.filter((ev: any) => ev.um === 'paid');
+    const pVisitors = new Set(pEvts.map((ev: any) => ev.v || ev.s).filter(Boolean)).size;
+    const pViews = new Set(pEvts.filter((ev: any) => ev.n === 'page_view').map((ev: any) => ev.s)).size;
+    const pSubmits = new Set(pEvts.filter((ev: any) => ev.n === 'step4_submit').map((ev: any) => ev.s)).size;
+    const pCvr = pViews > 0 ? `${((pSubmits / pViews) * 100).toFixed(1)}%` : '—';
+
+    // Organic
+    const oEvts = evts.filter((ev: any) => ev.um !== 'paid');
+    const oVisitors = new Set(oEvts.map((ev: any) => ev.v || ev.s).filter(Boolean)).size;
+    const oViews = new Set(oEvts.filter((ev: any) => ev.n === 'page_view').map((ev: any) => ev.s)).size;
+    const oSubmits = new Set(oEvts.filter((ev: any) => ev.n === 'step4_submit').map((ev: any) => ev.s)).size;
+    const oCvr = oViews > 0 ? `${((oSubmits / oViews) * 100).toFixed(1)}%` : '—';
+
+    return {
+      visitors, sessions, submits, cvr,
+      paid:    { visitors: pVisitors, views: pViews,  submits: pSubmits, cvr: pCvr },
+      organic: { visitors: oVisitors, views: oViews,  submits: oSubmits, cvr: oCvr },
+    };
   }, [analyticsData]);
 
   const segColor = (s?: string) => {
@@ -621,7 +646,7 @@ export default function DashboardPage() {
       return t ? t.name : type || 'afterfeel_quiz';
     }
     switch(s) {
-      case 'A': return 'Switcher';
+      case 'A': return 'Hot Leads';
       case 'B': return 'Skeptic';
       case 'C': return 'Newbie';
       default:  return s||'—';
@@ -959,7 +984,7 @@ export default function DashboardPage() {
                     <div className="flex items-start justify-between mb-4 sm:mb-6">
                       <div>
                         <div className="flex items-center gap-2 mb-1"><span className="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-emerald-500 rounded-full animate-pulse" /><p className="text-[10px] sm:text-xs text-emerald-400 uppercase tracking-widest font-bold">Segment A</p></div>
-                        <h2 className="text-lg sm:text-xl font-bold text-white">Switchers</h2>
+                        <h2 className="text-lg sm:text-xl font-bold text-white">Hot Leads</h2>
                         <p className="text-zinc-500 text-[10px] sm:text-xs">Yes - Core Target</p>
                       </div>
                       <div className="text-right">
@@ -1062,60 +1087,81 @@ export default function DashboardPage() {
                 );
               }
 
-              // ✅ Main Teaser: Seg A 오늘 신규 + 오늘 Visitors + 오늘 CVR
+              // ✅ Main Teaser: Hot Leads 오늘 신규 + Visitors(Paid/Organic) + CVR(Paid/Organic)
               const todayA = currentParticipants.filter(p => isToday(p) && p.segment === 'A').length;
+              // ✅ Total = 현재 variant + 반대 variant Supabase 합산
+              const combinedTotal = currentParticipants.length + (variant === 'main' ? supabaseTotals.type : supabaseTotals.main);
+              const combinedTodayAll = currentParticipants.filter(isToday).length;
               const totalA = currentParticipants.filter(p => p.segment === 'A').length;
 
               return (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-                  {/* Total 강조 카드 */}
+                  {/* Total 강조 카드 — Main+QuizType Supabase 합산 */}
                   <div className="relative bg-gradient-to-br from-zinc-800/80 to-zinc-900 border-2 border-zinc-600 rounded-xl p-3 sm:p-4 overflow-hidden">
                     <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 rounded-full blur-xl pointer-events-none" />
                     <p className="text-[9px] sm:text-[10px] text-zinc-400 uppercase tracking-widest mb-0.5 font-bold">Total</p>
-                    <p className="text-2xl sm:text-3xl font-black text-white">{currentParticipants.length}</p>
-                    <div className="flex gap-1.5 mt-1.5">
-                      <span className="text-[9px] text-purple-400 font-semibold bg-purple-500/10 px-1.5 py-0.5 rounded">K {kTotal}</span>
-                      <span className="text-[9px] text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded">S {sTotal}</span>
+                    <p className="text-2xl sm:text-3xl font-black text-white">{combinedTotal.toLocaleString()}</p>
+                    <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                      <span className="text-[9px] text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded" title="Main Teaser">🏠 {currentParticipants.length}</span>
+                      <span className="text-[9px] text-purple-400 font-semibold bg-purple-500/10 px-1.5 py-0.5 rounded" title="Quiz Type">🧩 {variant === 'main' ? supabaseTotals.type : supabaseTotals.main}</span>
                     </div>
-                    <p className="text-[9px] text-emerald-400 font-bold mt-1">+{currentParticipants.filter(isToday).length} today</p>
+                    <p className="text-[9px] text-emerald-400 font-bold mt-1">+{combinedTodayAll} today</p>
                   </div>
 
-                  {/* Seg A — 오늘 신규 */}
+                  {/* Hot Leads (Seg A) — 오늘 신규 */}
                   <div className="bg-emerald-950/30 border border-emerald-900/30 rounded-xl p-3 sm:p-4">
                     <div className="flex items-center justify-between mb-0.5">
-                      <p className="text-[10px] sm:text-xs text-emerald-500 uppercase tracking-widest font-bold">Seg A</p>
+                      <p className="text-[10px] sm:text-xs text-emerald-500 uppercase tracking-widest font-bold">Hot Leads</p>
                       <span className="text-[8px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-bold">TODAY</span>
                     </div>
                     <p className="text-2xl sm:text-3xl font-black text-emerald-400">{todayA}</p>
                     <p className="text-[9px] text-zinc-500 mt-1">Total <span className="text-zinc-400 font-semibold">{totalA}</span></p>
                   </div>
 
-                  {/* ✅ 오늘 Visitors (Analytics 데이터) */}
+                  {/* ✅ Visitors — Paid / Organic 분리 */}
                   <div className="bg-sky-950/30 border border-sky-900/30 rounded-xl p-3 sm:p-4">
-                    <div className="flex items-center justify-between mb-0.5">
+                    <div className="flex items-center justify-between mb-1.5">
                       <p className="text-[10px] sm:text-xs text-sky-400 uppercase tracking-widest font-bold">Visitors</p>
                       <span className="text-[8px] bg-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded font-bold">TODAY</span>
                     </div>
-                    <p className="text-2xl sm:text-3xl font-black text-sky-400">
-                      {analyticsData ? todayAnalytics.visitors : '—'}
-                    </p>
-                    <p className="text-[9px] text-zinc-500 mt-1">
-                      Sessions <span className="text-zinc-400 font-semibold">{analyticsData ? todayAnalytics.sessions : '—'}</span>
-                    </p>
+                    {analyticsData ? (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="flex items-center gap-1 text-[9px] text-red-400 font-semibold"><span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />Paid</span>
+                          <span className="text-sm font-black text-white">{todayAnalytics.paid.visitors}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="flex items-center gap-1 text-[9px] text-emerald-400 font-semibold"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />Organic</span>
+                          <span className="text-sm font-black text-white">{todayAnalytics.organic.visitors}</span>
+                        </div>
+                        <p className="text-[9px] text-zinc-600 pt-0.5 border-t border-zinc-800">Total <span className="text-zinc-400 font-semibold">{todayAnalytics.visitors}</span></p>
+                      </div>
+                    ) : (
+                      <p className="text-2xl font-black text-zinc-600">—</p>
+                    )}
                   </div>
 
-                  {/* ✅ 오늘 CVR + Submits (Analytics 데이터) */}
+                  {/* ✅ CVR — Paid / Organic 분리 */}
                   <div className="bg-purple-950/30 border border-purple-900/30 rounded-xl p-3 sm:p-4">
-                    <div className="flex items-center justify-between mb-0.5">
+                    <div className="flex items-center justify-between mb-1.5">
                       <p className="text-[10px] sm:text-xs text-purple-400 uppercase tracking-widest font-bold">CVR</p>
                       <span className="text-[8px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded font-bold">TODAY</span>
                     </div>
-                    <p className="text-2xl sm:text-3xl font-black text-purple-400">
-                      {analyticsData ? todayAnalytics.cvr : '—'}
-                    </p>
-                    <p className="text-[9px] text-zinc-500 mt-1">
-                      Submits <span className="text-emerald-400 font-semibold">{analyticsData ? todayAnalytics.submits : '—'}</span>
-                    </p>
+                    {analyticsData ? (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="flex items-center gap-1 text-[9px] text-red-400 font-semibold"><span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />Paid</span>
+                          <span className="text-sm font-black text-amber-400">{todayAnalytics.paid.cvr}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="flex items-center gap-1 text-[9px] text-emerald-400 font-semibold"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />Organic</span>
+                          <span className="text-sm font-black text-amber-400">{todayAnalytics.organic.cvr}</span>
+                        </div>
+                        <p className="text-[9px] text-zinc-600 pt-0.5 border-t border-zinc-800">Submits <span className="text-emerald-400 font-semibold">{todayAnalytics.submits}</span></p>
+                      </div>
+                    ) : (
+                      <p className="text-2xl font-black text-zinc-600">—</p>
+                    )}
                   </div>
                 </div>
               );
@@ -1139,7 +1185,7 @@ export default function DashboardPage() {
                   </>
                 ) : (
                   <>
-                    <option value="A">A - Switchers</option>
+                    <option value="A">A - Hot Leads</option>
                     <option value="B">B - Skeptics</option>
                     <option value="C">C - Newbies</option>
                   </>
@@ -1686,7 +1732,7 @@ export default function DashboardPage() {
                       <div className="space-y-2">
                         {Object.entries(filteredAnalytics.segmentDistribution).sort((a:any,b:any) => b[1]-a[1]).map(([seg, count]:any) => {
                           const total = Object.values(filteredAnalytics.segmentDistribution).reduce((s:any,v:any) => s+v, 0) as number;
-                          const sn: Record<string,string> = {A:'Switcher',B:'Skeptic',C:'Newbie'};
+                          const sn: Record<string,string> = {A:'Hot Leads',B:'Skeptic',C:'Newbie'};
                           const sc: Record<string,string> = {A:'bg-emerald-500',B:'bg-amber-500',C:'bg-sky-500'};
                           return (
                             <div key={seg} className="flex items-center gap-2">
