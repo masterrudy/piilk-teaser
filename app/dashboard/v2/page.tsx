@@ -1119,48 +1119,58 @@ export default function DashboardPage() {
                   </div>
 
                   {/* ✅ Visitors — Paid / Organic 분리 */}
-                  <div className="bg-sky-950/30 border border-sky-900/30 rounded-xl p-3 sm:p-4">
-                    <div className="flex items-center justify-between mb-1.5">
+                  <div className="bg-sky-950/30 border border-sky-900/30 rounded-xl p-3 sm:p-5">
+                    <div className="flex items-center justify-between mb-3">
                       <p className="text-[10px] sm:text-xs text-sky-400 uppercase tracking-widest font-bold">Visitors</p>
                       <span className="text-[8px] bg-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded font-bold">TODAY</span>
                     </div>
                     {analyticsData ? (
-                      <div className="space-y-1">
+                      <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="flex items-center gap-1 text-[9px] text-red-400 font-semibold"><span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />Paid</span>
-                          <span className="text-sm font-black text-white">{todayAnalytics.paid.visitors}</span>
+                          <span className="flex items-center gap-1.5 text-xs text-red-400 font-bold"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Paid</span>
+                          <span className="text-2xl sm:text-3xl font-black text-white">{todayAnalytics.paid.visitors}</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="flex items-center gap-1 text-[9px] text-emerald-400 font-semibold"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />Organic</span>
-                          <span className="text-sm font-black text-white">{todayAnalytics.organic.visitors}</span>
+                          <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-bold"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />Organic</span>
+                          <span className="text-2xl sm:text-3xl font-black text-white">{todayAnalytics.organic.visitors}</span>
                         </div>
-                        <p className="text-[9px] text-zinc-600 pt-0.5 border-t border-zinc-800">Total <span className="text-zinc-400 font-semibold">{todayAnalytics.visitors}</span></p>
+                        <div className="flex items-center justify-between pt-1.5 border-t border-zinc-800">
+                          <p className="text-[10px] text-zinc-500 font-semibold">Total</p>
+                          <p className="text-base font-black text-zinc-300">{todayAnalytics.visitors}</p>
+                        </div>
                       </div>
                     ) : (
-                      <p className="text-2xl font-black text-zinc-600">—</p>
+                      <p className="text-3xl font-black text-zinc-600">—</p>
                     )}
                   </div>
 
-                  {/* ✅ CVR — Paid / Organic 분리 */}
-                  <div className="bg-purple-950/30 border border-purple-900/30 rounded-xl p-3 sm:p-4">
-                    <div className="flex items-center justify-between mb-1.5">
+                  {/* ✅ CVR — Paid / Organic 분리 + 평균 */}
+                  <div className="bg-purple-950/30 border border-purple-900/30 rounded-xl p-3 sm:p-5">
+                    <div className="flex items-center justify-between mb-3">
                       <p className="text-[10px] sm:text-xs text-purple-400 uppercase tracking-widest font-bold">CVR</p>
                       <span className="text-[8px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded font-bold">TODAY</span>
                     </div>
                     {analyticsData ? (
-                      <div className="space-y-1">
+                      <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="flex items-center gap-1 text-[9px] text-red-400 font-semibold"><span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />Paid</span>
-                          <span className="text-sm font-black text-amber-400">{todayAnalytics.paid.cvr}</span>
+                          <span className="flex items-center gap-1.5 text-xs text-red-400 font-bold"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Paid</span>
+                          <span className="text-2xl sm:text-3xl font-black text-amber-400">{todayAnalytics.paid.cvr}</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="flex items-center gap-1 text-[9px] text-emerald-400 font-semibold"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />Organic</span>
-                          <span className="text-sm font-black text-amber-400">{todayAnalytics.organic.cvr}</span>
+                          <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-bold"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />Organic</span>
+                          <span className="text-2xl sm:text-3xl font-black text-amber-400">{todayAnalytics.organic.cvr}</span>
                         </div>
-                        <p className="text-[9px] text-zinc-600 pt-0.5 border-t border-zinc-800">Submits <span className="text-emerald-400 font-semibold">{todayAnalytics.submits}</span></p>
+                        <div className="flex items-center justify-between pt-1.5 border-t border-zinc-800">
+                          <p className="text-[10px] text-zinc-500 font-semibold">Avg CVR</p>
+                          <p className="text-base font-black text-purple-300">{todayAnalytics.cvr}</p>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] text-zinc-500 font-semibold">Submits</p>
+                          <p className="text-base font-black text-emerald-400">{todayAnalytics.submits}</p>
+                        </div>
                       </div>
                     ) : (
-                      <p className="text-2xl font-black text-zinc-600">—</p>
+                      <p className="text-3xl font-black text-zinc-600">—</p>
                     )}
                   </div>
                 </div>
