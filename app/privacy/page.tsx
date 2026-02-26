@@ -89,7 +89,7 @@ export default function PrivacyPolicy() {
           <p>
             For any privacy-related requests or questions, please contact us at:<br />
             <a href="mailto:piilk@armoredfresh.com" className="privacy-email">piilk@armoredfresh.com</a><br />
-            Armored Fresh Inc., 154 W 14TH STREET, 2ND FLOOR, NEW YORK, NY, 10011
+            Armored Fresh Inc., 154 W 14th Street, 2nd Floor, New York, NY 10011
           </p>
         </section>
       </div>
