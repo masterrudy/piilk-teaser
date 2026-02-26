@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 // 📁 파일 위치: app/api/dashboard/stats/route.ts
 // 📌 역할: 대시보드 통계 API (variant 필터 지원 + All 합산)
-// 📌 사용법: /api/dashboard/stats?variant=all (전체 합산)
+// 📌 사용법: /api/dashboard/stats?variant=all (전체 합산, 이메일 unique)
 //           /api/dashboard/stats?variant=type (퀴즈만)
 //           /api/dashboard/stats?variant=main (메인 티저만)
 // ═══════════════════════════════════════════════════════════
@@ -37,50 +37,121 @@ const KLAVIYO_SEGMENTS_TYPE: Record<string, string> = {
 };
 
 // ✅ List IDs
-const KLAVIYO_LIST_ID_MAIN = 'Xzi3yL';  // PIILK Waitlist - Teaser V1
+const KLAVIYO_LIST_ID_MAIN = 'Xzi3yL'; // PIILK Waitlist - Teaser V1
 const KLAVIYO_LIST_ID_TYPE = process.env.KLAVIYO_LIST_ID_TYPE;
+
+// ✅ Pagination guard (대규모에서도 오차/중단 최소화)
+const PAGE_SIZE = 100;
+const MAX_PAGES = 500; // 100 * 500 = 50,000 profiles까지 카운트/수집 가능 (필요 시 증설)
+
+/* ─────────────────────────── Klaviyo Helpers ─────────────────────────── */
+
+function klaviyoHeaders() {
+  return {
+    Authorization: `Klaviyo-API-Key ${KLAVIYO_API_KEY}`,
+    Accept: 'application/json',
+    revision: '2024-02-15',
+  } as const;
+}
 
 async function getKlaviyoSegmentCount(segmentId: string): Promise<number> {
   if (!KLAVIYO_API_KEY) return 0;
+
   let count = 0;
-  let url: string | null = `https://a.klaviyo.com/api/segments/${segmentId}/profiles/?page[size]=100`;
+  let url: string | null = `https://a.klaviyo.com/api/segments/${segmentId}/profiles/?page[size]=${PAGE_SIZE}`;
   let pageCount = 0;
-  while (url && pageCount < 20) {
+
+  while (url && pageCount < MAX_PAGES) {
     try {
-      const res: Response = await fetch(url, {
-        headers: { Authorization: `Klaviyo-API-Key ${KLAVIYO_API_KEY}`, Accept: 'application/json', revision: '2024-02-15' },
+      const res = await fetch(url, {
+        headers: klaviyoHeaders(),
         cache: 'no-store',
       });
       if (!res.ok) break;
-      const json = await res.json();
+
+      const json: any = await res.json();
       count += (json.data || []).length;
+
       url = json.links?.next || null;
       pageCount++;
-    } catch { break; }
+    } catch {
+      break;
+    }
   }
+
   return count;
 }
 
 async function getKlaviyoListCount(listId: string): Promise<number> {
   if (!KLAVIYO_API_KEY || !listId) return 0;
+
   let count = 0;
-  let url: string | null = `https://a.klaviyo.com/api/lists/${listId}/profiles/?page[size]=100`;
+  let url: string | null = `https://a.klaviyo.com/api/lists/${listId}/profiles/?page[size]=${PAGE_SIZE}`;
   let pageCount = 0;
-  while (url && pageCount < 20) {
+
+  while (url && pageCount < MAX_PAGES) {
     try {
-      const res: Response = await fetch(url, {
-        headers: { Authorization: `Klaviyo-API-Key ${KLAVIYO_API_KEY}`, Accept: 'application/json', revision: '2024-02-15' },
+      const res = await fetch(url, {
+        headers: klaviyoHeaders(),
         cache: 'no-store',
       });
       if (!res.ok) break;
-      const json = await res.json();
+
+      const json: any = await res.json();
       count += (json.data || []).length;
+
       url = json.links?.next || null;
       pageCount++;
-    } catch { break; }
+    } catch {
+      break;
+    }
   }
+
   return count;
 }
+
+/**
+ * ✅ All(합산)에서 “이메일 unique” total을 얻기 위해,
+ * 리스트 프로필들을 이메일로 수집(Set)합니다.
+ */
+async function getKlaviyoListEmailSet(listId: string): Promise<Set<string>> {
+  const emails = new Set<string>();
+  if (!KLAVIYO_API_KEY || !listId) return emails;
+
+  let url: string | null = `https://a.klaviyo.com/api/lists/${listId}/profiles/?page[size]=${PAGE_SIZE}`;
+  let pageCount = 0;
+
+  while (url && pageCount < MAX_PAGES) {
+    try {
+      const res = await fetch(url, {
+        headers: klaviyoHeaders(),
+        cache: 'no-store',
+      });
+      if (!res.ok) break;
+
+      const json: any = await res.json();
+      const data: any[] = json.data || [];
+
+      for (const item of data) {
+        // Klaviyo profile payload: data[].attributes.email 형태가 일반적
+        const email =
+          (item?.attributes?.email as string | undefined) ||
+          (item?.email as string | undefined);
+
+        if (email) emails.add(email.toLowerCase().trim());
+      }
+
+      url = json.links?.next || null;
+      pageCount++;
+    } catch {
+      break;
+    }
+  }
+
+  return emails;
+}
+
+/* ─────────────────────────── Supabase Stats ─────────────────────────── */
 
 // ✅ Supabase 데이터 조회 - variant 필터 지원 (all 추가)
 async function getSupabaseStats(variant?: string) {
@@ -107,6 +178,7 @@ async function getSupabaseStats(variant?: string) {
     const seen = new Set<string>();
     filtered = filtered.filter(s => {
       const email = (s.email || '').toLowerCase();
+      if (!email) return false;
       if (seen.has(email)) return false;
       seen.add(email);
       return true;
@@ -125,7 +197,11 @@ async function getSupabaseStats(variant?: string) {
     return {
       total,
       segments: {
-        A: { total: brick, percentage: total > 0 ? ((brick / total) * 100).toFixed(1) : '0', breakdown: { residue: brick, aftertaste: chalk, heaviness: zombie, habit: gambler, lapsed: 0 } },
+        A: {
+          total: brick,
+          percentage: total > 0 ? ((brick / total) * 100).toFixed(1) : '0',
+          breakdown: { residue: brick, aftertaste: chalk, heaviness: zombie, habit: gambler, lapsed: 0 },
+        },
         B: { total: chalk, percentage: total > 0 ? ((chalk / total) * 100).toFixed(1) : '0' },
         C: { total: zombie + gambler, percentage: total > 0 ? (((zombie + gambler) / total) * 100).toFixed(1) : '0' },
       },
@@ -165,8 +241,14 @@ async function getSupabaseStats(variant?: string) {
   return result;
 }
 
-// ✅ Main Teaser Klaviyo — 리스트 기반 total + 세그먼트 breakdown
-async function getKlaviyoStats() {
+/* ─────────────────────────── Klaviyo Stats ─────────────────────────── */
+
+/**
+ * ✅ Main Teaser Klaviyo
+ * - total은 "항상" listTotal (세그먼트 합산/중복으로 total 왜곡 방지)
+ * - 세그먼트/브레이크다운은 참고지표 (중복 가능)
+ */
+async function getKlaviyoStatsMain() {
   const [listTotal, aTotal, aResidue, aAftertaste, aHeaviness, aHabit, aLapsed, bTotal, cTotal] =
     await Promise.all([
       getKlaviyoListCount(KLAVIYO_LIST_ID_MAIN),
@@ -180,9 +262,7 @@ async function getKlaviyoStats() {
       getKlaviyoSegmentCount(KLAVIYO_SEGMENTS.C_TOTAL),
     ]);
 
-  // ✅ total은 리스트 기반 (세그먼트 누락 방지)
-  const segmentSum = aTotal + bTotal + cTotal;
-  const total = Math.max(listTotal, segmentSum);
+  const total = listTotal; // ✅ source of truth
 
   return {
     total,
@@ -198,7 +278,10 @@ async function getKlaviyoStats() {
   };
 }
 
-// ✅ Quiz Type Klaviyo
+/**
+ * ✅ Quiz Type Klaviyo
+ * - total은 "항상" type listTotal (list가 없으면 segmentSum을 fallback)
+ */
 async function getKlaviyoStatsType() {
   const [brick, chalk, zombie, gambler, listTotal] =
     await Promise.all([
@@ -210,12 +293,16 @@ async function getKlaviyoStatsType() {
     ]);
 
   const segmentSum = brick + chalk + zombie + gambler;
-  const total = Math.max(listTotal, segmentSum);
+  const total = listTotal > 0 ? listTotal : segmentSum; // ✅ list 우선, 없을 때만 fallback
 
   return {
     total,
     segments: {
-      A: { total: brick, percentage: total > 0 ? ((brick / total) * 100).toFixed(1) : '0', breakdown: { residue: brick, aftertaste: chalk, heaviness: zombie, habit: gambler, lapsed: 0 } },
+      A: {
+        total: brick,
+        percentage: total > 0 ? ((brick / total) * 100).toFixed(1) : '0',
+        breakdown: { residue: brick, aftertaste: chalk, heaviness: zombie, habit: gambler, lapsed: 0 },
+      },
       B: { total: chalk, percentage: total > 0 ? ((chalk / total) * 100).toFixed(1) : '0' },
       C: { total: zombie + gambler, percentage: total > 0 ? (((zombie + gambler) / total) * 100).toFixed(1) : '0' },
     },
@@ -223,33 +310,43 @@ async function getKlaviyoStatsType() {
   };
 }
 
-// ✅ All Klaviyo — 리스트 기반 합산 (이메일 중복 제거)
+/**
+ * ✅ All Klaviyo
+ * - total은 main/type 리스트 프로필을 이메일로 수집하여 unique(Set)로 계산
+ * - segments는 main 기준(기존 정책 유지)
+ * - quizBreakdown은 type 기준
+ * - mainTotal/typeTotal은 "각 listTotal"을 별도 제공
+ */
 async function getKlaviyoStatsAll() {
-  const [mainStats, typeStats] = await Promise.all([
-    getKlaviyoStats(),
+  const [mainStats, typeStats, mainEmailSet, typeEmailSet] = await Promise.all([
+    getKlaviyoStatsMain(),
     getKlaviyoStatsType(),
+    getKlaviyoListEmailSet(KLAVIYO_LIST_ID_MAIN),
+    KLAVIYO_LIST_ID_TYPE ? getKlaviyoListEmailSet(KLAVIYO_LIST_ID_TYPE) : Promise.resolve(new Set<string>()),
   ]);
 
-  // ✅ 이메일 중복 가능하므로 리스트에서 직접 합산
-  // 정확한 중복 제거는 participants API에서 처리, 여기서는 단순 합산
-  const total = mainStats.total + typeStats.total;
+  const allEmails = new Set<string>();
+  for (const e of mainEmailSet) allEmails.add(e);
+  for (const e of typeEmailSet) allEmails.add(e);
+
+  const totalUnique = allEmails.size;
 
   return {
-    total,
-    // Main segments 기준으로 표시 (All 뷰에서는 Main 세그먼트가 primary)
-    segments: mainStats.segments,
+    total: totalUnique,            // ✅ unique total
+    segments: mainStats.segments,  // ✅ main 세그먼트를 primary로
     quizBreakdown: typeStats.quizBreakdown,
-    // ✅ 개별 variant 수치도 포함
-    mainTotal: mainStats.total,
+    mainTotal: mainStats.total,    // ✅ 각 listTotal
     typeTotal: typeStats.total,
   };
 }
+
+/* ─────────────────────────── Route ─────────────────────────── */
 
 export async function GET(request: NextRequest) {
   try {
     const variant = request.nextUrl.searchParams.get('variant') || 'all';
 
-    let supabaseData, klaviyoData;
+    let supabaseData: any, klaviyoData: any;
 
     if (variant === 'all') {
       [supabaseData, klaviyoData] = await Promise.all([
@@ -262,9 +359,10 @@ export async function GET(request: NextRequest) {
         getKlaviyoStatsType(),
       ]);
     } else {
+      // default main
       [supabaseData, klaviyoData] = await Promise.all([
         getSupabaseStats('main'),
-        getKlaviyoStats(),
+        getKlaviyoStatsMain(),
       ]);
     }
 
