@@ -1154,11 +1154,17 @@ export default function DashboardPage() {
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="flex items-center gap-1.5 text-xs text-red-400 font-bold"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Paid</span>
-                          <span className="text-2xl sm:text-3xl font-black text-amber-400">{todayAnalytics.paid.cvr}</span>
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-[11px] text-zinc-500 font-mono">{todayAnalytics.paid.submits}/{todayAnalytics.paid.views}</span>
+                            <span className="text-2xl sm:text-3xl font-black text-amber-400">{todayAnalytics.paid.cvr}</span>
+                          </div>
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-bold"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />Organic</span>
-                          <span className="text-2xl sm:text-3xl font-black text-amber-400">{todayAnalytics.organic.cvr}</span>
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-[11px] text-zinc-500 font-mono">{todayAnalytics.organic.submits}/{todayAnalytics.organic.views}</span>
+                            <span className="text-2xl sm:text-3xl font-black text-amber-400">{todayAnalytics.organic.cvr}</span>
+                          </div>
                         </div>
                         <div className="flex items-center justify-between pt-1.5 border-t border-zinc-800">
                           <p className="text-[10px] text-zinc-500 font-semibold">Avg CVR <span className="text-zinc-600">(Submits {todayAnalytics.submits})</span></p>
