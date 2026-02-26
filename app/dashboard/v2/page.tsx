@@ -641,9 +641,7 @@ export default function DashboardPage() {
     if (!analyticsData?.rawEvents) return empty;
     const todayStr = getNYCDate(0);
 
-    // ✅ 핵심: page_view 기준 유니크 visitor만 카운트 (하루 1회)
-    // step1: 오늘 page_view 이벤트에서 유니크 visitor 추출
-    // Paid 우선: 한 visitor가 Paid/Organic 이벤트 둘 다 있으면 → Paid로 분류 (1명, 중복 없음)
+    // ✅ 방문자: page_view 기준 유니크 visitor (IP 제외 + 하루 1회)
     const uniqueVisitorMap = new Map<string, boolean>(); // vid → isPaid
     analyticsData.rawEvents
       .filter((ev: any) => ev.d === todayStr && ev.n === 'page_view')
@@ -655,32 +653,25 @@ export default function DashboardPage() {
         if (!uniqueVisitorMap.has(vid)) {
           uniqueVisitorMap.set(vid, isPaid);
         } else if (isPaid && !uniqueVisitorMap.get(vid)) {
-          uniqueVisitorMap.set(vid, true); // Paid 우선 덮어쓰기
+          uniqueVisitorMap.set(vid, true);
         }
-        // 이미 Paid면 그대로 유지 (Organic으로 덮어쓰지 않음)
       });
 
-    // step2: submit은 별도로 — visitor가 submit했는지 확인
-    const submitVids = new Set<string>(
-      analyticsData.rawEvents
-        .filter((ev: any) => ev.d === todayStr && ev.n === 'step4_submit')
-        .filter((ev: any) => !(ev.ip_address && excludeIPs.some((ip: string) => ev.ip_address.startsWith(ip))))
-        .map((ev: any) => (ev.v || ev.s) as string)
-        .filter(Boolean)
-    );
-
     const visitors = uniqueVisitorMap.size;
-    const submits  = submitVids.size;
-    const cvr = visitors > 0 ? `${((submits / visitors) * 100).toFixed(1)}%` : '—';
-
-    // step3: Paid/Organic 분리 (완전 배타적 - 합산 = 전체)
     const paidVids = new Set<string>(Array.from(uniqueVisitorMap.entries()).filter(([,isPaid]) => isPaid).map(([id]) => id));
     const orgVids  = new Set<string>(Array.from(uniqueVisitorMap.entries()).filter(([,isPaid]) => !isPaid).map(([id]) => id));
-
     const pVisitors = paidVids.size;
     const oVisitors = orgVids.size;
-    const pSubmits  = Array.from(submitVids).filter(id => paidVids.has(id)).length;
-    const oSubmits  = Array.from(submitVids).filter(id => orgVids.has(id)).length;
+
+    // ✅ submits: Supabase participants 기준 (리얼 데이터)
+    const todayParticipants = currentParticipants.filter((p: any) => p.signed_up_at?.slice(0, 10) === todayStr);
+    const submits = todayParticipants.length;
+
+    // Paid/Organic 분리 — participant의 utm_medium 기준
+    const pSubmits = todayParticipants.filter((p: any) => p.utm_medium === 'paid').length;
+    const oSubmits = todayParticipants.filter((p: any) => p.utm_medium !== 'paid').length;
+
+    const cvr  = visitors  > 0 ? `${((submits  / visitors)  * 100).toFixed(1)}%` : '—';
     const pCvr = pVisitors > 0 ? `${((pSubmits / pVisitors) * 100).toFixed(1)}%` : '—';
     const oCvr = oVisitors > 0 ? `${((oSubmits / oVisitors) * 100).toFixed(1)}%` : '—';
 
@@ -695,7 +686,7 @@ export default function DashboardPage() {
       paid:    { visitors: pVisitors, submits: pSubmits, cvr: pCvr },
       organic: { visitors: oVisitors, submits: oSubmits, cvr: oCvr },
     };
-  }, [analyticsData, excludeIPs]);
+  }, [analyticsData, excludeIPs, currentParticipants]);
 
   const segColor = (s?: string) => {
     if (variant === 'type') {
