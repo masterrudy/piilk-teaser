@@ -1,26 +1,22 @@
 // ═══════════════════════════════════════════════════════════
-// 📁 파일 위치: app/page.tsx — V6.0
+// 📁 파일 위치: app/page.tsx — V6.1
 // 📌 역할: / 메인 티저 페이지
 // 📌 API: /api/subscribe (Supabase + Klaviyo 서버사이드) — 변경 없음
 // 📌 트래킹: lib/ga4-main.ts — 이벤트명 유지
 //
-// ✅ V5.0 → V6.0 변경사항:
-//   1. 이메일 CTA를 first viewport(hero)로 이동
-//   2. "You know that feeling" 삭제 → 원인 1줄로 시작
-//   3. hero-closer + claims + benefit → Section 2로 이동
-//   4. Section 2 = 제품사진 배경 + 확신 + CTA 반복
-//   5. 모바일 spacing 최적화 (CTA가 first viewport 안에 보이도록)
-//   6. scroll-arrow 삭제 (first viewport에서 전환하므로 불필요)
-//   7. small-height 디바이스 대응 추가
+// ✅ V6.0 → V6.1 변경사항:
+//   1. 동의 문구 추가 — Hero CTA + Section 2 CTA 양쪽
+//   2. Privacy Policy 링크 추가 (/privacy)
+//   3. already_exists → 에러 스타일 대신 info 스타일로 분리
+//   4. emailInfo state 추가 (파란/초록 계열 안내 메시지)
 //
 // 🔒 변경하지 않은 것들:
 //   - import { track } from "@/lib/ga4-main" → 동일
 //   - fetch("/api/subscribe") → 동일
-//   - body: { email, segment: "A", answers: { sub_reason: "direct" }, source: "main_teaser", tracking } → 동일
-//   - 모든 track 이벤트명 → 동일 (pageView, emailFocus, emailSubmit, stickyClick, scrollDepth)
-//   - Image src="/pillk-logo.png" → 동일
-//   - 에러 메시지 → 동일
-//   - Footer → 동일
+//   - body 파라미터 → 동일
+//   - 모든 track 이벤트명 → 동일
+//   - Image src → 동일
+//   - CSS 전체 → 동의 문구 스타일만 추가
 // ═══════════════════════════════════════════════════════════
 
 "use client";
@@ -49,6 +45,16 @@ function getTrackingData() {
   };
 }
 
+// ─── 공통 동의 문구 컴포넌트 (모듈 레벨) ───
+function ConsentText() {
+  return (
+    <p className="consent-text">
+      By signing up, you agree to receive marketing emails from PIILK.{" "}
+      <a href="/privacy" className="consent-link">Privacy Policy</a>
+    </p>
+  );
+}
+
 // ═══════════════════════════════════════════
 // MAIN COMPONENT
 // ═══════════════════════════════════════════
@@ -57,6 +63,7 @@ export default function MainTeaser() {
   const [emailSent, setEmailSent] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailError, setEmailError] = useState("");
+  const [emailInfo, setEmailInfo] = useState(""); // ✅ V6.1: already_exists용 info 메시지
   const [stickyVisible, setStickyVisible] = useState(false);
   const [stickyHidden, setStickyHidden] = useState(false);
 
@@ -116,15 +123,18 @@ export default function MainTeaser() {
 
       if (!email) {
         setEmailError("Please enter your email.");
+        setEmailInfo("");
         return;
       }
       if (!email.includes("@") || !email.includes(".")) {
         setEmailError("Please enter a valid email address.");
+        setEmailInfo("");
         return;
       }
 
       setEmailLoading(true);
       setEmailError("");
+      setEmailInfo("");
 
       try {
         const res = await fetch("/api/subscribe", {
@@ -149,12 +159,16 @@ export default function MainTeaser() {
           return;
         }
 
+        // ✅ V6.1: already_exists → info 스타일 (에러 아님)
+        if (data?.error === "already_exists") {
+          setEmailInfo("You're already on the list! 🎉");
+          return;
+        }
+
         setEmailError(
           data?.error === "invalid_email"
             ? "Please enter a valid email address."
-            : data?.error === "already_exists"
-              ? "You're already on the list! 🎉"
-              : "Something went wrong. Please try again."
+            : "Something went wrong. Please try again."
         );
       } catch {
         setEmailError("Connection error. Please try again.");
@@ -256,9 +270,12 @@ export default function MainTeaser() {
                 </button>
               </div>
               {emailError && <p className="email-error">{emailError}</p>}
+              {emailInfo && <p className="email-info">{emailInfo}</p>}
               <p className="hero-incentive">
                 First 1,000 &middot; $2.99 credit &middot; Free shipping
               </p>
+              {/* ✅ V6.1: 동의 문구 */}
+              <ConsentText />
             </div>
           ) : (
             <div className="hero-success anim-up d3">
@@ -331,6 +348,9 @@ export default function MainTeaser() {
                   </button>
                 </div>
                 {emailError && <p className="email-error">{emailError}</p>}
+                {emailInfo && <p className="email-info">{emailInfo}</p>}
+                {/* ✅ V6.1: 동의 문구 */}
+                <ConsentText />
               </div>
             ) : (
               <div className="success-msg">
@@ -395,13 +415,16 @@ export default function MainTeaser() {
         <div className="footer-brand">PIILK&trade; BY ARMORED FRESH</div>
         <div className="footer-desc">RTD High Protein Shake.</div>
         <div className="footer-copy">&copy; 2026 Armoredfresh Inc.</div>
+        <div className="footer-copy">
+          Armored Fresh Inc. · 228 Park Ave S, PMB 93918, New York, NY 10003
+        </div>
       </footer>
     </>
   );
 }
 
 // ═══════════════════════════════════════════
-// CSS — V6.0
+// CSS — V6.1
 // ═══════════════════════════════════════════
 
 const CSS = `
@@ -425,7 +448,6 @@ body { background: #000; color: #f4f4f5; font-family: -apple-system, BlinkMacSys
 
 /* ════════════════════════════════════════════
    HERO — ALL IN FIRST VIEWPORT
-   원인 1줄 → 선언 → 비교 → 이메일 CTA
    ════════════════════════════════════════════ */
 .section--hero {
   min-height: 100vh; min-height: 100svh;
@@ -438,14 +460,12 @@ body { background: #000; color: #f4f4f5; font-family: -apple-system, BlinkMacSys
   margin-top: -8vh;
 }
 
-/* ① 원인 지목 */
 .emotion-cause {
   font-size: 15px; color: #D4FF2B; line-height: 1.6;
   font-weight: 600;
   margin-bottom: 16px;
 }
 
-/* ② 헤드라인 */
 .hero-headline {
   font-size: clamp(26px, 7vw, 38px); font-weight: 800;
   color: #fff; line-height: 1.2; letter-spacing: -0.03em;
@@ -454,7 +474,6 @@ body { background: #000; color: #f4f4f5; font-family: -apple-system, BlinkMacSys
 .hero-headline .accent { color: #D4FF2B; }
 .headline-line { display: block; }
 
-/* ③ 비교 카드 */
 .compare-cards {
   display: flex; gap: 12px; width: 100%; max-width: 400px;
   margin-bottom: 20px;
@@ -486,7 +505,6 @@ body { background: #000; color: #f4f4f5; font-family: -apple-system, BlinkMacSys
 .ccard-num.accent { color: #D4FF2B; }
 .ccard-sub { font-size: 11px; color: #52525b; }
 
-/* ④ Hero 이메일 CTA */
 .hero-email { width: 100%; }
 .hero-email .email-row { margin: 0 auto 6px; }
 .hero-incentive {
@@ -499,8 +517,20 @@ body { background: #000; color: #f4f4f5; font-family: -apple-system, BlinkMacSys
   padding: 12px 0;
 }
 
+/* ✅ V6.1: 동의 문구 */
+.consent-text {
+  font-size: 11px; color: #3f3f46; line-height: 1.5;
+  margin-top: 8px; text-align: center;
+}
+.consent-link {
+  color: #52525b; text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.15s;
+}
+.consent-link:hover { color: #71717a; }
+
 /* ════════════════════════════════════════════
-   PRODUCT SECTION — 제품사진 + 확신 + CTA 반복
+   PRODUCT SECTION
    ════════════════════════════════════════════ */
 .section--product {
   position: relative;
@@ -589,6 +619,11 @@ body { background: #000; color: #f4f4f5; font-family: -apple-system, BlinkMacSys
   font-size: 13px; color: #ef4444;
   margin: 4px auto 8px; max-width: 340px;
 }
+/* ✅ V6.1: info 메시지 (already_exists) */
+.email-info {
+  font-size: 13px; color: #D4FF2B;
+  margin: 4px auto 8px; max-width: 340px;
+}
 
 /* ── Success ── */
 .success-msg {
@@ -672,7 +707,7 @@ body { background: #000; color: #f4f4f5; font-family: -apple-system, BlinkMacSys
 .footer-copy { font-size: 11px; color: #3f3f46; margin-top: 4px; }
 
 /* ════════════════════════════════════════════
-   MOBILE — CTA가 first viewport 안에 보이도록
+   MOBILE
    ════════════════════════════════════════════ */
 @media (max-width: 480px) {
   .section--hero {
@@ -694,6 +729,7 @@ body { background: #000; color: #f4f4f5; font-family: -apple-system, BlinkMacSys
   .hero-email .email-input { padding: 10px 12px; font-size: 16px; border-radius: 10px; }
   .hero-email .email-btn { padding: 10px 16px; font-size: 13px; border-radius: 10px; }
   .hero-incentive { font-size: 11px; margin-top: 5px; }
+  .consent-text { font-size: 10px; margin-top: 6px; }
   .email-row { gap: 6px; }
   .email-input { padding: 10px 12px; font-size: 16px; border-radius: 10px; }
   .email-btn { padding: 10px 16px; font-size: 13px; border-radius: 10px; }
@@ -714,6 +750,7 @@ body { background: #000; color: #f4f4f5; font-family: -apple-system, BlinkMacSys
   .email-offer { font-size: 12px; }
   .email-tagline { font-size: 12px; margin-bottom: 14px; }
   .email-error { font-size: 11px; }
+  .email-info { font-size: 11px; }
   .sticky-bar { padding: 10px 16px; gap: 10px; }
   .sticky-text { font-size: 12px; }
   .sticky-btn { padding: 10px 16px; font-size: 13px; }
@@ -723,7 +760,7 @@ body { background: #000; color: #f4f4f5; font-family: -apple-system, BlinkMacSys
   .footer-copy { font-size: 10px; }
 }
 
-/* ── Small height devices — CTA 잘리지 않도록 ── */
+/* ── Small height devices ── */
 @media (max-height: 680px) and (max-width: 480px) {
   .section--hero { padding-top: 40px; padding-bottom: 20px; }
   .hero-content { margin-top: -4vh; }
