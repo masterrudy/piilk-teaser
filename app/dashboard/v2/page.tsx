@@ -1557,7 +1557,7 @@ export default function DashboardPage() {
                     <span className="text-[10px] text-zinc-500">빠른 추가:</span>
                     <button onClick={() => {
                       const botIPs = ['209.38','64.23','137.184','146.190','24.199','134.199','147.182','165.225','143.110','176.3','172.56'];
-                      const newIPs = [...new Set([...excludeIPs, ...botIPs])];
+                      const newIPs = Array.from(new Set([...excludeIPs, ...botIPs]));
                       setExcludeIPs(newIPs);
                       localStorage.setItem('piilk_exclude_ips', JSON.stringify(newIPs));
                     }} className="text-[10px] bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded-full font-bold hover:bg-orange-500/30">
@@ -1572,7 +1572,7 @@ export default function DashboardPage() {
                         if (e.key === 'Enter' && excludeIPInput.trim()) {
                           // 줄바꿈/쉼표로 구분된 여러 IP 한번에 추가
                           const newEntries = excludeIPInput.split(/[\n,\s]+/).map(s => s.trim()).filter(Boolean);
-                          const newIPs = [...new Set([...excludeIPs, ...newEntries])];
+                          const newIPs = Array.from(new Set([...excludeIPs, ...newEntries]));
                           setExcludeIPs(newIPs);
                           localStorage.setItem('piilk_exclude_ips', JSON.stringify(newIPs));
                           setExcludeIPInput('');
@@ -1584,7 +1584,7 @@ export default function DashboardPage() {
                     <button onClick={() => {
                       if (!excludeIPInput.trim()) return;
                       const newEntries = excludeIPInput.split(/[\n,\s]+/).map((s: string) => s.trim()).filter(Boolean);
-                      const newIPs = [...new Set([...excludeIPs, ...newEntries])];
+                      const newIPs = Array.from(new Set([...excludeIPs, ...newEntries]));
                       setExcludeIPs(newIPs);
                       localStorage.setItem('piilk_exclude_ips', JSON.stringify(newIPs));
                       setExcludeIPInput('');
