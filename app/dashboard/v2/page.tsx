@@ -167,6 +167,8 @@ export default function DashboardPage() {
 
   // Participant list
   const [participants, setParticipants] = useState<{ klaviyo: Participant[]; supabase: Participant[] }>({ klaviyo: [], supabase: [] });
+  // ✅ 반대 variant 참가자 캐시 (통합 리스트용)
+  const [otherParticipants, setOtherParticipants] = useState<{ klaviyo: Participant[]; supabase: Participant[] }>({ klaviyo: [], supabase: [] });
   const [participantsLoading, setParticipantsLoading] = useState(false);
 
   // Filters
@@ -231,8 +233,8 @@ export default function DashboardPage() {
       const [kRes, sRes, sOtherRes, kOtherRes] = await Promise.all([
         fetch(`/api/dashboard/participants?source=klaviyo&variant=${variant}`),
         fetch(`/api/dashboard/participants?source=supabase&variant=${variant}`),
-        fetch(`/api/dashboard/participants?source=supabase&variant=${otherVariant}&limit=1`),
-        fetch(`/api/dashboard/participants?source=klaviyo&variant=${otherVariant}&limit=1`),
+        fetch(`/api/dashboard/participants?source=supabase&variant=${otherVariant}`),
+        fetch(`/api/dashboard/participants?source=klaviyo&variant=${otherVariant}`),
       ]);
       const kResult: ParticipantsResponse = await kRes.json();
       const sResult: ParticipantsResponse = await sRes.json();
@@ -251,6 +253,12 @@ export default function DashboardPage() {
       // 반대 variant total 캐싱 (깜빡임 원인 제거)
       if (sOtherResult.success) setSupabaseTotals(prev => ({ ...prev, [otherVariant]: sOtherResult.total }));
       if (kOtherResult.success) setKlaviyoTotals(prev => ({ ...prev, [otherVariant]: kOtherResult.total }));
+
+      // ✅ 반대 variant 전체 데이터도 저장 (통합 리스트용)
+      setOtherParticipants({
+        klaviyo: kOtherResult.success ? kOtherResult.data : [],
+        supabase: sOtherResult.success ? sOtherResult.data : [],
+      });
 
     } catch (err) { console.error(err); }
     finally { setParticipantsLoading(false); }
@@ -299,6 +307,20 @@ export default function DashboardPage() {
   }, [authenticated, fetchParticipants, fetchAnalytics, participants.klaviyo.length, participants.supabase.length]);
 
   const currentParticipants = activeSource === 'klaviyo' ? participants.klaviyo : participants.supabase;
+  const currentOtherParticipants = activeSource === 'klaviyo' ? otherParticipants.klaviyo : otherParticipants.supabase;
+
+  // ✅ 통합 리스트: 현재 variant + 반대 variant, 시간순 정렬, variant 태그 추가
+  const mergedParticipants = useMemo(() => {
+    const mainList = (variant === 'main' ? currentParticipants : currentOtherParticipants)
+      .map(p => ({ ...p, _variantTag: 'main' as const }));
+    const typeList = (variant === 'type' ? currentParticipants : currentOtherParticipants)
+      .map(p => ({ ...p, _variantTag: 'type' as const }));
+    return [...mainList, ...typeList].sort((a, b) => {
+      const aDate = a.signed_up_at || '';
+      const bDate = b.signed_up_at || '';
+      return bDate.localeCompare(aDate); // 최신순
+    });
+  }, [currentParticipants, currentOtherParticipants, variant]);
 
   /* ─── Today's signups (NYC timezone) ─── */
   const todaySignups = useMemo(() => {
@@ -387,7 +409,9 @@ export default function DashboardPage() {
   };
 
   const filteredParticipants = useMemo(() => {
-    let list = [...currentParticipants];
+    // Main Teaser 탭에서는 통합 리스트(Main+QuizType), Quiz Type 탭은 기존대로
+    const baseList = variant === 'main' ? mergedParticipants : currentParticipants.map(p => ({ ...p, _variantTag: 'type' as const }));
+    let list = [...baseList] as (Participant & { _variantTag?: 'main' | 'type' })[];
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(p => p.email?.toLowerCase().includes(q) || p.name?.toLowerCase().includes(q) || p.segment?.toLowerCase().includes(q) || p.sub_reason?.toLowerCase().includes(q) || p.country?.toLowerCase().includes(q) || p.city?.toLowerCase().includes(q) || p.ip_address?.includes(q));
@@ -406,15 +430,18 @@ export default function DashboardPage() {
     if (deviceFilter) list = list.filter(p => p.device_type === deviceFilter);
     if (dateFrom) list = list.filter(p => p.signed_up_at && p.signed_up_at.slice(0, 10) >= dateFrom);
     if (dateTo) list = list.filter(p => p.signed_up_at && p.signed_up_at.slice(0, 10) <= dateTo);
-    list.sort((a, b) => {
-      const aVal = (a[sortField] || '').toLowerCase();
-      const bVal = (b[sortField] || '').toLowerCase();
-      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
-      return 0;
-    });
+    // 기본 정렬: 시간순 (signed_up_at desc)
+    if (sortField === 'signed_up_at' || sortField === 'email' || sortField === 'segment' || sortField === 'country') {
+      list.sort((a, b) => {
+        const aVal = (a[sortField] || '').toLowerCase();
+        const bVal = (b[sortField] || '').toLowerCase();
+        if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
     return list;
-  }, [currentParticipants, searchQuery, segmentFilter, reasonFilter, domainFilter, countryFilter, cityFilter, deviceFilter, dateFrom, dateTo, sortField, sortDir, variant]);
+  }, [mergedParticipants, currentParticipants, searchQuery, segmentFilter, reasonFilter, domainFilter, countryFilter, cityFilter, deviceFilter, dateFrom, dateTo, sortField, sortDir, variant]);
 
   const handleSort = (field: typeof sortField) => {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -930,7 +957,7 @@ export default function DashboardPage() {
                   className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold border ${variant === 'main' ? 'bg-purple-900/50 text-purple-300 border-purple-700/40' : 'bg-emerald-900/50 text-emerald-300 border-emerald-700/40'}`}
                   title={`${oppositeVariant === 'main' ? 'Main Teaser' : 'Quiz Type'} Klaviyo`}
                 >
-                  {oppositeVariant === 'main' ? '🏠' : '🧩'} {oppKlaviyoTotal}
+                  {oppositeVariant === 'main' ? 'Main' : 'Quiz'} {oppKlaviyoTotal}
                 </span>
               )}
             </button>
@@ -944,7 +971,7 @@ export default function DashboardPage() {
                   className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold border ${variant === 'main' ? 'bg-purple-900/50 text-purple-300 border-purple-700/40' : 'bg-emerald-900/50 text-emerald-300 border-emerald-700/40'}`}
                   title={`${oppositeVariant === 'main' ? 'Main Teaser' : 'Quiz Type'} Supabase`}
                 >
-                  {oppositeVariant === 'main' ? '🏠' : '🧩'} {oppSupabaseTotal}
+                  {oppositeVariant === 'main' ? 'Main' : 'Quiz'} {oppSupabaseTotal}
                 </span>
               )}
             </button>
@@ -1131,21 +1158,12 @@ export default function DashboardPage() {
                       <p className="text-6xl sm:text-7xl font-black text-white leading-none">{combinedTotal.toLocaleString()}</p>
                       {!isCombined && <span className="text-[9px] text-zinc-600 animate-pulse">…</span>}
                     </div>
-                    <div className="flex items-center gap-3 mt-3">
+                    <div className="flex gap-1.5 mt-2 flex-wrap justify-center">
+                      <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded-full">Main {currentParticipants.length}</span>
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${otherTotal !== null ? 'text-purple-400 bg-purple-500/10' : 'text-zinc-600 bg-zinc-800/50'}`}>Quiz {otherTotal !== null ? otherTotal : '…'}</span>
+                    </div>
+                    <div className="flex items-center gap-3 mt-2">
                       <span className="text-lg sm:text-xl font-black text-emerald-400">+{combinedTodayAll} today</span>
-                      {(() => {
-                        const yStr = getNYCDate(-1);
-                        const yesterdayCount = currentParticipants.filter(p => p.signed_up_at?.slice(0,10) === yStr).length;
-                        if (yesterdayCount === 0) return null;
-                        const diff = combinedTodayAll - yesterdayCount;
-                        const pct = ((diff / yesterdayCount) * 100).toFixed(0);
-                        return (
-                          <span className="text-lg sm:text-xl font-black flex items-center gap-1">
-                            <span className={diff >= 0 ? 'text-sky-400' : 'text-red-400'}>{diff >= 0 ? '▲' : '▼'}{Math.abs(Number(pct))}%</span>
-                            <span className="text-zinc-500 text-sm font-medium">vs yesterday ({yesterdayCount})</span>
-                          </span>
-                        );
-                      })()}
                     </div>
                   </div>
 
@@ -1156,21 +1174,6 @@ export default function DashboardPage() {
                       <span className="text-[8px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-bold">TODAY</span>
                     </div>
                     <p className="text-6xl sm:text-7xl font-black text-emerald-400 leading-none">{todayA}</p>
-                    {(() => {
-                      const yStr = getNYCDate(-1);
-                      const yesterdayA = currentParticipants.filter(p => p.signed_up_at?.slice(0,10) === yStr && p.segment === 'A').length;
-                      if (yesterdayA === 0) return <p className="text-[10px] text-zinc-600 mt-2">no data yesterday</p>;
-                      const diff = todayA - yesterdayA;
-                      const pct = ((diff / yesterdayA) * 100).toFixed(0);
-                      return (
-                        <div className="mt-3 flex items-center gap-2">
-                          <span className={`text-lg sm:text-xl font-black ${diff >= 0 ? 'text-sky-400' : 'text-red-400'}`}>
-                            {diff >= 0 ? '▲' : '▼'}{Math.abs(Number(pct))}%
-                          </span>
-                          <span className="text-sm text-zinc-500 font-medium">vs yesterday ({yesterdayA})</span>
-                        </div>
-                      );
-                    })()}
                   </div>
 
                   {/* ✅ Visitors — Paid / Organic 분리 */}
@@ -1295,7 +1298,12 @@ export default function DashboardPage() {
             )}
 
             <div className="flex items-center justify-between">
-              <p className="text-zinc-500 text-xs sm:text-sm">{filteredParticipants.length === currentParticipants.length ? `${currentParticipants.length} participants` : `${filteredParticipants.length} of ${currentParticipants.length} participants`}</p>
+              <p className="text-zinc-500 text-xs sm:text-sm">
+                {filteredParticipants.length === (variant === 'main' ? mergedParticipants.length : currentParticipants.length)
+                  ? `${filteredParticipants.length} participants`
+                  : `${filteredParticipants.length} of ${variant === 'main' ? mergedParticipants.length : currentParticipants.length} participants`}
+                {variant === 'main' && <span className="text-zinc-600 ml-1">(Main {currentParticipants.length} + Quiz {currentOtherParticipants.length})</span>}
+              </p>
               <div className="flex items-center gap-2">
                 <p className={`text-xs px-2 py-0.5 rounded ${variant === 'main' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-purple-500/20 text-purple-400'}`}>{variant === 'main' ? 'Main' : 'Quiz'}</p>
                 <p className={`text-xs px-2 py-0.5 rounded ${activeSource === 'klaviyo' ? 'bg-purple-500/20 text-purple-400' : 'bg-emerald-500/20 text-emerald-400'}`}>{activeSource === 'klaviyo' ? 'Klaviyo' : 'Supabase'}</p>
@@ -1318,6 +1326,7 @@ export default function DashboardPage() {
                     <table className="w-full text-left">
                       <thead><tr className="border-b border-zinc-800/80 bg-zinc-900/60">
                         <th className="px-3 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold w-10">#</th>
+                        {variant === 'main' && <th className="px-2 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold w-16">LP</th>}
                         {[{f:'email' as const,l:'Email'},{f:'segment' as const,l:variant === 'type' ? 'Type' : 'Seg'},{f:null,l:'Reason'},{f:'country' as const,l:'Location'},{f:null,l:'Device'},{f:'signed_up_at' as const,l:'Date'}].map(col => (
                           <th key={col.l} className={`px-3 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold ${col.f ? 'cursor-pointer hover:text-zinc-300 select-none' : ''}`} onClick={() => col.f && handleSort(col.f)}>
                             <span className="flex items-center gap-1">{col.l}{col.f && sortField === col.f && <span className="text-white">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
@@ -1326,18 +1335,28 @@ export default function DashboardPage() {
                         <th className="px-3 py-3 w-10"></th>
                       </tr></thead>
                       <tbody>
-                        {filteredParticipants.map((p, i) => (
+                        {filteredParticipants.map((p, i) => {
+                          const vTag = (p as any)._variantTag as 'main' | 'type' | undefined;
+                          return (
                           <tr key={p.id || i} className="border-b border-zinc-800/40 hover:bg-zinc-800/30 transition-colors">
                             <td className="px-3 py-3 text-xs text-zinc-600 font-mono">{i + 1}</td>
+                            {variant === 'main' && (
+                              <td className="px-2 py-3">
+                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${vTag === 'main' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-purple-500/20 text-purple-400'}`}>
+                                  {vTag === 'main' ? 'Main' : 'Quiz'}
+                                </span>
+                              </td>
+                            )}
                             <td className="px-3 py-3 text-sm text-white font-medium max-w-[180px] truncate">{p.email}</td>
-                            <td className="px-3 py-3"><span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-md border ${segColor(variant === 'type' ? (p.afterfeel_type || p.sub_reason) : p.segment)}`}>{segLabel(p.segment, p)}</span></td>
+                            <td className="px-3 py-3"><span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-md border ${segColor(vTag === 'type' ? (p.afterfeel_type || p.sub_reason) : p.segment)}`}>{segLabel(p.segment, p)}</span></td>
                             <td className="px-3 py-3 text-xs text-zinc-400 max-w-[100px] truncate">{p.sub_reason || '—'}</td>
                             <td className="px-3 py-3 text-xs text-zinc-300 whitespace-nowrap">{p.city && p.country ? `${p.city}, ${p.country}` : p.country || '—'}</td>
                             <td className="px-3 py-3 text-sm whitespace-nowrap">{deviceIcon(p.device_type)}</td>
                             <td className="px-3 py-3 text-xs text-zinc-500 font-mono whitespace-nowrap">{fmtDate(p.signed_up_at)}</td>
                             <td className="px-3 py-3"><button onClick={() => setSelectedParticipant(p)} className="text-zinc-600 hover:text-white transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></button></td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -1345,15 +1364,21 @@ export default function DashboardPage() {
 
                 {/* Mobile Cards */}
                 <div className="sm:hidden space-y-2">
-                  {filteredParticipants.map((p, i) => (
+                  {filteredParticipants.map((p, i) => {
+                    const vTag = (p as any)._variantTag as 'main' | 'type' | undefined;
+                    return (
                     <div key={p.id || i} className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-3 space-y-2" onClick={() => setSelectedParticipant(p)}>
                       <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1"><p className="text-sm font-medium text-white truncate">{p.email}</p><div className="flex items-center gap-2 mt-0.5">{p.city && <span className="text-[10px] text-zinc-500">{p.city}, {p.country}</span>}{p.device_type && <span className="text-xs">{deviceIcon(p.device_type)}</span>}</div></div>
-                        <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-md border shrink-0 ${segColor(variant === 'type' ? (p.afterfeel_type || p.sub_reason) : p.segment)}`}>{segLabel(p.segment, p)}</span>
+                        <div className="min-w-0 flex-1 flex items-center gap-1.5">
+                          {variant === 'main' && <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${vTag === 'main' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-purple-500/20 text-purple-400'}`}>{vTag === 'main' ? 'Main' : 'Quiz'}</span>}
+                          <div className="min-w-0"><p className="text-sm font-medium text-white truncate">{p.email}</p><div className="flex items-center gap-2 mt-0.5">{p.city && <span className="text-[10px] text-zinc-500">{p.city}, {p.country}</span>}{p.device_type && <span className="text-xs">{deviceIcon(p.device_type)}</span>}</div></div>
+                        </div>
+                        <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-md border shrink-0 ${segColor(vTag === 'type' ? (p.afterfeel_type || p.sub_reason) : p.segment)}`}>{segLabel(p.segment, p)}</span>
                       </div>
                       <div className="flex items-center justify-between text-[10px]">{p.sub_reason && <span className="text-zinc-500 truncate mr-2">{p.sub_reason}</span>}<span className="text-zinc-600 font-mono whitespace-nowrap ml-auto">{fmtDate(p.signed_up_at)}</span></div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             )}
