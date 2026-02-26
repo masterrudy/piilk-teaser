@@ -716,6 +716,26 @@ export default function DashboardPage() {
   };
 
   const fmtShortDate = (d: string) => { const p=d.split('-'); return `${p[1]}/${p[2]}`; };
+
+  // ✅ 트래픽 소스 배지 헬퍼
+  const trafficSourceLabel = (p: Participant): { label: string; color: string } => {
+    const src = (p.utm_source || '').toLowerCase();
+    const med = (p.utm_medium || '').toLowerCase();
+    const ref = (p.referrer || '').toLowerCase();
+    if (med === 'paid' || src === 'meta' || src === 'facebook' || src === 'fb') {
+      // placement 구분
+      if (src === 'instagram' || ref.includes('instagram')) return { label: 'IG', color: 'bg-pink-500/20 text-pink-400 border-pink-500/30' };
+      return { label: 'Meta', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' };
+    }
+    if (src === 'instagram' || ref.includes('instagram.com')) return { label: 'IG', color: 'bg-pink-500/20 text-pink-400 border-pink-500/30' };
+    if (src === 'facebook' || ref.includes('facebook.com')) return { label: 'FB', color: 'bg-blue-600/20 text-blue-400 border-blue-600/30' };
+    if (src === 'google' || ref.includes('google.com')) return { label: 'Google', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' };
+    if (src === 'tiktok' || ref.includes('tiktok.com')) return { label: 'TikTok', color: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30' };
+    if (src === 'twitter' || src === 'x' || ref.includes('twitter.com') || ref.includes('x.com')) return { label: 'X', color: 'bg-zinc-500/20 text-zinc-300 border-zinc-500/30' };
+    if (src === 'email' || med === 'email') return { label: 'Email', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30' };
+    if (src) return { label: src, color: 'bg-zinc-700/30 text-zinc-400 border-zinc-600/30' };
+    return { label: 'Direct', color: 'bg-zinc-800/50 text-zinc-500 border-zinc-700/30' };
+  };
   const deviceIcon = (d?: string) => {
     switch(d) {
       case 'mobile':  return '📱';
@@ -1164,10 +1184,6 @@ export default function DashboardPage() {
                       <p className="text-6xl sm:text-7xl font-black text-white leading-none">{combinedTotal.toLocaleString()}</p>
                       {!isCombined && <span className="text-[9px] text-zinc-600 animate-pulse">…</span>}
                     </div>
-                    <div className="flex gap-1.5 mt-2 flex-wrap justify-center">
-                      <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded-full">Main {currentParticipants.length}</span>
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${otherTotal !== null ? 'text-purple-400 bg-purple-500/10' : 'text-zinc-600 bg-zinc-800/50'}`}>Quiz {otherTotal !== null ? otherTotal : '…'}</span>
-                    </div>
                     <div className="flex items-center gap-3 mt-2">
                       <span className="text-lg sm:text-xl font-black text-emerald-400">+{combinedTodayAll} today</span>
                     </div>
@@ -1346,7 +1362,7 @@ export default function DashboardPage() {
                       <thead><tr className="border-b border-zinc-800/80 bg-zinc-900/60">
                         <th className="px-3 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold w-10">#</th>
                         {variant === 'main' && <th className="px-2 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold w-16">LP</th>}
-                        {[{f:'email' as const,l:'Email'},{f:'segment' as const,l:variant === 'type' ? 'Type' : 'Seg'},{f:null,l:'Reason'},{f:'country' as const,l:'Location'},{f:null,l:'Device'},{f:'signed_up_at' as const,l:'Date'}].map(col => (
+                        {[{f:'email' as const,l:'Email'},{f:'segment' as const,l:variant === 'type' ? 'Type' : 'Seg'},{f:null,l:'Source'},{f:'country' as const,l:'Location'},{f:null,l:'Device'},{f:'signed_up_at' as const,l:'Date'}].map(col => (
                           <th key={col.l} className={`px-3 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold ${col.f ? 'cursor-pointer hover:text-zinc-300 select-none' : ''}`} onClick={() => col.f && handleSort(col.f)}>
                             <span className="flex items-center gap-1">{col.l}{col.f && sortField === col.f && <span className="text-white">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
                           </th>
@@ -1368,7 +1384,7 @@ export default function DashboardPage() {
                             )}
                             <td className="px-3 py-3 text-sm text-white font-medium max-w-[180px] truncate">{p.email}</td>
                             <td className="px-3 py-3"><span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-md border ${segColor(vTag === 'type' ? (p.afterfeel_type || p.sub_reason) : p.segment)}`}>{segLabel(p.segment, p)}</span></td>
-                            <td className="px-3 py-3 text-xs text-zinc-400 max-w-[100px] truncate">{p.sub_reason || '—'}</td>
+                            <td className="px-3 py-3 text-xs text-zinc-400 max-w-[100px] truncate">{(() => { const s = trafficSourceLabel(p); return <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-md border ${s.color}`}>{s.label}</span>; })()}</td>
                             <td className="px-3 py-3 text-xs text-zinc-300 whitespace-nowrap">{p.city && p.country ? `${p.city}, ${p.country}` : p.country || '—'}</td>
                             <td className="px-3 py-3 text-sm whitespace-nowrap">{deviceIcon(p.device_type)}</td>
                             <td className="px-3 py-3 text-xs text-zinc-500 font-mono whitespace-nowrap">{fmtDate(p.signed_up_at)}</td>
@@ -1394,7 +1410,7 @@ export default function DashboardPage() {
                         </div>
                         <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-md border shrink-0 ${segColor(vTag === 'type' ? (p.afterfeel_type || p.sub_reason) : p.segment)}`}>{segLabel(p.segment, p)}</span>
                       </div>
-                      <div className="flex items-center justify-between text-[10px]">{p.sub_reason && <span className="text-zinc-500 truncate mr-2">{p.sub_reason}</span>}<span className="text-zinc-600 font-mono whitespace-nowrap ml-auto">{fmtDate(p.signed_up_at)}</span></div>
+                      <div className="flex items-center justify-between text-[10px]">{(() => { const s = trafficSourceLabel(p); return <span className={`inline-flex items-center px-1.5 py-0.5 text-[9px] font-bold rounded border ${s.color}`}>{s.label}</span>; })()}<span className="text-zinc-600 font-mono whitespace-nowrap ml-auto">{fmtDate(p.signed_up_at)}</span></div>
                     </div>
                     );
                   })}
