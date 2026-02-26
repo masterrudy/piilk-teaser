@@ -624,16 +624,19 @@ export default function DashboardPage() {
       else if (ev.um === 'paid') visitorPaidMap.set(vid, true); // Paid 우선
     });
 
-    const paidVisitorIds  = new Set([...visitorPaidMap.entries()].filter(([,p]) => p).map(([id]) => id));
-    const orgVisitorIds   = new Set([...visitorPaidMap.entries()].filter(([,p]) => !p).map(([id]) => id));
+    const paidVisitorIds = new Set(
+      Array.from(visitorPaidMap.entries()).filter(([, p]) => p).map(([id]) => id)
+    );
+    const orgVisitorIds = new Set(
+      Array.from(visitorPaidMap.entries()).filter(([, p]) => !p).map(([id]) => id)
+    );
 
     const pVisitors = paidVisitorIds.size;
     const oVisitors = orgVisitorIds.size;
 
-    // submit도 visitor 기준 paid/organic 분류
     const submitVisitorIds = new Set(evts.filter((ev: any) => ev.n === 'step4_submit').map((ev: any) => ev.v || ev.s).filter(Boolean));
-    const pSubmits = [...submitVisitorIds].filter(id => paidVisitorIds.has(id)).length;
-    const oSubmits = [...submitVisitorIds].filter(id => orgVisitorIds.has(id)).length;
+    const pSubmits = Array.from(submitVisitorIds).filter(id => paidVisitorIds.has(id)).length;
+    const oSubmits = Array.from(submitVisitorIds).filter(id => orgVisitorIds.has(id)).length;
 
     const pCvr = pVisitors > 0 ? `${((pSubmits / pVisitors) * 100).toFixed(1)}%` : '—';
     const oCvr = oVisitors > 0 ? `${((oSubmits / oVisitors) * 100).toFixed(1)}%` : '—';
