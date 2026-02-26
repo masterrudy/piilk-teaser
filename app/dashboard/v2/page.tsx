@@ -1560,23 +1560,40 @@ export default function DashboardPage() {
                     <p className="text-xs font-bold text-white">🚫 제외 IP 관리 <span className="text-zinc-500 font-normal">(테스트/사무실 IP)</span></p>
                     {excludeIPs.length > 0 && <button onClick={() => { setExcludeIPs([]); localStorage.setItem('piilk_exclude_ips', '[]'); }} className="text-[10px] text-red-400 hover:text-red-300">전체 삭제</button>}
                   </div>
+
+                  {/* ✅ 봇 IP 원클릭 추가 */}
+                  <div className="flex flex-wrap gap-1.5 items-center">
+                    <span className="text-[10px] text-zinc-500">빠른 추가:</span>
+                    <button onClick={() => {
+                      const botIPs = ['209.38','64.23','137.184','146.190','24.199','134.199','147.182','165.225','143.110','176.3','172.56'];
+                      const newIPs = [...new Set([...excludeIPs, ...botIPs])];
+                      setExcludeIPs(newIPs);
+                      localStorage.setItem('piilk_exclude_ips', JSON.stringify(newIPs));
+                    }} className="text-[10px] bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded-full font-bold hover:bg-orange-500/30">
+                      🤖 DigitalOcean 봇 전체 ({['209.38','64.23','137.184','146.190','24.199','134.199','147.182','165.225','143.110','176.3','172.56'].filter(ip => !excludeIPs.includes(ip)).length}개 추가)
+                    </button>
+                  </div>
+
                   <div className="flex gap-2">
                     <input
                       type="text" value={excludeIPInput} onChange={e => setExcludeIPInput(e.target.value)}
                       onKeyDown={e => {
                         if (e.key === 'Enter' && excludeIPInput.trim()) {
-                          const newIPs = [...excludeIPs, excludeIPInput.trim()];
+                          // 줄바꿈/쉼표로 구분된 여러 IP 한번에 추가
+                          const newEntries = excludeIPInput.split(/[\n,\s]+/).map(s => s.trim()).filter(Boolean);
+                          const newIPs = [...new Set([...excludeIPs, ...newEntries])];
                           setExcludeIPs(newIPs);
                           localStorage.setItem('piilk_exclude_ips', JSON.stringify(newIPs));
                           setExcludeIPInput('');
                         }
                       }}
-                      placeholder="예: 123.456.789 또는 123.456 (앞부분만 입력 가능)"
+                      placeholder="예: 123.456 또는 여러 IP를 줄바꿈/쉼표로 입력"
                       className="flex-1 px-3 py-1.5 bg-zinc-800 border border-zinc-700 rounded-lg text-xs text-white focus:outline-none focus:border-zinc-500 placeholder-zinc-600"
                     />
                     <button onClick={() => {
                       if (!excludeIPInput.trim()) return;
-                      const newIPs = [...excludeIPs, excludeIPInput.trim()];
+                      const newEntries = excludeIPInput.split(/[\n,\s]+/).map((s: string) => s.trim()).filter(Boolean);
+                      const newIPs = [...new Set([...excludeIPs, ...newEntries])];
                       setExcludeIPs(newIPs);
                       localStorage.setItem('piilk_exclude_ips', JSON.stringify(newIPs));
                       setExcludeIPInput('');
@@ -1596,7 +1613,7 @@ export default function DashboardPage() {
                       ))}
                     </div>
                   )}
-                  <p className="text-[10px] text-zinc-600">부분 IP 입력 가능 (예: <span className="font-mono text-zinc-500">192.168</span> → 해당 대역 전체 제외) · 설정은 브라우저에 저장됩니다</p>
+                  <p className="text-[10px] text-zinc-600">부분 IP 입력 가능 (예: <span className="font-mono text-zinc-500">192.168</span> → 해당 대역 전체 제외) · 여러 IP 동시 입력 가능 · 설정은 브라우저에 저장됩니다</p>
                 </div>
               )}
             </div>
