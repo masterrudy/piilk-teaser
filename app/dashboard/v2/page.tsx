@@ -953,12 +953,15 @@ export default function DashboardPage() {
               📧 Klaviyo
               {klaviyoData && <span className="text-xs opacity-80">({klaviyoData.total})</span>}
               {oppKlaviyoTotal !== null && (
-                <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold border ${variant === 'main' ? 'bg-purple-900/50 text-purple-300 border-purple-700/40' : 'bg-emerald-900/50 text-emerald-300 border-emerald-700/40'}`}
-                  title={`${oppositeVariant === 'main' ? 'Main Teaser' : 'Quiz Type'} Klaviyo`}
-                >
-                  {oppositeVariant === 'main' ? 'Main' : 'Quiz'} {oppKlaviyoTotal}
-                </span>
+                <>
+                  <span className="text-xs opacity-40">+</span>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold border ${variant === 'main' ? 'bg-purple-900/50 text-purple-300 border-purple-700/40' : 'bg-emerald-900/50 text-emerald-300 border-emerald-700/40'}`}
+                    title={`${oppositeVariant === 'main' ? 'Main Teaser' : 'Quiz Type'} Klaviyo`}
+                  >
+                    {oppositeVariant === 'main' ? 'Main' : 'Quiz'} {oppKlaviyoTotal}
+                  </span>
+                </>
               )}
             </button>
 
@@ -967,12 +970,15 @@ export default function DashboardPage() {
               🗄️ Supabase
               {supabaseData && <span className="text-xs opacity-80">({supabaseData.total})</span>}
               {oppSupabaseTotal !== null && (
-                <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold border ${variant === 'main' ? 'bg-purple-900/50 text-purple-300 border-purple-700/40' : 'bg-emerald-900/50 text-emerald-300 border-emerald-700/40'}`}
-                  title={`${oppositeVariant === 'main' ? 'Main Teaser' : 'Quiz Type'} Supabase`}
-                >
-                  {oppositeVariant === 'main' ? 'Main' : 'Quiz'} {oppSupabaseTotal}
-                </span>
+                <>
+                  <span className="text-xs opacity-40">+</span>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold border ${variant === 'main' ? 'bg-purple-900/50 text-purple-300 border-purple-700/40' : 'bg-emerald-900/50 text-emerald-300 border-emerald-700/40'}`}
+                    title={`${oppositeVariant === 'main' ? 'Main Teaser' : 'Quiz Type'} Supabase`}
+                  >
+                    {oppositeVariant === 'main' ? 'Main' : 'Quiz'} {oppSupabaseTotal}
+                  </span>
+                </>
               )}
             </button>
           </div>
@@ -1174,6 +1180,19 @@ export default function DashboardPage() {
                       <span className="text-[8px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-bold">TODAY</span>
                     </div>
                     <p className="text-6xl sm:text-7xl font-black text-emerald-400 leading-none">{todayA}</p>
+                    {(() => {
+                      const yStr = getNYCDate(-1);
+                      const yesterdayA = currentParticipants.filter(p => p.signed_up_at?.slice(0,10) === yStr && p.segment === 'A').length;
+                      if (yesterdayA === 0) return null;
+                      const diff = todayA - yesterdayA;
+                      const pct = ((diff / yesterdayA) * 100).toFixed(0);
+                      return (
+                        <div className="mt-2 flex items-baseline gap-1.5">
+                          <span className={`text-base font-black ${diff >= 0 ? 'text-sky-400' : 'text-red-400'}`}>{diff >= 0 ? '▲' : '▼'}{Math.abs(Number(pct))}%</span>
+                          <span className="text-xs text-zinc-500">vs yesterday ({yesterdayA})</span>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* ✅ Visitors — Paid / Organic 분리 */}
