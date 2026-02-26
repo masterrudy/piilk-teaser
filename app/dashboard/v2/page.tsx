@@ -634,7 +634,12 @@ export default function DashboardPage() {
     const pVisitors = paidVisitorIds.size;
     const oVisitors = orgVisitorIds.size;
 
-    const submitVisitorIds = new Set(evts.filter((ev: any) => ev.n === 'step4_submit').map((ev: any) => ev.v || ev.s).filter(Boolean));
+    const submitVisitorIds = new Set<string>(
+      evts
+        .filter((ev: any) => ev.n === 'step4_submit')
+        .map((ev: any) => (ev.v || ev.s) as string)
+        .filter((id): id is string => Boolean(id))
+    );
     const pSubmits = Array.from(submitVisitorIds).filter(id => paidVisitorIds.has(id)).length;
     const oSubmits = Array.from(submitVisitorIds).filter(id => orgVisitorIds.has(id)).length;
 
