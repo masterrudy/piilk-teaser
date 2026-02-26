@@ -325,11 +325,10 @@ async function getKlaviyoStatsAll() {
     KLAVIYO_LIST_ID_TYPE ? getKlaviyoListEmailSet(KLAVIYO_LIST_ID_TYPE) : Promise.resolve(new Set<string>()),
   ]);
 
-  const allEmails = new Set<string>();
-  for (const e of mainEmailSet) allEmails.add(e);
-  for (const e of typeEmailSet) allEmails.add(e);
-
-  const totalUnique = allEmails.size;
+const allEmails = new Set<string>();
+mainEmailSet.forEach((e) => allEmails.add(e));
+typeEmailSet.forEach((e) => allEmails.add(e));
+const totalUnique = allEmails.size;
 
   return {
     total: totalUnique,            // ✅ unique total
