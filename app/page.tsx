@@ -1,22 +1,27 @@
 // ═══════════════════════════════════════════════════════════
-// 📁 파일 위치: app/page.tsx — V6.1
+// 📁 파일 위치: app/page.tsx — V6.2
 // 📌 역할: / 메인 티저 페이지
 // 📌 API: /api/subscribe (Supabase + Klaviyo 서버사이드) — 변경 없음
 // 📌 트래킹: lib/ga4-main.ts — 이벤트명 유지
 //
-// ✅ V6.0 → V6.1 변경사항:
-//   1. 동의 문구 추가 — Hero CTA + Section 2 CTA 양쪽
-//   2. Privacy Policy 링크 추가 (/privacy)
-//   3. already_exists → 에러 스타일 대신 info 스타일로 분리
-//   4. emailInfo state 추가 (파란/초록 계열 안내 메시지)
+// ✅ V6.1 → V6.2 변경사항 (CSS ONLY):
+//   1. product-claims 색상 밝게 (#71717a → #a1a1aa)
+//   2. product-benefit 색상 밝게 (#a1a1aa → #d4d4d8)
+//   3. compare-cards margin-bottom 넓힘 (20px → 28px, 모바일 14px → 22px)
+//   4. hero-email .email-row margin 넓힘 (6px → 12px)
+//   5. hero-incentive margin-top 넓힘 (6px → 10px)
+//   6. 모바일 hero-content margin-top (-10vh → -12vh)
 //
 // 🔒 변경하지 않은 것들:
+//   - JSX 구조 전체 → 동일
 //   - import { track } from "@/lib/ga4-main" → 동일
 //   - fetch("/api/subscribe") → 동일
 //   - body 파라미터 → 동일
 //   - 모든 track 이벤트명 → 동일
 //   - Image src → 동일
-//   - CSS 전체 → 동의 문구 스타일만 추가
+//   - ConsentText 컴포넌트 → 동일
+//   - emailInfo state → 동일
+//   - Footer (주소 포함) → 동일
 // ═══════════════════════════════════════════════════════════
 
 "use client";
@@ -63,7 +68,7 @@ export default function MainTeaser() {
   const [emailSent, setEmailSent] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailError, setEmailError] = useState("");
-  const [emailInfo, setEmailInfo] = useState(""); // ✅ V6.1: already_exists용 info 메시지
+  const [emailInfo, setEmailInfo] = useState("");
   const [stickyVisible, setStickyVisible] = useState(false);
   const [stickyHidden, setStickyHidden] = useState(false);
 
@@ -159,7 +164,6 @@ export default function MainTeaser() {
           return;
         }
 
-        // ✅ V6.1: already_exists → info 스타일 (에러 아님)
         if (data?.error === "already_exists") {
           setEmailInfo("You're already on the list! 🎉");
           return;
@@ -274,7 +278,6 @@ export default function MainTeaser() {
               <p className="hero-incentive">
                 First 1,000 &middot; $2.99 credit &middot; Free shipping
               </p>
-              {/* ✅ V6.1: 동의 문구 */}
               <ConsentText />
             </div>
           ) : (
@@ -349,7 +352,6 @@ export default function MainTeaser() {
                 </div>
                 {emailError && <p className="email-error">{emailError}</p>}
                 {emailInfo && <p className="email-info">{emailInfo}</p>}
-                {/* ✅ V6.1: 동의 문구 */}
                 <ConsentText />
               </div>
             ) : (
@@ -424,7 +426,7 @@ export default function MainTeaser() {
 }
 
 // ═══════════════════════════════════════════
-// CSS — V6.1
+// CSS — V6.2
 // ═══════════════════════════════════════════
 
 const CSS = `
@@ -474,9 +476,10 @@ body { background: #000; color: #f4f4f5; font-family: -apple-system, BlinkMacSys
 .hero-headline .accent { color: #D4FF2B; }
 .headline-line { display: block; }
 
+/* V6.2: margin-bottom 20px → 28px */
 .compare-cards {
   display: flex; gap: 12px; width: 100%; max-width: 400px;
-  margin-bottom: 20px;
+  margin-bottom: 28px;
 }
 .ccard {
   flex: 1; display: flex; flex-direction: column;
@@ -505,11 +508,12 @@ body { background: #000; color: #f4f4f5; font-family: -apple-system, BlinkMacSys
 .ccard-num.accent { color: #D4FF2B; }
 .ccard-sub { font-size: 11px; color: #52525b; }
 
+/* V6.2: email-row margin 6px → 12px, incentive margin-top 6px → 10px */
 .hero-email { width: 100%; }
-.hero-email .email-row { margin: 0 auto 6px; }
+.hero-email .email-row { margin: 0 auto 12px; }
 .hero-incentive {
   font-size: 12px; color: #71717a;
-  margin-top: 6px;
+  margin-top: 10px;
 }
 .hero-success { width: 100%; }
 .success-inline {
@@ -517,7 +521,6 @@ body { background: #000; color: #f4f4f5; font-family: -apple-system, BlinkMacSys
   padding: 12px 0;
 }
 
-/* ✅ V6.1: 동의 문구 */
 .consent-text {
   font-size: 11px; color: #3f3f46; line-height: 1.5;
   margin-top: 8px; text-align: center;
@@ -562,12 +565,14 @@ body { background: #000; color: #f4f4f5; font-family: -apple-system, BlinkMacSys
   font-size: 16px; color: #D4FF2B; font-weight: 700;
   margin-bottom: 8px;
 }
+/* V6.2: #71717a → #a1a1aa */
 .product-claims {
-  font-size: 13px; color: #71717a; line-height: 1.6;
+  font-size: 13px; color: #a1a1aa; line-height: 1.6;
   margin-bottom: 8px;
 }
+/* V6.2: #a1a1aa → #d4d4d8 */
 .product-benefit {
-  font-size: 15px; color: #a1a1aa; line-height: 1.6;
+  font-size: 15px; color: #d4d4d8; line-height: 1.6;
   font-style: italic;
   margin-bottom: 32px;
 }
@@ -619,7 +624,6 @@ body { background: #000; color: #f4f4f5; font-family: -apple-system, BlinkMacSys
   font-size: 13px; color: #ef4444;
   margin: 4px auto 8px; max-width: 340px;
 }
-/* ✅ V6.1: info 메시지 (already_exists) */
 .email-info {
   font-size: 13px; color: #D4FF2B;
   margin: 4px auto 8px; max-width: 340px;
@@ -707,20 +711,22 @@ body { background: #000; color: #f4f4f5; font-family: -apple-system, BlinkMacSys
 .footer-copy { font-size: 11px; color: #3f3f46; margin-top: 4px; }
 
 /* ════════════════════════════════════════════
-   MOBILE
+   MOBILE — V6.2: 간격 + 위치 조정
    ════════════════════════════════════════════ */
 @media (max-width: 480px) {
   .section--hero {
     padding: 44px 20px 24px;
     min-height: 100vh; min-height: 100svh;
   }
-  .hero-content { max-width: 100%; margin-top: -10vh; }
+  /* V6.2: -10vh → -12vh */
+  .hero-content { max-width: 100%; margin-top: -12vh; }
   .emotion-cause { font-size: 13px; margin-bottom: 10px; }
   .hero-headline {
     font-size: clamp(22px, 6.2vw, 28px);
     margin-bottom: 14px; line-height: 1.25;
   }
-  .compare-cards { flex-direction: row; gap: 10px; margin-bottom: 14px; }
+  /* V6.2: margin-bottom 14px → 22px */
+  .compare-cards { flex-direction: row; gap: 10px; margin-bottom: 22px; }
   .ccard { padding: 12px 10px; }
   .ccard-num { font-size: 30px; }
   .ccard-label { font-size: 9px; }
@@ -728,7 +734,8 @@ body { background: #000; color: #f4f4f5; font-family: -apple-system, BlinkMacSys
   .hero-email .email-row { gap: 6px; }
   .hero-email .email-input { padding: 10px 12px; font-size: 16px; border-radius: 10px; }
   .hero-email .email-btn { padding: 10px 16px; font-size: 13px; border-radius: 10px; }
-  .hero-incentive { font-size: 11px; margin-top: 5px; }
+  /* V6.2: margin-top 5px → 8px */
+  .hero-incentive { font-size: 11px; margin-top: 8px; }
   .consent-text { font-size: 10px; margin-top: 6px; }
   .email-row { gap: 6px; }
   .email-input { padding: 10px 12px; font-size: 16px; border-radius: 10px; }
@@ -769,7 +776,7 @@ body { background: #000; color: #f4f4f5; font-family: -apple-system, BlinkMacSys
     font-size: clamp(20px, 5.5vw, 24px);
     margin-bottom: 10px;
   }
-  .compare-cards { margin-bottom: 10px; }
+  .compare-cards { margin-bottom: 14px; }
   .ccard { padding: 10px 8px; }
   .ccard-num { font-size: 26px; }
   .hero-email .email-input { padding: 10px 12px; }
