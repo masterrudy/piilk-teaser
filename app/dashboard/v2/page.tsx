@@ -663,8 +663,13 @@ export default function DashboardPage() {
     const pVisitors = paidVids.size;
     const oVisitors = orgVids.size;
 
-    // ✅ submits: Supabase participants 기준 (리얼 데이터)
-    const todayParticipants = currentParticipants.filter((p: any) => p.signed_up_at?.slice(0, 10) === todayStr);
+    // ✅ submits: Supabase participants 기준 (리얼 데이터) — NYC 타임존
+    const todayParticipants = currentParticipants.filter((p: any) => {
+      if (!p.signed_up_at) return false;
+      const d = new Date(p.signed_up_at);
+      const nycStr = d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+      return nycStr === todayStr;
+    });
     const submits = todayParticipants.length;
 
     // Paid/Organic 분리 — participant의 utm_medium 기준
@@ -1139,7 +1144,13 @@ export default function DashboardPage() {
             {/* ✅ 상단 카드 — Quiz Type vs Main Teaser */}
             {(() => {
               const todayStr = getNYCDate(0);
-              const isToday = (p: Participant) => p.signed_up_at?.slice(0, 10) === todayStr;
+              // ✅ NYC 타임존 기준 오늘 판단 (UTC signed_up_at → NYC 변환)
+              const isToday = (p: Participant) => {
+                if (!p.signed_up_at) return false;
+                const d = new Date(p.signed_up_at);
+                const nycStr = d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' }); // YYYY-MM-DD
+                return nycStr === todayStr;
+              };
               const kTotal = participants.klaviyo.length;
               const sTotal = participants.supabase.length;
 
