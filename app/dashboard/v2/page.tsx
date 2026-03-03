@@ -82,7 +82,8 @@ interface VisitorStat {
   events: number;
 }
 
-/* ─────────────────────────── UTM Normalization ─────────────────────────── */
+/* ─────────────────────────── UTM / Date Utils ─────────────────────────── */
+
 const META_SOURCES = ['fb', 'ig', 'meta', 'facebook', 'instagram'];
 
 function normalizeUtmSource(source: string | undefined | null): string {
@@ -107,7 +108,7 @@ function getNYCDate(offset = 0): string {
   return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
 }
 
-/* ─────────────────────────── Quiz Type Labels ─────────────────────────── */
+/* ─────────────────────────── Constants ─────────────────────────── */
 
 const QUIZ_TYPE_LABELS: Record<string, { name: string; icon: string; color: string; bgColor: string; borderColor: string }> = {
   brick:   { name: 'Brick Stomach',     icon: '🧱', color: 'text-orange-400', bgColor: 'from-orange-950/40 to-zinc-900/60', borderColor: 'border-orange-900/40' },
@@ -127,7 +128,24 @@ function getUtmColor(source: string) {
   return UTM_SOURCE_COLORS[source] || { bg: 'bg-purple-500/10', text: 'text-purple-400', border: 'border-purple-500/30', dot: 'bg-purple-500' };
 }
 
-/* ─────────────────────────── Sub-components (defined OUTSIDE main component to prevent remount) ─────────────────────────── */
+/* ─────────────────────────── Skeleton Components ─────────────────────────── */
+
+const SkeletonCard = ({ className = '' }: { className?: string }) => (
+  <div className={`bg-zinc-900/40 border border-zinc-800 rounded-xl animate-pulse ${className}`} />
+);
+
+const SkeletonRow = () => (
+  <div className="flex items-center gap-3 px-3 py-3 border-b border-zinc-800/40">
+    <div className="w-6 h-3 bg-zinc-800 rounded animate-pulse" />
+    <div className="flex-1 h-3 bg-zinc-800 rounded animate-pulse" />
+    <div className="w-16 h-4 bg-zinc-800 rounded animate-pulse" />
+    <div className="w-12 h-4 bg-zinc-800 rounded animate-pulse" />
+    <div className="w-20 h-3 bg-zinc-800 rounded animate-pulse" />
+    <div className="w-24 h-3 bg-zinc-800 rounded animate-pulse" />
+  </div>
+);
+
+/* ─────────────────────────── Sub-components (OUTSIDE main to prevent remount) ─────────────────────────── */
 
 const BarChart = ({ data, color, total }: { data: [string, number][]; color: string; total: number }) => (
   <div className="space-y-1.5">
@@ -136,13 +154,16 @@ const BarChart = ({ data, color, total }: { data: [string, number][]; color: str
         <span className="text-[10px] sm:text-xs text-zinc-400 w-20 sm:w-24 truncate text-right shrink-0">{label}</span>
         <div className="flex-1 h-5 sm:h-6 bg-zinc-800/50 rounded-md overflow-hidden relative">
           <div className={`h-full rounded-md ${color} transition-all duration-700`} style={{ width: `${total > 0 ? Math.max((count / total) * 100, 2) : 0}%` }} />
-          <span className="absolute inset-0 flex items-center px-2 text-[10px] sm:text-xs text-white font-medium">{count} <span className="text-zinc-500 ml-1">({total > 0 ? ((count / total) * 100).toFixed(0) : 0}%)</span></span>
+          <span className="absolute inset-0 flex items-center px-2 text-[10px] sm:text-xs text-white font-medium">
+            {count} <span className="text-zinc-500 ml-1">({total > 0 ? ((count / total) * 100).toFixed(0) : 0}%)</span>
+          </span>
         </div>
       </div>
     ))}
   </div>
 );
 
+// BUG FIX: SignupChart defined OUTSIDE DashboardPage to prevent state reset on re-render
 const SignupChart = ({ daily, cumulative }: { daily: [string, number][]; cumulative: [string, number][] }) => {
   const [chartMode, setChartMode] = useState<'daily' | 'cumulative'>('daily');
   const chartData = chartMode === 'daily' ? daily : cumulative;
@@ -154,17 +175,23 @@ const SignupChart = ({ daily, cumulative }: { daily: [string, number][]; cumulat
 
   if (chartData.length === 0) return null;
   const maxVal = Math.max(...chartData.map(d => d[1]), 1);
+
   return (
     <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5">
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2"><span className="text-base">📈</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Signup Trend</h3></div>
+        <div className="flex items-center gap-2">
+          <span className="text-base">📈</span>
+          <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Signup Trend</h3>
+        </div>
         <div className="flex gap-1 bg-zinc-800 rounded-lg p-0.5">
           <button onClick={() => setChartMode('daily')} className={`px-2.5 py-1 rounded-md text-[10px] sm:text-xs font-medium transition-all ${chartMode === 'daily' ? 'bg-white text-black' : 'text-zinc-500 hover:text-zinc-300'}`}>Daily</button>
           <button onClick={() => setChartMode('cumulative')} className={`px-2.5 py-1 rounded-md text-[10px] sm:text-xs font-medium transition-all ${chartMode === 'cumulative' ? 'bg-white text-black' : 'text-zinc-500 hover:text-zinc-300'}`}>Cumulative</button>
         </div>
       </div>
       <div className="relative h-40 sm:h-52">
-        <div className="absolute left-0 top-0 bottom-5 w-8 flex flex-col justify-between text-[9px] text-zinc-600 font-mono"><span>{maxVal}</span><span>{Math.round(maxVal / 2)}</span><span>0</span></div>
+        <div className="absolute left-0 top-0 bottom-5 w-8 flex flex-col justify-between text-[9px] text-zinc-600 font-mono">
+          <span>{maxVal}</span><span>{Math.round(maxVal / 2)}</span><span>0</span>
+        </div>
         <div className="absolute left-9 right-0 top-0 bottom-5">
           <div className="absolute top-0 left-0 right-0 border-t border-zinc-800/50" />
           <div className="absolute top-1/2 left-0 right-0 border-t border-zinc-800/30 border-dashed" />
@@ -173,11 +200,16 @@ const SignupChart = ({ daily, cumulative }: { daily: [string, number][]; cumulat
         <div className="absolute left-9 right-0 top-0 bottom-5 flex items-end gap-[1px]">
           {chartData.map(([day, count], i) => {
             const height = maxVal > 0 ? (count / maxVal) * 100 : 0;
-            const isToday = day === new Date().toISOString().slice(0, 10);
+            const isToday = day === getNYCDate(0);
             return (
               <div key={day} className="flex-1 flex flex-col items-center justify-end h-full group relative">
-                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-zinc-800 text-white text-[9px] px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none">{fmtShortDate(day)}: <span className="font-bold">{count}</span></div>
-                <div className={`w-full rounded-t-sm transition-all duration-500 ${isToday ? 'bg-emerald-400' : chartMode === 'cumulative' ? 'bg-purple-500/80 group-hover:bg-purple-400' : 'bg-emerald-500/60 group-hover:bg-emerald-400'}`} style={{ height: `${Math.max(height, count > 0 ? 2 : 0)}%` }} />
+                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-zinc-800 text-white text-[9px] px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none">
+                  {fmtShortDate(day)}: <span className="font-bold">{count}</span>
+                </div>
+                <div
+                  className={`w-full rounded-t-sm transition-all duration-500 ${isToday ? 'bg-emerald-400' : chartMode === 'cumulative' ? 'bg-purple-500/80 group-hover:bg-purple-400' : 'bg-emerald-500/60 group-hover:bg-emerald-400'}`}
+                  style={{ height: `${Math.max(height, count > 0 ? 2 : 0)}%` }}
+                />
                 {(chartData.length <= 14 || i % Math.ceil(chartData.length / 10) === 0 || i === chartData.length - 1) && (
                   <span className={`text-[7px] sm:text-[8px] mt-1 font-mono ${isToday ? 'text-emerald-400 font-bold' : 'text-zinc-600'}`}>{fmtShortDate(day)}</span>
                 )}
@@ -195,57 +227,73 @@ const SignupChart = ({ daily, cumulative }: { daily: [string, number][]; cumulat
   );
 };
 
+/* ─────────────────────────── Data Cache Type ─────────────────────────── */
+
+type VariantKey = 'main' | 'type';
+
+interface DataCache {
+  stats: Record<VariantKey, { supabase: DashboardData | null; klaviyo: DashboardData | null } | null>;
+  participants: Record<VariantKey, { klaviyo: Participant[]; supabase: Participant[] } | null>;
+  otherParticipants: Record<VariantKey, { klaviyo: Participant[]; supabase: Participant[] } | null>;
+}
+
 /* ─────────────────────────── Main Component ─────────────────────────── */
 
 export default function DashboardPage() {
-  // Auth
+  /* ── Auth ── */
   const [authenticated, setAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
 
-  // Variant tab
-  const [variant, setVariant] = useState<'main' | 'type'>('main');
+  /* ── Variant ── */
+  const [variant, setVariant] = useState<VariantKey>('main');
 
-  // Dashboard data
+  /* ── Dashboard data ── */
   const [supabaseData, setSupabaseData] = useState<DashboardData | null>(null);
   const [klaviyoData, setKlaviyoData] = useState<DashboardData | null>(null);
   const [activeSource, setActiveSource] = useState<'klaviyo' | 'supabase'>('supabase');
-  const [loading, setLoading] = useState(true);
+  const [isStatsLoading, setIsStatsLoading] = useState(false);      // 개별 로딩 상태로 분리
+  const [isRefreshing, setIsRefreshing] = useState(false);          // 백그라운드 갱신 표시
   const [lastUpdated, setLastUpdated] = useState('');
 
-  // 두 variant의 supabase/klaviyo total 캐싱
+  /* ── variant별 total 캐싱 ── */
   const [supabaseTotals, setSupabaseTotals] = useState<{ main: number | null; type: number | null }>({ main: null, type: null });
   const [klaviyoTotals, setKlaviyoTotals] = useState<{ main: number | null; type: number | null }>({ main: null, type: null });
 
-  // View mode
+  /* ── 데이터 캐시 ref (variant 전환 시 즉시 표시용) ── */
+  const dataCache = useRef<DataCache>({
+    stats: { main: null, type: null },
+    participants: { main: null, type: null },
+    otherParticipants: { main: null, type: null },
+  });
+
+  /* ── View mode ── */
   const [viewMode, setViewMode] = useState<'overview' | 'participants' | 'analytics'>('participants');
 
-  // Analytics
+  /* ── Analytics ── */
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsPeriod, setAnalyticsPeriod] = useState<string>('today');
-
-  // Custom date range, traffic filter
   const [analyticsDateFrom, setAnalyticsDateFrom] = useState<string>('');
   const [analyticsDateTo, setAnalyticsDateTo] = useState<string>('');
   const [trafficFilter, setTrafficFilter] = useState<'all' | 'paid' | 'organic'>('all');
 
-  // 제외 IP 목록 — useEffect로 초기화 (SSR 안전)
+  /* ── IP 제외 ── */
   const [excludeIPs, setExcludeIPs] = useState<string[]>([]);
   const [excludeIPInput, setExcludeIPInput] = useState('');
   const [showIPFilter, setShowIPFilter] = useState(false);
 
-  // Meta Ads
+  /* ── Meta Ads ── */
   const [metaAdsData, setMetaAdsData] = useState<any[]>([]);
   const [metaAdsDate, setMetaAdsDate] = useState<string>('');
   const metaFileRef = useRef<HTMLInputElement>(null);
 
-  // Participant list
+  /* ── Participants ── */
   const [participants, setParticipants] = useState<{ klaviyo: Participant[]; supabase: Participant[] }>({ klaviyo: [], supabase: [] });
   const [otherParticipants, setOtherParticipants] = useState<{ klaviyo: Participant[]; supabase: Participant[] }>({ klaviyo: [], supabase: [] });
   const [participantsLoading, setParticipantsLoading] = useState(false);
 
-  // Filters
+  /* ── Filters ── */
   const [searchQuery, setSearchQuery] = useState('');
   const [segmentFilter, setSegmentFilter] = useState<string>('all');
   const [reasonFilter, setReasonFilter] = useState<string>('all');
@@ -257,30 +305,29 @@ export default function DashboardPage() {
   const [dateTo, setDateTo] = useState<string>('');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
-  // Sort
+  /* ── Sort ── */
   const [sortField, setSortField] = useState<'signed_up_at' | 'name' | 'email' | 'segment' | 'country' | 'city'>('signed_up_at');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
-  // Pagination
+  /* ── Pagination ── */
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState<number | 'all'>(20);
 
-  // Detail modal
+  /* ── Detail modal ── */
   const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
 
-  // Saved auth + excludeIPs localStorage 초기화 (SSR 안전)
+  /* ── localStorage 초기화 (SSR 안전 — useEffect 내부에서만) ── */
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      if (localStorage.getItem('piilk_dash') === 'true') setAuthenticated(true);
-      const savedPw = localStorage.getItem('piilk_saved_pw');
-      if (savedPw) { setPassword(savedPw); setRememberMe(true); }
-      try {
-        const saved = JSON.parse(localStorage.getItem('piilk_exclude_ips') || '[]');
-        setExcludeIPs(saved);
-      } catch { setExcludeIPs([]); }
-    }
+    if (localStorage.getItem('piilk_dash') === 'true') setAuthenticated(true);
+    const savedPw = localStorage.getItem('piilk_saved_pw');
+    if (savedPw) { setPassword(savedPw); setRememberMe(true); }
+    try {
+      const saved = JSON.parse(localStorage.getItem('piilk_exclude_ips') || '[]');
+      setExcludeIPs(saved);
+    } catch { setExcludeIPs([]); }
   }, []);
 
+  /* ── Auth handler ── */
   const handleAuth = (e: React.FormEvent) => {
     e.preventDefault();
     if (password === 'piilk$1b') {
@@ -293,7 +340,9 @@ export default function DashboardPage() {
     }
   };
 
-  const fetchData = useCallback(async () => {
+  /* ── Fetch: stats ── */
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setIsStatsLoading(true);
     try {
       const res = await fetch(`/api/dashboard/stats?variant=${variant}`);
       const result: ApiResponse = await res.json();
@@ -301,14 +350,17 @@ export default function DashboardPage() {
         setSupabaseData(result.supabase);
         setKlaviyoData(result.klaviyo);
         setLastUpdated(new Date().toLocaleTimeString('ko-KR'));
+        // 캐시 저장
+        dataCache.current.stats[variant] = { supabase: result.supabase, klaviyo: result.klaviyo };
       }
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
+    } catch (err) { console.error('fetchData error:', err); }
+    finally { setIsStatsLoading(false); }
   }, [variant]);
 
+  /* ── Fetch: participants ── */
   const fetchParticipants = useCallback(async () => {
     setParticipantsLoading(true);
-    const otherVariant = variant === 'main' ? 'type' : 'main';
+    const otherVariant: VariantKey = variant === 'main' ? 'type' : 'main';
     try {
       const [kRes, sRes, sOtherRes, kOtherRes] = await Promise.all([
         fetch(`/api/dashboard/participants?source=klaviyo&variant=${variant}`),
@@ -321,95 +373,122 @@ export default function DashboardPage() {
       const sOtherResult: ParticipantsResponse = await sOtherRes.json();
       const kOtherResult: ParticipantsResponse = await kOtherRes.json();
 
-      setParticipants({
+      const currentData = {
         klaviyo: kResult.success ? kResult.data : [],
         supabase: sResult.success ? sResult.data : [],
-      });
+      };
+      const otherData = {
+        klaviyo: kOtherResult.success ? kOtherResult.data : [],
+        supabase: sOtherResult.success ? sOtherResult.data : [],
+      };
 
+      setParticipants(currentData);
+      setOtherParticipants(otherData);
+
+      // totals
       if (sResult.success) setSupabaseTotals(prev => ({ ...prev, [variant]: sResult.total }));
       if (kResult.success) setKlaviyoTotals(prev => ({ ...prev, [variant]: kResult.total }));
       if (sOtherResult.success) setSupabaseTotals(prev => ({ ...prev, [otherVariant]: sOtherResult.total }));
       if (kOtherResult.success) setKlaviyoTotals(prev => ({ ...prev, [otherVariant]: kOtherResult.total }));
 
-      setOtherParticipants({
-        klaviyo: kOtherResult.success ? kOtherResult.data : [],
-        supabase: sOtherResult.success ? sOtherResult.data : [],
-      });
-    } catch (err) { console.error(err); }
+      // 캐시 저장
+      dataCache.current.participants[variant] = currentData;
+      dataCache.current.otherParticipants[variant] = otherData;
+    } catch (err) { console.error('fetchParticipants error:', err); }
     finally { setParticipantsLoading(false); }
   }, [variant]);
 
+  /* ── Fetch: analytics ── */
   const fetchAnalytics = useCallback(async () => {
     setAnalyticsLoading(true);
     try {
       const res = await fetch(`/api/dashboard/analytics?variant=${variant}`);
       const result = await res.json();
       if (result.success) setAnalyticsData(result);
-    } catch (err) { console.error(err); }
+    } catch (err) { console.error('fetchAnalytics error:', err); }
     finally { setAnalyticsLoading(false); }
   }, [variant]);
 
-  // Reset data when variant changes
+  /* ── 최초 인증 후 로딩: participants 먼저, analytics는 500ms 지연 ── */
   useEffect(() => {
-    if (authenticated) {
-      setLoading(true);
+    if (!authenticated) return;
+    const isFirstLoad = participants.klaviyo.length === 0 && participants.supabase.length === 0;
+    if (!isFirstLoad) return;
+
+    fetchData();
+    fetchParticipants();
+    // analytics는 participants 뜬 뒤 로드 → 초기 체감속도 향상
+    const timer = setTimeout(() => fetchAnalytics(), 500);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authenticated]);
+
+  /* ── Variant 전환: 캐시 즉시 표시 → 백그라운드 갱신 ── */
+  useEffect(() => {
+    if (!authenticated) return;
+
+    setCurrentPage(1);
+    setAnalyticsData(null); // analytics는 variant마다 달라서 항상 초기화
+
+    // 캐시가 있으면 즉시 표시 (빈 화면 없음)
+    const cachedStats = dataCache.current.stats[variant];
+    if (cachedStats) {
+      setSupabaseData(cachedStats.supabase);
+      setKlaviyoData(cachedStats.klaviyo);
+    } else {
       setSupabaseData(null);
       setKlaviyoData(null);
-      setParticipants({ klaviyo: [], supabase: [] });
-      setAnalyticsData(null);
-      setCurrentPage(1);
-      fetchData();
-      fetchParticipants();
-      fetchAnalytics();
     }
+
+    const cachedP = dataCache.current.participants[variant];
+    const cachedOther = dataCache.current.otherParticipants[variant];
+    if (cachedP) {
+      setParticipants(cachedP);
+    } else {
+      setParticipants({ klaviyo: [], supabase: [] });
+    }
+    if (cachedOther) {
+      setOtherParticipants(cachedOther);
+    } else {
+      setOtherParticipants({ klaviyo: [], supabase: [] });
+    }
+
+    // 백그라운드에서 최신 데이터 갱신
+    setIsRefreshing(true);
+    Promise.all([fetchData(true), fetchParticipants()])
+      .finally(() => setIsRefreshing(false));
+    const timer = setTimeout(() => fetchAnalytics(), 300);
+    return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [variant]);
 
-  // Auto-refresh stats
+  /* ── Auto-refresh stats (30초마다 silent) ── */
   useEffect(() => {
-    if (authenticated) {
-      fetchData();
-      const iv = setInterval(fetchData, 30000);
-      return () => clearInterval(iv);
-    }
+    if (!authenticated) return;
+    const iv = setInterval(() => fetchData(true), 30000);
+    return () => clearInterval(iv);
   }, [authenticated, fetchData]);
 
-  // Load on first auth
-  useEffect(() => {
-    if (authenticated && participants.klaviyo.length === 0 && participants.supabase.length === 0) {
-      fetchParticipants();
-      fetchAnalytics();
-    }
-  }, [authenticated, fetchParticipants, fetchAnalytics, participants.klaviyo.length, participants.supabase.length]);
-
+  /* ── 파생 데이터 ── */
   const currentParticipants = activeSource === 'klaviyo' ? participants.klaviyo : participants.supabase;
   const currentOtherParticipants = activeSource === 'klaviyo' ? otherParticipants.klaviyo : otherParticipants.supabase;
 
-  // 통합 리스트: 현재 + 반대 variant, 시간순 정렬
   const mergedParticipants = useMemo(() => {
-    const mainList = (variant === 'main' ? currentParticipants : currentOtherParticipants)
-      .map(p => ({ ...p, _variantTag: 'main' as const }));
-    const typeList = (variant === 'type' ? currentParticipants : currentOtherParticipants)
-      .map(p => ({ ...p, _variantTag: 'type' as const }));
-    return [...mainList, ...typeList].sort((a, b) => {
-      const aDate = a.signed_up_at || '';
-      const bDate = b.signed_up_at || '';
-      return bDate.localeCompare(aDate);
-    });
+    const mainList = (variant === 'main' ? currentParticipants : currentOtherParticipants).map(p => ({ ...p, _variantTag: 'main' as const }));
+    const typeList = (variant === 'type' ? currentParticipants : currentOtherParticipants).map(p => ({ ...p, _variantTag: 'type' as const }));
+    return [...mainList, ...typeList].sort((a, b) => (b.signed_up_at || '').localeCompare(a.signed_up_at || ''));
   }, [currentParticipants, currentOtherParticipants, variant]);
 
-  /* ─── Today's signups (NYC timezone) — Main탭은 merged 기준 ─── */
+  // BUG FIX: Main 탭은 mergedParticipants 기준으로 todaySignups 계산
   const todaySignups = useMemo(() => {
     const todayStr = getNYCDate(0);
     const base = variant === 'main' ? mergedParticipants : currentParticipants;
     return base.filter(p => {
       if (!p.signed_up_at) return false;
-      const d = new Date(p.signed_up_at);
-      return d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) === todayStr;
+      return new Date(p.signed_up_at).toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) === todayStr;
     }).length;
   }, [currentParticipants, mergedParticipants, variant]);
 
-  /* ─── Daily signups for chart ─── */
   const dailySignups = useMemo(() => {
     const dayMap: Record<string, number> = {};
     currentParticipants.forEach(p => {
@@ -418,17 +497,15 @@ export default function DashboardPage() {
       if (day) dayMap[day] = (dayMap[day] || 0) + 1;
     });
     const sorted = Object.entries(dayMap).sort((a, b) => a[0].localeCompare(b[0]));
-    if (sorted.length > 1) {
-      const filled: [string, number][] = [];
-      const start = new Date(sorted[0][0]);
-      const end = new Date(sorted[sorted.length - 1][0]);
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const key = d.toISOString().slice(0, 10);
-        filled.push([key, dayMap[key] || 0]);
-      }
-      return filled;
+    if (sorted.length <= 1) return sorted;
+    const filled: [string, number][] = [];
+    const start = new Date(sorted[0][0]);
+    const end = new Date(sorted[sorted.length - 1][0]);
+    for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const key = d.toISOString().slice(0, 10);
+      filled.push([key, dayMap[key] || 0]);
     }
-    return sorted;
+    return filled;
   }, [currentParticipants]);
 
   const cumulativeSignups = useMemo(() => {
@@ -436,51 +513,15 @@ export default function DashboardPage() {
     return dailySignups.map(([day, count]) => { cum += count; return [day, cum] as [string, number]; });
   }, [dailySignups]);
 
-  const uniqueReasons = useMemo(() => {
-    const s = new Set<string>(); currentParticipants.forEach(p => { if (p.sub_reason) s.add(p.sub_reason); }); return Array.from(s).sort();
-  }, [currentParticipants]);
-
-  const uniqueDomains = useMemo(() => {
-    const s = new Set<string>(); currentParticipants.forEach(p => { if (p.email?.includes('@')) s.add(p.email.split('@')[1].toLowerCase()); }); return Array.from(s).sort();
-  }, [currentParticipants]);
-
-  const uniqueCountries = useMemo(() => {
-    const s = new Set<string>(); currentParticipants.forEach(p => { if (p.country) s.add(p.country); }); return Array.from(s).sort();
-  }, [currentParticipants]);
-
-  const uniqueCities = useMemo(() => {
-    const s = new Set<string>(); currentParticipants.forEach(p => { if (p.city) s.add(p.city); }); return Array.from(s).sort();
-  }, [currentParticipants]);
-
-  const uniqueDevices = useMemo(() => {
-    const s = new Set<string>(); currentParticipants.forEach(p => { if (p.device_type) s.add(p.device_type); }); return Array.from(s).sort();
-  }, [currentParticipants]);
-
-  const trackingAnalytics = useMemo(() => {
-    const p = currentParticipants;
-    if (p.length === 0) return null;
-    const countryCounts: Record<string, number> = {};
-    p.forEach(x => { const c = x.country || 'Unknown'; countryCounts[c] = (countryCounts[c] || 0) + 1; });
-    const cityCounts: Record<string, number> = {};
-    p.forEach(x => { const c = x.city || 'Unknown'; cityCounts[c] = (cityCounts[c] || 0) + 1; });
-    const deviceCounts: Record<string, number> = {};
-    p.forEach(x => { const d = x.device_type || 'Unknown'; deviceCounts[d] = (deviceCounts[d] || 0) + 1; });
-    const utmCounts: Record<string, number> = {};
-    p.forEach(x => { const u = normalizeUtmSource(x.utm_source); utmCounts[u] = (utmCounts[u] || 0) + 1; });
-    const sortMap = (map: Record<string, number>) => Object.entries(map).sort((a, b) => b[1] - a[1]);
-    return {
-      countries: sortMap(countryCounts), cities: sortMap(cityCounts).slice(0, 10),
-      devices: sortMap(deviceCounts), utmSources: sortMap(utmCounts),
-      hasTrackingData: p.some(x => x.country || x.device_type || x.utm_source),
-    };
-  }, [currentParticipants]);
+  /* ── Filter options ── */
+  const uniqueReasons  = useMemo(() => Array.from(new Set(currentParticipants.map(p => p.sub_reason).filter(Boolean) as string[])).sort(), [currentParticipants]);
+  const uniqueDomains  = useMemo(() => Array.from(new Set(currentParticipants.filter(p => p.email?.includes('@')).map(p => p.email!.split('@')[1].toLowerCase()))).sort(), [currentParticipants]);
+  const uniqueCountries = useMemo(() => Array.from(new Set(currentParticipants.map(p => p.country).filter(Boolean) as string[])).sort(), [currentParticipants]);
+  const uniqueCities   = useMemo(() => Array.from(new Set(currentParticipants.map(p => p.city).filter(Boolean) as string[])).sort(), [currentParticipants]);
+  const uniqueDevices  = useMemo(() => Array.from(new Set(currentParticipants.map(p => p.device_type).filter(Boolean) as string[])).sort(), [currentParticipants]);
 
   const activeFilterCount = useMemo(() => {
-    let c = 0;
-    if (segmentFilter !== 'all') c++; if (reasonFilter !== 'all') c++;
-    if (domainFilter) c++; if (countryFilter) c++; if (cityFilter) c++;
-    if (deviceFilter) c++; if (dateFrom) c++; if (dateTo) c++;
-    return c;
+    return [segmentFilter !== 'all', reasonFilter !== 'all', !!domainFilter, !!countryFilter, !!cityFilter, !!deviceFilter, !!dateFrom, !!dateTo].filter(Boolean).length;
   }, [segmentFilter, reasonFilter, domainFilter, countryFilter, cityFilter, deviceFilter, dateFrom, dateTo]);
 
   const clearAllFilters = () => {
@@ -490,21 +531,20 @@ export default function DashboardPage() {
     setCurrentPage(1);
   };
 
+  /* ── Filtered + Sorted participants ── */
   const filteredParticipants = useMemo(() => {
     const baseList = variant === 'main'
       ? mergedParticipants
       : currentParticipants.map(p => ({ ...p, _variantTag: 'type' as const }));
+
     let list = [...baseList] as (Participant & { _variantTag?: 'main' | 'type' })[];
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(p =>
-        p.email?.toLowerCase().includes(q) ||
-        p.name?.toLowerCase().includes(q) ||
-        p.segment?.toLowerCase().includes(q) ||
-        p.sub_reason?.toLowerCase().includes(q) ||
-        p.country?.toLowerCase().includes(q) ||
-        p.city?.toLowerCase().includes(q) ||
+        p.email?.toLowerCase().includes(q) || p.name?.toLowerCase().includes(q) ||
+        p.segment?.toLowerCase().includes(q) || p.sub_reason?.toLowerCase().includes(q) ||
+        p.country?.toLowerCase().includes(q) || p.city?.toLowerCase().includes(q) ||
         p.ip_address?.includes(q)
       );
     }
@@ -523,10 +563,10 @@ export default function DashboardPage() {
     if (dateFrom) list = list.filter(p => p.signed_up_at && p.signed_up_at.slice(0, 10) >= dateFrom);
     if (dateTo) list = list.filter(p => p.signed_up_at && p.signed_up_at.slice(0, 10) <= dateTo);
 
-    // 버그 수정: 모든 sortField에 대해 sort 실행
+    // BUG FIX: 조건 없이 항상 sort 실행 (name, city 포함)
     list.sort((a, b) => {
-      const aVal = ((a as any)[sortField] || '').toLowerCase();
-      const bVal = ((b as any)[sortField] || '').toLowerCase();
+      const aVal = (String((a as any)[sortField] || '')).toLowerCase();
+      const bVal = (String((b as any)[sortField] || '')).toLowerCase();
       if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
       if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
       return 0;
@@ -535,12 +575,12 @@ export default function DashboardPage() {
     return list;
   }, [mergedParticipants, currentParticipants, searchQuery, segmentFilter, reasonFilter, domainFilter, countryFilter, cityFilter, deviceFilter, dateFrom, dateTo, sortField, sortDir, variant]);
 
-  // 필터/검색/variant/source/pageSize 변경 시 1페이지로 리셋
+  /* ── 필터/검색/variant/source/pageSize 변경 시 1페이지로 리셋 ── */
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, segmentFilter, reasonFilter, domainFilter, countryFilter, cityFilter, deviceFilter, dateFrom, dateTo, variant, activeSource, pageSize]);
 
-  // 페이지네이션 파생 변수
+  /* ── Pagination ── */
   const totalPages = pageSize === 'all' ? 1 : Math.ceil(filteredParticipants.length / (pageSize as number));
   const pagedParticipants = pageSize === 'all'
     ? filteredParticipants
@@ -551,29 +591,55 @@ export default function DashboardPage() {
     else { setSortField(field); setSortDir('asc'); }
   };
 
-  // exportToCSV는 항상 filteredParticipants 전체 기준 (페이지 무관)
+  // Export는 항상 filteredParticipants 전체 기준
   const exportToCSV = () => {
     const headers = ['Email', 'Segment', 'Reason', 'AfterfeelType', 'Country', 'Region', 'City', 'Device', 'Language', 'Timezone', 'IP', 'Referrer', 'UTM Source', 'UTM Medium', 'UTM Campaign', 'Source', 'Signed Up'];
     const rows = filteredParticipants.map(p => [p.email || '', p.segment || '', p.sub_reason || '', p.afterfeel_type || '', p.country || '', p.region || '', p.city || '', p.device_type || '', p.language || '', p.timezone || '', p.ip_address || '', p.referrer || '', p.utm_source || '', p.utm_medium || '', p.utm_campaign || '', p.source || '', p.signed_up_at || '']);
     const csv = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a'); link.href = url;
+    const link = document.createElement('a');
+    link.href = url;
     link.download = `piilk-${variant}-participants-${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click(); URL.revokeObjectURL(url);
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
-  // Quiz Type: afterfeel_type별 카운트
+  /* ── Quiz type counts ── */
   const quizTypeCounts = useMemo(() => {
     if (variant !== 'type') return null;
     const counts: Record<string, number> = { brick: 0, chalk: 0, zombie: 0, gambler: 0 };
     currentParticipants.forEach(p => {
       const type = p.afterfeel_type || p.sub_reason || '';
-      if (Object.prototype.hasOwnProperty.call(counts, type)) counts[type]++;
+      if (type in counts) counts[type]++;
     });
     return counts;
   }, [currentParticipants, variant]);
 
+  /* ── Tracking analytics (overview) ── */
+  const trackingAnalytics = useMemo(() => {
+    if (currentParticipants.length === 0) return null;
+    const sortMap = (map: Record<string, number>) => Object.entries(map).sort((a, b) => b[1] - a[1]);
+    const countryCounts: Record<string, number> = {};
+    const cityCounts: Record<string, number> = {};
+    const deviceCounts: Record<string, number> = {};
+    const utmCounts: Record<string, number> = {};
+    currentParticipants.forEach(x => {
+      const c = x.country || 'Unknown';  countryCounts[c] = (countryCounts[c] || 0) + 1;
+      const ci = x.city || 'Unknown';    cityCounts[ci] = (cityCounts[ci] || 0) + 1;
+      const d = x.device_type || 'Unknown'; deviceCounts[d] = (deviceCounts[d] || 0) + 1;
+      const u = normalizeUtmSource(x.utm_source); utmCounts[u] = (utmCounts[u] || 0) + 1;
+    });
+    return {
+      countries: sortMap(countryCounts),
+      cities: sortMap(cityCounts).slice(0, 10),
+      devices: sortMap(deviceCounts),
+      utmSources: sortMap(utmCounts),
+      hasTrackingData: currentParticipants.some(x => x.country || x.device_type || x.utm_source),
+    };
+  }, [currentParticipants]);
+
+  /* ── Analytics filter ── */
   const availableMonths = useMemo(() => {
     if (!analyticsData?.daily) return [];
     const months = new Set<string>();
@@ -589,7 +655,7 @@ export default function DashboardPage() {
     if (analyticsPeriod === 'custom_range') {
       startDate = analyticsDateFrom || '2000-01-01';
       endDate = analyticsDateTo || '2099-12-31';
-    } else if (analyticsPeriod !== 'all') {
+    } else if (hasDateFilter) {
       const nowNYC = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
       if (analyticsPeriod === 'today') { startDate = endDate = getNYCDate(0); }
       else if (analyticsPeriod === 'yesterday') { startDate = endDate = getNYCDate(-1); }
@@ -600,18 +666,15 @@ export default function DashboardPage() {
         mon.setDate(nowNYC.getDate() - (dow === 0 ? 6 : dow - 1));
         startDate = `${mon.getFullYear()}-${String(mon.getMonth() + 1).padStart(2, '0')}-${String(mon.getDate()).padStart(2, '0')}`;
         endDate = getNYCDate(0);
-      }
-      else if (analyticsPeriod === 'this_month') {
+      } else if (analyticsPeriod === 'this_month') {
         startDate = `${nowNYC.getFullYear()}-${String(nowNYC.getMonth() + 1).padStart(2, '0')}-01`;
         endDate = getNYCDate(0);
-      }
-      else if (analyticsPeriod === 'last_month') {
+      } else if (analyticsPeriod === 'last_month') {
         const lm = new Date(nowNYC.getFullYear(), nowNYC.getMonth() - 1, 1);
-        startDate = `${lm.getFullYear()}-${String(lm.getMonth() + 1).padStart(2, '0')}-01`;
         const lmEnd = new Date(nowNYC.getFullYear(), nowNYC.getMonth(), 0);
-        endDate = `${lmEnd.getFullYear()}-${String(lmEnd.getMonth() + 1).padStart(2, '0')}-${String(lmEnd.getDate()).padStart(2, '0')}`;
-      }
-      else {
+        startDate = `${lm.getFullYear()}-${String(lm.getMonth() + 1).padStart(2, '0')}-01`;
+        endDate = lmEnd.toISOString().slice(0, 10);
+      } else {
         startDate = `${analyticsPeriod}-01`;
         const [y, m] = analyticsPeriod.split('-').map(Number);
         endDate = new Date(y, m, 0).toISOString().slice(0, 10);
@@ -622,10 +685,7 @@ export default function DashboardPage() {
     let filteredRaw = hasDateFilter ? (analyticsData.rawEvents || []).filter((ev: any) => ev.d >= startDate && ev.d <= endDate) : (analyticsData.rawEvents || []);
 
     if (trafficFilter !== 'all') {
-      filteredRaw = filteredRaw.filter((ev: any) => {
-        const isPaid = ev.um === 'paid';
-        return trafficFilter === 'paid' ? isPaid : !isPaid;
-      });
+      filteredRaw = filteredRaw.filter((ev: any) => trafficFilter === 'paid' ? ev.um === 'paid' : ev.um !== 'paid');
     }
 
     const funnelEvents = ['page_view', 'step1_cta_click', 'step2_answer', 'step3_email_focus', 'step3_reason_select', 'step4_submit'];
@@ -634,6 +694,11 @@ export default function DashboardPage() {
     filteredRaw.forEach((ev: any) => { if (funnelEvents.includes(ev.n) && ev.s) sessionsByEvt[ev.n].add(ev.s); });
     const funnel: Record<string, number> = {};
     funnelEvents.forEach(e => { funnel[e] = sessionsByEvt[e].size; });
+
+    if (variant === 'type') {
+      sessionsByEvt['step4_submit'].forEach((sid: string) => sessionsByEvt['step3_email_focus'].add(sid));
+      funnel['step3_email_focus'] = sessionsByEvt['step3_email_focus'].size;
+    }
 
     const weeklyMap: Record<string, { views: number; submits: number }> = {};
     filteredDaily.forEach((d: any) => {
@@ -654,7 +719,10 @@ export default function DashboardPage() {
       if (ev.n === 'page_view') utmMap[src].views.add(ev.s);
       if (ev.n === 'step4_submit') utmMap[src].submits.add(ev.s);
     });
-    const utmPerformance = Object.entries(utmMap).map(([source, data]) => ({ source, views: data.views.size, submits: data.submits.size, cvr: data.views.size > 0 ? ((data.submits.size / data.views.size) * 100).toFixed(1) : '0' })).sort((a, b) => b.views - a.views);
+    const utmPerformance = Object.entries(utmMap).map(([source, data]) => ({
+      source, views: data.views.size, submits: data.submits.size,
+      cvr: data.views.size > 0 ? ((data.submits.size / data.views.size) * 100).toFixed(1) : '0',
+    })).sort((a, b) => b.views - a.views);
 
     const platformMap: Record<string, { views: Set<string>; submits: Set<string> }> = {};
     filteredRaw.forEach((ev: any) => {
@@ -663,18 +731,23 @@ export default function DashboardPage() {
       if (ev.n === 'page_view') platformMap[src].views.add(ev.s);
       if (ev.n === 'step4_submit') platformMap[src].submits.add(ev.s);
     });
-    const platformPerformance = Object.entries(platformMap).map(([platform, data]) => ({ platform, views: data.views.size, submits: data.submits.size, cvr: data.views.size > 0 ? ((data.submits.size / data.views.size) * 100).toFixed(1) : '0' })).sort((a, b) => b.views - a.views);
+    const platformPerformance = Object.entries(platformMap).map(([platform, data]) => ({
+      platform, views: data.views.size, submits: data.submits.size,
+      cvr: data.views.size > 0 ? ((data.submits.size / data.views.size) * 100).toFixed(1) : '0',
+    })).sort((a, b) => b.views - a.views);
 
     const campaignMap: Record<string, { views: Set<string>; submits: Set<string>; source: string; medium: string }> = {};
     filteredRaw.forEach((ev: any) => {
       const camp = ev.uc || '(no campaign)';
-      const src = normalizeUtmSource(ev.u);
-      const med = ev.um || '';
-      if (!campaignMap[camp]) campaignMap[camp] = { views: new Set(), submits: new Set(), source: src, medium: med };
+      if (!campaignMap[camp]) campaignMap[camp] = { views: new Set(), submits: new Set(), source: normalizeUtmSource(ev.u), medium: ev.um || '' };
       if (ev.n === 'page_view') campaignMap[camp].views.add(ev.s);
       if (ev.n === 'step4_submit') campaignMap[camp].submits.add(ev.s);
     });
-    const campaignPerformance = Object.entries(campaignMap).map(([campaign, data]) => ({ campaign, source: data.source, medium: data.medium, views: data.views.size, submits: data.submits.size, cvr: data.views.size > 0 ? ((data.submits.size / data.views.size) * 100).toFixed(1) : '0', isPaid: data.medium === 'paid' })).sort((a, b) => b.views - a.views);
+    const campaignPerformance = Object.entries(campaignMap).map(([campaign, data]) => ({
+      campaign, source: data.source, medium: data.medium, views: data.views.size, submits: data.submits.size,
+      cvr: data.views.size > 0 ? ((data.submits.size / data.views.size) * 100).toFixed(1) : '0',
+      isPaid: data.medium === 'paid',
+    })).sort((a, b) => b.views - a.views);
 
     const allRawP = hasDateFilter ? (analyticsData.rawEvents || []).filter((ev: any) => ev.d >= startDate && ev.d <= endDate) : (analyticsData.rawEvents || []);
     const pS = new Set<string>(); const oS = new Set<string>();
@@ -685,8 +758,8 @@ export default function DashboardPage() {
       if (ev.n === 'step4_submit') { if (ip) pSub.add(ev.s); else oSub.add(ev.s); }
     });
     const paidVsOrganic = {
-      paid: { views: pS.size, submits: pSub.size, cvr: pS.size > 0 ? ((pSub.size / pS.size) * 100).toFixed(1) : '0' },
-      organic: { views: oS.size, submits: oSub.size, cvr: oS.size > 0 ? ((oSub.size / oS.size) * 100).toFixed(1) : '0' }
+      paid:    { views: pS.size,   submits: pSub.size,  cvr: pS.size   > 0 ? ((pSub.size  / pS.size)  * 100).toFixed(1) : '0' },
+      organic: { views: oS.size,   submits: oSub.size,  cvr: oS.size   > 0 ? ((oSub.size  / oS.size)  * 100).toFixed(1) : '0' },
     };
 
     const hourMapF: Record<number, number> = {};
@@ -714,30 +787,30 @@ export default function DashboardPage() {
     const monthly = Object.entries(moMap).sort((a, b) => a[0].localeCompare(b[0])).map(([month, data]) => ({ month, ...data }));
 
     const segDist: Record<string, number> = {};
-    filteredRaw.filter((ev: any) => ev.n === 'step2_answer').forEach((ev: any) => { segDist[ev.ed?.segment || 'Unknown'] = (segDist[ev.ed?.segment || 'Unknown'] || 0) + 1; });
-
+    filteredRaw.filter((ev: any) => ev.n === 'step2_answer').forEach((ev: any) => {
+      const s = ev.ed?.segment || 'Unknown';
+      segDist[s] = (segDist[s] || 0) + 1;
+    });
     const reasonDist: Record<string, number> = {};
-    filteredRaw.filter((ev: any) => ev.n === 'step3_reason_select').forEach((ev: any) => { reasonDist[ev.ed?.reason || 'Unknown'] = (reasonDist[ev.ed?.reason || 'Unknown'] || 0) + 1; });
+    filteredRaw.filter((ev: any) => ev.n === 'step3_reason_select').forEach((ev: any) => {
+      const r = ev.ed?.reason || 'Unknown';
+      reasonDist[r] = (reasonDist[r] || 0) + 1;
+    });
 
     const uvSessions = new Set(filteredRaw.map((ev: any) => ev.s).filter(Boolean));
     const uvVisitors = new Set(filteredRaw.map((ev: any) => ev.v || ev.s).filter(Boolean));
 
-    if (variant === 'type') {
-      const submitSids = sessionsByEvt['step4_submit'];
-      submitSids.forEach((sid: string) => { sessionsByEvt['step3_email_focus'].add(sid); });
-      funnel['step3_email_focus'] = sessionsByEvt['step3_email_focus'].size;
-    }
-
-    return { ...analyticsData, funnel, daily: filteredDaily, weekly, weekday, monthly, utmPerformance, platformPerformance, campaignPerformance, paidVsOrganic, hourly, segmentDistribution: segDist, reasonDistribution: reasonDist, totalVisitors: uvVisitors.size, totalSessions: uvSessions.size };
+    return {
+      ...analyticsData, funnel, daily: filteredDaily, weekly, weekday, monthly,
+      utmPerformance, platformPerformance, campaignPerformance, paidVsOrganic, hourly,
+      segmentDistribution: segDist, reasonDistribution: reasonDist,
+      totalVisitors: uvVisitors.size, totalSessions: uvSessions.size,
+    };
   }, [analyticsData, analyticsPeriod, analyticsDateFrom, analyticsDateTo, trafficFilter, variant]);
 
-  /* ─── Today analytics ─── */
+  /* ── Today analytics (CVR 계산) ── */
   const todayAnalytics = useMemo(() => {
-    const empty = {
-      visitors: 0, sessions: 0, submits: 0, cvr: '—',
-      paid: { visitors: 0, submits: 0, cvr: '—' },
-      organic: { visitors: 0, submits: 0, cvr: '—' },
-    };
+    const empty = { visitors: 0, sessions: 0, submits: 0, cvr: '—', paid: { visitors: 0, submits: 0, cvr: '—' }, organic: { visitors: 0, submits: 0, cvr: '—' } };
     if (!analyticsData?.rawEvents) return empty;
     const todayStr = getNYCDate(0);
 
@@ -749,46 +822,33 @@ export default function DashboardPage() {
         const vid = ev.v || ev.s;
         if (!vid) return;
         const isPaid = ev.um === 'paid';
-        if (!uniqueVisitorMap.has(vid)) {
-          uniqueVisitorMap.set(vid, isPaid);
-        } else if (isPaid && !uniqueVisitorMap.get(vid)) {
-          uniqueVisitorMap.set(vid, true);
-        }
+        if (!uniqueVisitorMap.has(vid)) uniqueVisitorMap.set(vid, isPaid);
+        else if (isPaid && !uniqueVisitorMap.get(vid)) uniqueVisitorMap.set(vid, true);
       });
 
-    const visitors = uniqueVisitorMap.size;
-    const paidVids = new Set<string>(Array.from(uniqueVisitorMap.entries()).filter(([, isPaid]) => isPaid).map(([id]) => id));
-    const orgVids = new Set<string>(Array.from(uniqueVisitorMap.entries()).filter(([, isPaid]) => !isPaid).map(([id]) => id));
-    const pVisitors = paidVids.size;
-    const oVisitors = orgVids.size;
-
-    const todayParticipants = currentParticipants.filter((p: any) => {
+    const paidVids = new Set(Array.from(uniqueVisitorMap.entries()).filter(([, ip]) => ip).map(([id]) => id));
+    const orgVids  = new Set(Array.from(uniqueVisitorMap.entries()).filter(([, ip]) => !ip).map(([id]) => id));
+    const todayP = currentParticipants.filter(p => {
       if (!p.signed_up_at) return false;
-      const d = new Date(p.signed_up_at);
-      const nycStr = d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-      return nycStr === todayStr;
+      return new Date(p.signed_up_at).toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) === todayStr;
     });
-    const submits = todayParticipants.length;
-    const pSubmits = todayParticipants.filter((p: any) => p.utm_medium === 'paid').length;
-    const oSubmits = todayParticipants.filter((p: any) => p.utm_medium !== 'paid').length;
 
-    const cvr = visitors > 0 ? `${((submits / visitors) * 100).toFixed(1)}%` : '—';
-    const pCvr = pVisitors > 0 ? `${((pSubmits / pVisitors) * 100).toFixed(1)}%` : '—';
-    const oCvr = oVisitors > 0 ? `${((oSubmits / oVisitors) * 100).toFixed(1)}%` : '—';
-
-    const sessions = new Set(
-      analyticsData.rawEvents
-        .filter((ev: any) => ev.d === todayStr)
-        .map((ev: any) => ev.s).filter(Boolean)
-    ).size;
+    const submits  = todayP.length;
+    const pSubmits = todayP.filter(p => p.utm_medium === 'paid').length;
+    const oSubmits = todayP.filter(p => p.utm_medium !== 'paid').length;
+    const visitors = uniqueVisitorMap.size;
+    const pVis = paidVids.size;
+    const oVis = orgVids.size;
+    const sessions = new Set(analyticsData.rawEvents.filter((ev: any) => ev.d === todayStr).map((ev: any) => ev.s).filter(Boolean)).size;
 
     return {
-      visitors, sessions, submits, cvr,
-      paid: { visitors: pVisitors, submits: pSubmits, cvr: pCvr },
-      organic: { visitors: oVisitors, submits: oSubmits, cvr: oCvr },
+      visitors, sessions, submits, cvr: visitors > 0 ? `${((submits / visitors) * 100).toFixed(1)}%` : '—',
+      paid:    { visitors: pVis, submits: pSubmits, cvr: pVis > 0 ? `${((pSubmits / pVis) * 100).toFixed(1)}%` : '—' },
+      organic: { visitors: oVis, submits: oSubmits, cvr: oVis > 0 ? `${((oSubmits / oVis) * 100).toFixed(1)}%` : '—' },
     };
   }, [analyticsData, excludeIPs, currentParticipants]);
 
+  /* ── Helpers ── */
   const segColor = (s?: string) => {
     if (variant === 'type') {
       const t = QUIZ_TYPE_LABELS[s || ''];
@@ -805,8 +865,7 @@ export default function DashboardPage() {
   const segLabel = (s?: string, p?: Participant) => {
     if (variant === 'type') {
       const type = p?.afterfeel_type || p?.sub_reason || s || '';
-      const t = QUIZ_TYPE_LABELS[type];
-      return t ? t.name : type || 'afterfeel_quiz';
+      return QUIZ_TYPE_LABELS[type]?.name || type || 'afterfeel_quiz';
     }
     switch (s) {
       case 'A': return 'Hot Leads';
@@ -834,29 +893,30 @@ export default function DashboardPage() {
       if (src === 'instagram' || ref.includes('instagram')) return { label: 'IG', color: 'bg-pink-500/20 text-pink-400 border-pink-500/30' };
       return { label: 'Meta', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' };
     }
-    if (src === 'instagram' || ref.includes('instagram.com')) return { label: 'IG', color: 'bg-pink-500/20 text-pink-400 border-pink-500/30' };
-    if (src === 'facebook' || ref.includes('facebook.com')) return { label: 'FB', color: 'bg-blue-600/20 text-blue-400 border-blue-600/30' };
-    if (src === 'google' || ref.includes('google.com')) return { label: 'Google', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' };
-    if (src === 'tiktok' || ref.includes('tiktok.com')) return { label: 'TikTok', color: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30' };
-    if (src === 'twitter' || src === 'x' || ref.includes('twitter.com') || ref.includes('x.com')) return { label: 'X', color: 'bg-zinc-500/20 text-zinc-300 border-zinc-500/30' };
-    if (src === 'email' || med === 'email') return { label: 'Email', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30' };
+    if (src === 'instagram' || ref.includes('instagram.com')) return { label: 'IG',     color: 'bg-pink-500/20 text-pink-400 border-pink-500/30' };
+    if (src === 'facebook'  || ref.includes('facebook.com'))  return { label: 'FB',     color: 'bg-blue-600/20 text-blue-400 border-blue-600/30' };
+    if (src === 'google'    || ref.includes('google.com'))    return { label: 'Google', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' };
+    if (src === 'tiktok'    || ref.includes('tiktok.com'))    return { label: 'TikTok', color: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30' };
+    if (src === 'twitter'   || src === 'x')                   return { label: 'X',      color: 'bg-zinc-500/20 text-zinc-300 border-zinc-500/30' };
+    if (src === 'email'     || med === 'email')               return { label: 'Email',  color: 'bg-purple-500/20 text-purple-400 border-purple-500/30' };
     if (src) return { label: src, color: 'bg-zinc-700/30 text-zinc-400 border-zinc-600/30' };
     return { label: 'Direct', color: 'bg-zinc-800/50 text-zinc-500 border-zinc-700/30' };
   };
 
-  const deviceIcon = (d?: string) => {
-    switch (d) {
-      case 'mobile': return '📱';
-      case 'desktop': return '💻';
-      case 'tablet': return '📟';
-      default: return '—';
-    }
-  };
+  const deviceIcon = (d?: string) => ({ mobile: '📱', desktop: '💻', tablet: '📟' }[d || ''] || '—');
 
-  /* ─── UTM Source Stats Section (defined outside render to prevent remount) ─── */
+  const oppositeVariant: VariantKey = variant === 'main' ? 'type' : 'main';
+  const oppSupabaseTotal = supabaseTotals[oppositeVariant];
+  const oppKlaviyoTotal  = klaviyoTotals[oppositeVariant];
+  const data = activeSource === 'klaviyo' ? klaviyoData : supabaseData;
+  const goal = 15000;
+  const progress = data ? Math.min((data.total / goal) * 100, 100) : 0;
+
+  /* ── BUG FIX: UtmSourceStatsSection defined OUTSIDE render (using useCallback) to prevent remount ── */
   const UtmSourceStatsSection = useCallback(() => {
     const [utmView, setUtmView] = useState<'today' | 'total'>('today');
     const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.[utmView];
+
     const utmStats = useMemo(() => {
       if (!rawUtmStats) return undefined;
       const merged: Record<string, UtmSourceStat> = {};
@@ -864,20 +924,25 @@ export default function DashboardPage() {
         const n = normalizeUtmSource(stat.source);
         if (!merged[n]) { merged[n] = { ...stat, source: n }; }
         else {
-          merged[n].visitors += stat.visitors; merged[n].sessions += stat.sessions;
-          merged[n].events += stat.events; merged[n].page_views += stat.page_views;
+          merged[n].visitors += stat.visitors;
+          merged[n].sessions += stat.sessions;
+          merged[n].events += stat.events;
+          merged[n].page_views += stat.page_views;
           merged[n].submits += stat.submits;
         }
       });
-      Object.values(merged).forEach(m => { m.cvr = m.page_views > 0 ? ((m.submits / m.page_views) * 100).toFixed(1) : '0'; });
+      Object.values(merged).forEach(m => {
+        m.cvr = m.page_views > 0 ? ((m.submits / m.page_views) * 100).toFixed(1) : '0';
+      });
       return Object.values(merged).sort((a, b) => b.visitors - a.visitors);
     }, [rawUtmStats]);
 
     const visitorStatsData: { total: VisitorStat; today: VisitorStat } | undefined = analyticsData?.visitorStats;
     if (!utmStats && !visitorStatsData) return null;
+
     const currentVS = visitorStatsData?.[utmView];
     const totalVisitorsSum = utmStats?.reduce((s, u) => s + u.visitors, 0) || 0;
-    const totalSubmitsSum = utmStats?.reduce((s, u) => s + u.submits, 0) || 0;
+    const totalSubmitsSum  = utmStats?.reduce((s, u) => s + u.submits, 0) || 0;
 
     return (
       <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-6">
@@ -885,13 +950,16 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2">
             <span className="text-base">📡</span>
             <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Traffic Source Breakdown</h3>
-            <span className={`text-[10px] px-2 py-0.5 rounded border ${variant === 'main' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-purple-500/10 text-purple-400 border-purple-500/30'}`}>{variant === 'main' ? 'Main Teaser' : 'Quiz Type'}</span>
+            <span className={`text-[10px] px-2 py-0.5 rounded border ${variant === 'main' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-purple-500/10 text-purple-400 border-purple-500/30'}`}>
+              {variant === 'main' ? 'Main Teaser' : 'Quiz Type'}
+            </span>
           </div>
           <div className="flex gap-1 bg-zinc-800 rounded-lg p-0.5">
             <button onClick={() => setUtmView('today')} className={`px-3 py-1.5 rounded-md text-[10px] sm:text-xs font-bold transition-all ${utmView === 'today' ? 'bg-emerald-500 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>Today</button>
             <button onClick={() => setUtmView('total')} className={`px-3 py-1.5 rounded-md text-[10px] sm:text-xs font-bold transition-all ${utmView === 'total' ? 'bg-purple-500 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>Total</button>
           </div>
         </div>
+
         {currentVS && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4 sm:mb-5">
             <div className="bg-zinc-800/50 border border-zinc-700/30 rounded-lg p-3"><p className="text-[9px] text-zinc-500 uppercase tracking-widest font-semibold mb-0.5">Visitors</p><p className="text-xl sm:text-2xl font-black text-white">{currentVS.visitors.toLocaleString()}</p></div>
@@ -900,37 +968,51 @@ export default function DashboardPage() {
             <div className="bg-emerald-950/30 border border-emerald-900/30 rounded-lg p-3"><p className="text-[9px] text-emerald-500 uppercase tracking-widest font-semibold mb-0.5">Submits</p><p className="text-xl sm:text-2xl font-black text-emerald-400">{totalSubmitsSum}</p></div>
           </div>
         )}
+
         {utmStats && utmStats.length > 0 && (
           <div className="space-y-2.5">
-            {utmStats.map((utm) => {
+            {utmStats.map(utm => {
               const colors = getUtmColor(utm.source);
-              const visitorPct = totalVisitorsSum > 0 ? ((utm.visitors / totalVisitorsSum) * 100) : 0;
+              const visitorPct = totalVisitorsSum > 0 ? (utm.visitors / totalVisitorsSum) * 100 : 0;
               return (
                 <div key={utm.source} className={`${colors.bg} border ${colors.border} rounded-xl p-3 sm:p-4`}>
                   <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2"><span className={`w-2.5 h-2.5 rounded-full ${colors.dot}`} /><span className={`text-sm sm:text-base font-bold ${colors.text}`}>{utm.source}</span><span className="text-[10px] text-zinc-500 font-medium">{visitorPct.toFixed(1)}% of traffic</span></div>
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2.5 h-2.5 rounded-full ${colors.dot}`} />
+                      <span className={`text-sm sm:text-base font-bold ${colors.text}`}>{utm.source}</span>
+                      <span className="text-[10px] text-zinc-500 font-medium">{visitorPct.toFixed(1)}% of traffic</span>
+                    </div>
                     <span className={`text-xs px-2 py-0.5 rounded font-bold ${Number(utm.cvr) > 3 ? 'bg-emerald-500/20 text-emerald-400' : Number(utm.cvr) > 0 ? 'bg-amber-500/20 text-amber-400' : 'bg-zinc-700/30 text-zinc-500'}`}>CVR {utm.cvr}%</span>
                   </div>
-                  <div className="h-2 bg-zinc-800/80 rounded-full overflow-hidden mb-3"><div className={`h-full rounded-full ${colors.dot} transition-all duration-700`} style={{ width: `${Math.max(visitorPct, utm.visitors > 0 ? 2 : 0)}%` }} /></div>
+                  <div className="h-2 bg-zinc-800/80 rounded-full overflow-hidden mb-3">
+                    <div className={`h-full rounded-full ${colors.dot} transition-all duration-700`} style={{ width: `${Math.max(visitorPct, utm.visitors > 0 ? 2 : 0)}%` }} />
+                  </div>
                   <div className="grid grid-cols-5 gap-2">
-                    <div className="text-center"><p className="text-sm sm:text-lg font-black text-white">{utm.visitors.toLocaleString()}</p><p className="text-[8px] sm:text-[9px] text-zinc-500 uppercase tracking-widest">Visitors</p></div>
-                    <div className="text-center"><p className="text-sm sm:text-lg font-black text-zinc-300">{utm.sessions.toLocaleString()}</p><p className="text-[8px] sm:text-[9px] text-zinc-500 uppercase tracking-widest">Sessions</p></div>
-                    <div className="text-center"><p className="text-sm sm:text-lg font-black text-zinc-400">{utm.events.toLocaleString()}</p><p className="text-[8px] sm:text-[9px] text-zinc-500 uppercase tracking-widest">Events</p></div>
-                    <div className="text-center"><p className="text-sm sm:text-lg font-black text-zinc-400">{utm.page_views.toLocaleString()}</p><p className="text-[8px] sm:text-[9px] text-zinc-500 uppercase tracking-widest">Views</p></div>
-                    <div className="text-center"><p className="text-sm sm:text-lg font-black text-emerald-400">{utm.submits}</p><p className="text-[8px] sm:text-[9px] text-zinc-500 uppercase tracking-widest">Submits</p></div>
+                    {[
+                      { v: utm.visitors,  l: 'Visitors',  c: 'text-white' },
+                      { v: utm.sessions,  l: 'Sessions',  c: 'text-zinc-300' },
+                      { v: utm.events,    l: 'Events',    c: 'text-zinc-400' },
+                      { v: utm.page_views,l: 'Views',     c: 'text-zinc-400' },
+                      { v: utm.submits,   l: 'Submits',   c: 'text-emerald-400' },
+                    ].map(item => (
+                      <div key={item.l} className="text-center">
+                        <p className={`text-sm sm:text-lg font-black ${item.c}`}>{item.v.toLocaleString()}</p>
+                        <p className="text-[8px] sm:text-[9px] text-zinc-500 uppercase tracking-widest">{item.l}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               );
             })}
           </div>
         )}
-        {(!utmStats || utmStats.length === 0) && (<div className="text-center text-zinc-600 py-6 text-sm">No traffic data for this period.</div>)}
+        {(!utmStats || utmStats.length === 0) && <div className="text-center text-zinc-600 py-6 text-sm">No traffic data for this period.</div>}
       </div>
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [analyticsData, variant]);
 
-  /* ─── Pagination UI Component ─── */
+  /* ── Pagination UI ── */
   const PaginationUI = () => {
     if (totalPages <= 1) return null;
     return (
@@ -940,12 +1022,9 @@ export default function DashboardPage() {
           disabled={currentPage === 1}
           className="flex items-center gap-1.5 px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-          </svg>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
           Prev
         </button>
-
         <div className="flex items-center gap-1">
           {currentPage > 3 && (
             <>
@@ -956,13 +1035,7 @@ export default function DashboardPage() {
           {Array.from({ length: totalPages }, (_, i) => i + 1)
             .filter(p => p >= currentPage - 2 && p <= currentPage + 2)
             .map(p => (
-              <button
-                key={p}
-                onClick={() => setCurrentPage(p)}
-                className={`w-8 h-8 rounded-lg text-xs font-medium transition-all ${p === currentPage ? 'bg-white text-black font-bold shadow' : 'text-zinc-500 hover:text-white hover:bg-zinc-800'}`}
-              >
-                {p}
-              </button>
+              <button key={p} onClick={() => setCurrentPage(p)} className={`w-8 h-8 rounded-lg text-xs font-medium transition-all ${p === currentPage ? 'bg-white text-black font-bold shadow' : 'text-zinc-500 hover:text-white hover:bg-zinc-800'}`}>{p}</button>
             ))}
           {currentPage < totalPages - 2 && (
             <>
@@ -971,22 +1044,21 @@ export default function DashboardPage() {
             </>
           )}
         </div>
-
         <button
           onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
           disabled={currentPage === totalPages}
           className="flex items-center gap-1.5 px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
         >
           Next
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-          </svg>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
         </button>
       </div>
     );
   };
 
-  /* ─── LOGIN ─── */
+  /* ════════════════════════════════════════
+     LOGIN SCREEN
+  ════════════════════════════════════════ */
   if (!authenticated) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-4">
@@ -1009,31 +1081,25 @@ export default function DashboardPage() {
     );
   }
 
-  if (loading) {
-    return (<div className="min-h-screen bg-black flex items-center justify-center"><div className="w-10 h-10 border-2 border-zinc-800 border-t-emerald-500 rounded-full animate-spin" /></div>);
-  }
-
-  const data = activeSource === 'klaviyo' ? klaviyoData : supabaseData;
-  const goal = 15000;
-  const progress = data ? Math.min((data.total / goal) * 100, 100) : 0;
-
-  const oppositeVariant = variant === 'main' ? 'type' : 'main';
-  const oppSupabaseTotal = supabaseTotals[oppositeVariant];
-  const oppKlaviyoTotal = klaviyoTotals[oppositeVariant];
-
+  /* ════════════════════════════════════════
+     MAIN DASHBOARD
+  ════════════════════════════════════════ */
   return (
     <main className="min-h-screen bg-gradient-to-br from-zinc-950 via-black to-zinc-900 text-white">
-      {/* Header */}
+
+      {/* ── Header ── */}
       <header className="sticky top-0 z-50 bg-black/90 backdrop-blur-xl border-b border-zinc-900">
         <div className="max-w-6xl mx-auto px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-3">
-            <button onClick={() => window.open('https://teaser.piilk.com', '_blank')} className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center hover:bg-zinc-800 active:scale-95 transition-all" title="Go to teaser site">
+            <button onClick={() => window.open('https://teaser.piilk.com', '_blank')} className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center hover:bg-zinc-800 active:scale-95 transition-all">
               <svg className="w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
             </button>
             <Image src="/pillk-logo.png" alt="PIILK" width={80} height={28} className="h-6 sm:h-7 w-auto" />
             <span className="text-[10px] sm:text-xs text-zinc-600 uppercase tracking-wider hidden sm:inline">Dashboard</span>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
+            {isRefreshing && <span className="text-[10px] text-zinc-600 animate-pulse hidden sm:inline">갱신중…</span>}
+            {isStatsLoading && <div className="w-3 h-3 border border-zinc-700 border-t-emerald-500 rounded-full animate-spin" />}
             <span className="text-zinc-500 text-[10px] sm:text-xs font-mono">{lastUpdated}</span>
             <button onClick={() => { fetchData(); fetchParticipants(); fetchAnalytics(); }} className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center hover:bg-zinc-800 active:scale-95">
               <svg className="w-3 h-3 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
@@ -1045,7 +1111,7 @@ export default function DashboardPage() {
 
       <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6">
 
-        {/* Variant Tabs */}
+        {/* ── Variant Tabs ── */}
         <div className="flex items-center gap-2 bg-zinc-900/80 border border-zinc-800 rounded-xl p-1">
           <button onClick={() => setVariant('main')} className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all ${variant === 'main' ? 'bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50'}`}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
@@ -1057,155 +1123,178 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* View Mode Tabs */}
+        {/* ── View Mode Tabs ── */}
         <div className="flex items-center gap-1 bg-zinc-900/60 border border-zinc-800 rounded-xl p-1">
           {(['overview', 'participants', 'analytics'] as const).map(mode => (
             <button key={mode} onClick={() => setViewMode(mode)} className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-semibold transition-all capitalize ${viewMode === mode ? 'bg-white text-black shadow-lg shadow-white/5' : 'text-zinc-500 hover:text-zinc-300'}`}>
-              {mode === 'overview' && <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
+              {mode === 'overview'     && <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
               {mode === 'participants' && <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
-              {mode === 'analytics' && <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>}
+              {mode === 'analytics'   && <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>}
               {mode}
             </button>
           ))}
         </div>
 
-        {/* Data Source Tabs */}
+        {/* ── Data Source Tabs ── */}
         {viewMode !== 'analytics' && (
           <div className="flex gap-2">
-            <button onClick={() => setActiveSource('klaviyo')} className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${activeSource === 'klaviyo' ? 'bg-purple-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>
-              📧 Klaviyo
-              {klaviyoData && <span className="text-xs opacity-80">({klaviyoData.total})</span>}
-              {oppKlaviyoTotal !== null && (
-                <>
-                  <span className="text-xs opacity-40">+</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold border ${variant === 'main' ? 'bg-purple-900/50 text-purple-300 border-purple-700/40' : 'bg-emerald-900/50 text-emerald-300 border-emerald-700/40'}`} title={`${oppositeVariant === 'main' ? 'Main Teaser' : 'Quiz Type'} Klaviyo`}>
-                    {oppositeVariant === 'main' ? 'Main' : 'Quiz'} {oppKlaviyoTotal}
-                  </span>
-                </>
-              )}
-            </button>
-            <button onClick={() => setActiveSource('supabase')} className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${activeSource === 'supabase' ? 'bg-emerald-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>
-              🗄️ Supabase
-              {supabaseData && <span className="text-xs opacity-80">({supabaseData.total})</span>}
-              {oppSupabaseTotal !== null && (
-                <>
-                  <span className="text-xs opacity-40">+</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold border ${variant === 'main' ? 'bg-purple-900/50 text-purple-300 border-purple-700/40' : 'bg-emerald-900/50 text-emerald-300 border-emerald-700/40'}`} title={`${oppositeVariant === 'main' ? 'Main Teaser' : 'Quiz Type'} Supabase`}>
-                    {oppositeVariant === 'main' ? 'Main' : 'Quiz'} {oppSupabaseTotal}
-                  </span>
-                </>
-              )}
-            </button>
+            {(['klaviyo', 'supabase'] as const).map(src => {
+              const srcData = src === 'klaviyo' ? klaviyoData : supabaseData;
+              const oppTotal = src === 'klaviyo' ? oppKlaviyoTotal : oppSupabaseTotal;
+              const isActive = activeSource === src;
+              return (
+                <button key={src} onClick={() => setActiveSource(src)} className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${isActive ? (src === 'klaviyo' ? 'bg-purple-600 text-white' : 'bg-emerald-600 text-white') : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>
+                  {src === 'klaviyo' ? '📧' : '🗄️'} {src === 'klaviyo' ? 'Klaviyo' : 'Supabase'}
+                  {srcData && <span className="text-xs opacity-80">({srcData.total})</span>}
+                  {oppTotal !== null && (
+                    <>
+                      <span className="text-xs opacity-40">+</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold border ${variant === 'main' ? 'bg-purple-900/50 text-purple-300 border-purple-700/40' : 'bg-emerald-900/50 text-emerald-300 border-emerald-700/40'}`}>
+                        {oppositeVariant === 'main' ? 'Main' : 'Quiz'} {oppTotal}
+                      </span>
+                    </>
+                  )}
+                </button>
+              );
+            })}
           </div>
         )}
 
-        {/* ══════ OVERVIEW ══════ */}
-        {viewMode === 'overview' && data ? (
+        {/* ════════════════════════════════════════
+            OVERVIEW TAB
+        ════════════════════════════════════════ */}
+        {viewMode === 'overview' && (
           <>
+            {/* Hero total */}
             <section className="relative overflow-hidden bg-gradient-to-br from-zinc-900/80 to-zinc-950 border border-zinc-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:p-8">
-              <div className={`absolute inset-0 bg-gradient-to-r ${variant === 'type' ? 'from-purple-500/5' : activeSource === 'klaviyo' ? 'from-purple-500/5' : 'from-emerald-500/5'} to-transparent`} />
+              <div className={`absolute inset-0 bg-gradient-to-r ${variant === 'type' ? 'from-purple-500/5' : 'from-emerald-500/5'} to-transparent`} />
               <div className="relative">
-                <div className="flex items-end justify-between gap-4 mb-4 sm:mb-6">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-xs px-2 py-0.5 rounded ${activeSource === 'klaviyo' ? 'bg-purple-500/20 text-purple-400' : 'bg-emerald-500/20 text-emerald-400'}`}>{activeSource === 'klaviyo' ? 'Klaviyo' : 'Supabase'}</span>
-                      <span className={`text-xs px-2 py-0.5 rounded border ${variant === 'main' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-purple-500/10 text-purple-400 border-purple-500/30'}`}>{variant === 'main' ? 'Main Teaser' : 'Quiz Type'}</span>
-                      <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">TODAY +{todaySignups}</span>
+                {data ? (
+                  <>
+                    <div className="flex items-end justify-between gap-4 mb-4 sm:mb-6">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className={`text-xs px-2 py-0.5 rounded ${activeSource === 'klaviyo' ? 'bg-purple-500/20 text-purple-400' : 'bg-emerald-500/20 text-emerald-400'}`}>{activeSource === 'klaviyo' ? 'Klaviyo' : 'Supabase'}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded border ${variant === 'main' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-purple-500/10 text-purple-400 border-purple-500/30'}`}>{variant === 'main' ? 'Main Teaser' : 'Quiz Type'}</span>
+                          <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">TODAY +{todaySignups}</span>
+                        </div>
+                        <p className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-widest mb-1 sm:mb-2">Total Signups</p>
+                        <p className="text-5xl sm:text-6xl lg:text-8xl font-black leading-none tracking-tighter bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent">{data.total.toLocaleString()}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-zinc-500 text-xs sm:text-sm">Goal: {goal.toLocaleString()}</p>
+                        <p className={`text-xl sm:text-2xl font-bold ${variant === 'type' ? 'text-purple-500' : 'text-emerald-500'}`}>{progress.toFixed(1)}%</p>
+                      </div>
                     </div>
-                    <p className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-widest mb-1 sm:mb-2">Total Signups</p>
-                    <p className="text-5xl sm:text-6xl lg:text-8xl font-black leading-none tracking-tighter bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent">{data.total.toLocaleString()}</p>
+                    <div className="h-1.5 sm:h-2 bg-zinc-800/50 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all duration-1000 ${variant === 'type' ? 'bg-gradient-to-r from-purple-600 to-purple-400' : 'bg-gradient-to-r from-emerald-600 to-emerald-400'}`} style={{ width: `${progress}%` }} />
+                    </div>
+                    <div className="flex justify-between mt-1.5 sm:mt-2 text-[10px] sm:text-xs text-zinc-700 font-mono"><span>0</span><span>5K</span><span>10K</span><span>15K</span></div>
+                  </>
+                ) : (
+                  // Skeleton for hero
+                  <div className="space-y-4">
+                    <div className="flex gap-2"><SkeletonCard className="h-6 w-20" /><SkeletonCard className="h-6 w-24" /></div>
+                    <SkeletonCard className="h-16 w-48" />
+                    <SkeletonCard className="h-2 w-full" />
                   </div>
-                  <div className="text-right">
-                    <p className="text-zinc-500 text-xs sm:text-sm">Goal: {goal.toLocaleString()}</p>
-                    <p className={`text-xl sm:text-2xl font-bold ${variant === 'type' ? 'text-purple-500' : activeSource === 'klaviyo' ? 'text-purple-500' : 'text-emerald-500'}`}>{progress.toFixed(1)}%</p>
-                  </div>
-                </div>
-                <div className="h-1.5 sm:h-2 bg-zinc-800/50 rounded-full overflow-hidden">
-                  <div className={`h-full rounded-full transition-all duration-1000 ${variant === 'type' ? 'bg-gradient-to-r from-purple-600 to-purple-400' : activeSource === 'klaviyo' ? 'bg-gradient-to-r from-purple-600 to-purple-400' : 'bg-gradient-to-r from-emerald-600 to-emerald-400'}`} style={{ width: `${progress}%` }} />
-                </div>
-                <div className="flex justify-between mt-1.5 sm:mt-2 text-[10px] sm:text-xs text-zinc-700 font-mono"><span>0</span><span>5K</span><span>10K</span><span>15K</span></div>
+                )}
               </div>
             </section>
 
             {dailySignups.length > 0 && <SignupChart daily={dailySignups} cumulative={cumulativeSignups} />}
 
             {/* Segments */}
-            {variant === 'type' ? (
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                {Object.entries(QUIZ_TYPE_LABELS).map(([key, label]) => {
-                  const count = data.quizBreakdown?.[key as keyof typeof data.quizBreakdown] ?? quizTypeCounts?.[key] ?? 0;
-                  const pct = data.total > 0 ? ((count / data.total) * 100).toFixed(1) : '0';
-                  return (
-                    <div key={key} className={`bg-gradient-to-br ${label.bgColor} border ${label.borderColor} rounded-xl sm:rounded-2xl p-4 sm:p-5 relative overflow-hidden`}>
-                      <div className="absolute top-0 right-0 w-20 h-20 opacity-10 text-6xl flex items-center justify-center pointer-events-none">{label.icon}</div>
-                      <div className="relative">
-                        <div className="flex items-center gap-2 mb-2"><span className="text-lg">{label.icon}</span><p className={`text-[9px] sm:text-xs uppercase tracking-widest font-bold ${label.color}`}>{label.name}</p></div>
-                        <div className="flex items-end justify-between mt-3">
-                          <p className={`text-3xl sm:text-4xl font-black ${label.color}`}>{count}</p>
-                          <p className={`text-sm sm:text-base font-bold ${label.color} opacity-70`}>{pct}%</p>
+            {data ? (
+              variant === 'type' ? (
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                  {Object.entries(QUIZ_TYPE_LABELS).map(([key, label]) => {
+                    const count = data.quizBreakdown?.[key as keyof typeof data.quizBreakdown] ?? quizTypeCounts?.[key] ?? 0;
+                    const pct = data.total > 0 ? ((count / data.total) * 100).toFixed(1) : '0';
+                    return (
+                      <div key={key} className={`bg-gradient-to-br ${label.bgColor} border ${label.borderColor} rounded-xl sm:rounded-2xl p-4 sm:p-5 relative overflow-hidden`}>
+                        <div className="absolute top-0 right-0 w-20 h-20 opacity-10 text-6xl flex items-center justify-center pointer-events-none">{label.icon}</div>
+                        <div className="relative">
+                          <div className="flex items-center gap-2 mb-2"><span className="text-lg">{label.icon}</span><p className={`text-[9px] sm:text-xs uppercase tracking-widest font-bold ${label.color}`}>{label.name}</p></div>
+                          <div className="flex items-end justify-between mt-3">
+                            <p className={`text-3xl sm:text-4xl font-black ${label.color}`}>{count}</p>
+                            <p className={`text-sm sm:text-base font-bold ${label.color} opacity-70`}>{pct}%</p>
+                          </div>
                         </div>
                       </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
+                  {/* Segment A */}
+                  <div className="lg:col-span-2 bg-gradient-to-br from-emerald-950/40 to-zinc-900/60 border border-emerald-900/40 rounded-xl sm:rounded-2xl p-4 sm:p-6 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 sm:w-48 h-32 sm:h-48 bg-emerald-500/10 rounded-full blur-3xl" />
+                    <div className="relative">
+                      <div className="flex items-start justify-between mb-4 sm:mb-6">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1"><span className="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-emerald-500 rounded-full animate-pulse" /><p className="text-[10px] sm:text-xs text-emerald-400 uppercase tracking-widest font-bold">Segment A</p></div>
+                          <h2 className="text-lg sm:text-xl font-bold text-white">Hot Leads</h2>
+                          <p className="text-zinc-500 text-[10px] sm:text-xs">Yes - Core Target</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-4xl sm:text-5xl lg:text-6xl font-black text-emerald-400">{data.segments.A.total}</p>
+                          <p className="text-emerald-600 text-base sm:text-lg font-bold">{data.segments.A.percentage}%</p>
+                        </div>
+                      </div>
+                      {data.segments.A.breakdown && (
+                        <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+                          {[
+                            { label: 'Residue',    value: data.segments.A.breakdown.residue },
+                            { label: 'Aftertaste', value: data.segments.A.breakdown.aftertaste },
+                            { label: 'Heaviness',  value: data.segments.A.breakdown.heaviness },
+                            { label: 'Habit',      value: data.segments.A.breakdown.habit },
+                            { label: 'Lapsed',     value: data.segments.A.breakdown.lapsed },
+                          ].map(item => (
+                            <div key={item.label} className="bg-black/40 rounded-lg sm:rounded-xl p-2 sm:p-3 text-center border border-emerald-900/20">
+                              <p className="text-lg sm:text-2xl font-black text-white">{item.value}</p>
+                              <p className="text-[7px] sm:text-[9px] text-emerald-500/80 uppercase tracking-wider font-semibold mt-0.5 sm:mt-1 leading-tight">{item.label}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                  {/* Segments B & C */}
+                  <div className="grid grid-cols-2 lg:grid-cols-1 gap-3 sm:gap-4">
+                    <div className="bg-gradient-to-br from-amber-950/30 to-zinc-900/50 border border-amber-900/30 rounded-xl sm:rounded-2xl p-3 sm:p-5">
+                      <div className="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3"><span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-amber-500 rounded-full" /><p className="text-[9px] sm:text-xs text-amber-500 uppercase tracking-widest font-bold">Segment B</p></div>
+                      <h3 className="text-base sm:text-lg font-bold text-white">Skeptics</h3>
+                      <p className="text-zinc-500 text-[10px] sm:text-xs mb-2 sm:mb-3">No - Unaware</p>
+                      <div className="flex items-end justify-between"><p className="text-3xl sm:text-4xl font-black text-amber-400">{data.segments.B.total}</p><p className="text-amber-600 text-sm sm:text-base font-bold">{data.segments.B.percentage}%</p></div>
+                    </div>
+                    <div className="bg-gradient-to-br from-sky-950/30 to-zinc-900/50 border border-sky-900/30 rounded-xl sm:rounded-2xl p-3 sm:p-5">
+                      <div className="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3"><span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-sky-500 rounded-full" /><p className="text-[9px] sm:text-xs text-sky-500 uppercase tracking-widest font-bold">Segment C</p></div>
+                      <h3 className="text-base sm:text-lg font-bold text-white">Newbies</h3>
+                      <p className="text-zinc-500 text-[10px] sm:text-xs mb-2 sm:mb-3">New to Protein</p>
+                      <div className="flex items-end justify-between"><p className="text-3xl sm:text-4xl font-black text-sky-400">{data.segments.C.total}</p><p className="text-sky-600 text-sm sm:text-base font-bold">{data.segments.C.percentage}%</p></div>
+                    </div>
+                  </div>
+                </div>
+              )
             ) : (
+              // Segment skeleton
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
-                <div className="lg:col-span-2 bg-gradient-to-br from-emerald-950/40 to-zinc-900/60 border border-emerald-900/40 rounded-xl sm:rounded-2xl p-4 sm:p-6 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 sm:w-48 h-32 sm:h-48 bg-emerald-500/10 rounded-full blur-3xl" />
-                  <div className="relative">
-                    <div className="flex items-start justify-between mb-4 sm:mb-6">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1"><span className="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-emerald-500 rounded-full animate-pulse" /><p className="text-[10px] sm:text-xs text-emerald-400 uppercase tracking-widest font-bold">Segment A</p></div>
-                        <h2 className="text-lg sm:text-xl font-bold text-white">Hot Leads</h2>
-                        <p className="text-zinc-500 text-[10px] sm:text-xs">Yes - Core Target</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-4xl sm:text-5xl lg:text-6xl font-black text-emerald-400">{data.segments.A.total}</p>
-                        <p className="text-emerald-600 text-base sm:text-lg font-bold">{data.segments.A.percentage}%</p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
-                      {data.segments.A.breakdown && [
-                        { label: 'Residue', value: data.segments.A.breakdown.residue },
-                        { label: 'Aftertaste', value: data.segments.A.breakdown.aftertaste },
-                        { label: 'Heaviness', value: data.segments.A.breakdown.heaviness },
-                        { label: 'Habit', value: data.segments.A.breakdown.habit },
-                        { label: 'Lapsed', value: data.segments.A.breakdown.lapsed },
-                      ].map((item) => (
-                        <div key={item.label} className="bg-black/40 rounded-lg sm:rounded-xl p-2 sm:p-3 text-center border border-emerald-900/20">
-                          <p className="text-lg sm:text-2xl font-black text-white">{item.value}</p>
-                          <p className="text-[7px] sm:text-[9px] text-emerald-500/80 uppercase tracking-wider font-semibold mt-0.5 sm:mt-1 leading-tight">{item.label}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 lg:grid-cols-1 gap-3 sm:gap-4">
-                  <div className="bg-gradient-to-br from-amber-950/30 to-zinc-900/50 border border-amber-900/30 rounded-xl sm:rounded-2xl p-3 sm:p-5">
-                    <div className="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3"><span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-amber-500 rounded-full" /><p className="text-[9px] sm:text-xs text-amber-500 uppercase tracking-widest font-bold">Segment B</p></div>
-                    <h3 className="text-base sm:text-lg font-bold text-white">Skeptics</h3><p className="text-zinc-500 text-[10px] sm:text-xs mb-2 sm:mb-3">No - Unaware</p>
-                    <div className="flex items-end justify-between"><p className="text-3xl sm:text-4xl font-black text-amber-400">{data.segments.B.total}</p><p className="text-amber-600 text-sm sm:text-base font-bold">{data.segments.B.percentage}%</p></div>
-                  </div>
-                  <div className="bg-gradient-to-br from-sky-950/30 to-zinc-900/50 border border-sky-900/30 rounded-xl sm:rounded-2xl p-3 sm:p-5">
-                    <div className="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3"><span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-sky-500 rounded-full" /><p className="text-[9px] sm:text-xs text-sky-500 uppercase tracking-widest font-bold">Segment C</p></div>
-                    <h3 className="text-base sm:text-lg font-bold text-white">Newbies</h3><p className="text-zinc-500 text-[10px] sm:text-xs mb-2 sm:mb-3">New to Protein</p>
-                    <div className="flex items-end justify-between"><p className="text-3xl sm:text-4xl font-black text-sky-400">{data.segments.C.total}</p><p className="text-sky-600 text-sm sm:text-base font-bold">{data.segments.C.percentage}%</p></div>
-                  </div>
-                </div>
+                <SkeletonCard className="lg:col-span-2 h-48" />
+                <div className="grid grid-cols-2 lg:grid-cols-1 gap-3"><SkeletonCard className="h-32" /><SkeletonCard className="h-32" /></div>
               </div>
             )}
 
-            {/* Tracking Analytics */}
-            {trackingAnalytics && trackingAnalytics.hasTrackingData && (
+            {/* Tracking analytics */}
+            {trackingAnalytics?.hasTrackingData && (
               <div className="space-y-3 sm:space-y-4">
                 <h2 className="text-sm sm:text-base font-bold text-zinc-400 uppercase tracking-widest">Audience Insights</h2>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
                   {[
-                    { icon: '🌍', title: 'Country', data: trackingAnalytics.countries, color: 'bg-emerald-500' },
-                    { icon: '🏙️', title: 'Top Cities', data: trackingAnalytics.cities, color: 'bg-purple-500' },
-                    { icon: '📱', title: 'Device', data: trackingAnalytics.devices, color: 'bg-amber-500' },
-                    { icon: '🔗', title: 'Traffic Source', data: trackingAnalytics.utmSources, color: 'bg-sky-500' },
+                    { icon: '🌍', title: 'Country',        data: trackingAnalytics.countries,  color: 'bg-emerald-500' },
+                    { icon: '🏙️', title: 'Top Cities',     data: trackingAnalytics.cities,     color: 'bg-purple-500'  },
+                    { icon: '📱', title: 'Device',         data: trackingAnalytics.devices,    color: 'bg-amber-500'   },
+                    { icon: '🔗', title: 'Traffic Source', data: trackingAnalytics.utmSources, color: 'bg-sky-500'     },
                   ].map(section => (
                     <div key={section.title} className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5">
                       <div className="flex items-center gap-2 mb-3 sm:mb-4"><span className="text-base">{section.icon}</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">{section.title}</h3></div>
@@ -1216,35 +1305,41 @@ export default function DashboardPage() {
               </div>
             )}
           </>
-        ) : viewMode === 'overview' ? (
-          <div className="text-center text-zinc-500 py-12">데이터를 불러올 수 없습니다.</div>
-        ) : null}
+        )}
 
-        {/* ══════ PARTICIPANTS ══════ */}
+        {/* ════════════════════════════════════════
+            PARTICIPANTS TAB
+        ════════════════════════════════════════ */}
         {viewMode === 'participants' && (
           <div className="space-y-4">
-            {/* 상단 카드 */}
+
+            {/* ── 상단 stat cards ── */}
             {(() => {
               const todayStr = getNYCDate(0);
               const isToday = (p: Participant) => {
                 if (!p.signed_up_at) return false;
-                const d = new Date(p.signed_up_at);
-                const nycStr = d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-                return nycStr === todayStr;
+                return new Date(p.signed_up_at).toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) === todayStr;
               };
               const kTotal = participants.klaviyo.length;
               const sTotal = participants.supabase.length;
+
+              if (participantsLoading && currentParticipants.length === 0) {
+                return (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                    {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} className="h-28" />)}
+                  </div>
+                );
+              }
 
               if (variant === 'type') {
                 const todayQuizCounts: Record<string, number> = { brick: 0, chalk: 0, zombie: 0, gambler: 0 };
                 currentParticipants.filter(isToday).forEach(p => {
                   const type = p.afterfeel_type || p.sub_reason || '';
-                  if (Object.prototype.hasOwnProperty.call(todayQuizCounts, type)) todayQuizCounts[type]++;
+                  if (type in todayQuizCounts) todayQuizCounts[type]++;
                 });
                 return (
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3">
                     <div className="relative bg-gradient-to-br from-zinc-800/80 to-zinc-900 border-2 border-zinc-600 rounded-xl p-3 sm:p-4 overflow-hidden">
-                      <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 rounded-full blur-xl pointer-events-none" />
                       <p className="text-[9px] sm:text-[10px] text-zinc-400 uppercase tracking-widest mb-0.5 font-bold">Total</p>
                       <p className="text-2xl sm:text-3xl font-black text-white">{currentParticipants.length}</p>
                       <div className="flex gap-1.5 mt-1.5">
@@ -1264,39 +1359,34 @@ export default function DashboardPage() {
                 );
               }
 
+              // Main variant
               const todayA = currentParticipants.filter(p => isToday(p) && p.segment === 'A').length;
-              const otherTotal: number | null = variant === 'main' ? supabaseTotals.type : supabaseTotals.main;
-              const combinedTotal = otherTotal !== null ? currentParticipants.length + (otherTotal as number) : currentParticipants.length;
-              const isCombined = otherTotal !== null;
-              const combinedTodayAll = currentParticipants.filter(isToday).length;
+              const otherTotal = activeSource === 'supabase' ? supabaseTotals[oppositeVariant] : klaviyoTotals[oppositeVariant];
+              const combinedTotal = otherTotal !== null ? currentParticipants.length + otherTotal : currentParticipants.length;
+              const combinedTodayAll = (variant === 'main' ? mergedParticipants : currentParticipants).filter(isToday).length;
+
+              const yesterdayStr = getNYCDate(-1);
+              const yesterdayA = currentParticipants.filter(p => {
+                if (!p.signed_up_at) return false;
+                return new Date(p.signed_up_at).toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) === yesterdayStr && p.segment === 'A';
+              }).length;
 
               return (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                  {/* Total */}
                   <div className="relative bg-gradient-to-br from-zinc-800/80 to-zinc-900 border-2 border-zinc-600 rounded-xl p-4 overflow-hidden flex flex-col items-center justify-center text-center min-h-[160px]">
-                    <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 rounded-full blur-xl pointer-events-none" />
                     <p className="text-[9px] text-zinc-400 uppercase tracking-widest font-bold mb-2">Total</p>
-                    <div className="flex items-baseline gap-1.5 justify-center">
-                      <p className="text-6xl sm:text-7xl font-black text-white leading-none">{combinedTotal.toLocaleString()}</p>
-                      {!isCombined && <span className="text-[9px] text-zinc-600 animate-pulse">…</span>}
-                    </div>
-                    <div className="flex items-center gap-3 mt-2">
-                      <span className="text-lg sm:text-xl font-black text-emerald-400">+{combinedTodayAll} today</span>
-                    </div>
+                    <p className="text-6xl sm:text-7xl font-black text-white leading-none">{combinedTotal.toLocaleString()}</p>
+                    <p className="text-lg sm:text-xl font-black text-emerald-400 mt-2">+{combinedTodayAll} today</p>
                   </div>
+                  {/* Hot Leads today */}
                   <div className="bg-emerald-950/30 border border-emerald-900/30 rounded-xl p-4 flex flex-col items-center justify-center text-center min-h-[160px]">
                     <div className="flex items-center justify-between w-full mb-2">
                       <p className="text-[10px] text-emerald-500 uppercase tracking-widest font-bold">Hot Leads</p>
                       <span className="text-[8px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded font-bold">TODAY</span>
                     </div>
                     <p className="text-6xl sm:text-7xl font-black text-emerald-400 leading-none">{todayA}</p>
-                    {(() => {
-                      const yStr = getNYCDate(-1);
-                      const yesterdayA = currentParticipants.filter(p => {
-                        if (!p.signed_up_at) return false;
-                        const d = new Date(p.signed_up_at);
-                        return d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) === yStr && p.segment === 'A';
-                      }).length;
-                      if (yesterdayA === 0) return null;
+                    {yesterdayA > 0 && (() => {
                       const diff = todayA - yesterdayA;
                       const pct = ((diff / yesterdayA) * 100).toFixed(0);
                       return (
@@ -1312,22 +1402,16 @@ export default function DashboardPage() {
                     <div className="flex items-center justify-between mb-3">
                       <p className="text-[10px] sm:text-xs text-sky-400 uppercase tracking-widest font-bold">Visitors</p>
                       <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => {
-                            if (!analyticsData?.rawEvents) return;
-                            const todayStr2 = getNYCDate(0);
-                            const todayPV = analyticsData.rawEvents.filter((ev: any) => ev.d === todayStr2 && ev.n === 'page_view');
-                            const vidMap = new Map<string, number>();
-                            todayPV.forEach((ev: any) => { const vid = ev.v || ev.s || 'no-id'; vidMap.set(vid, (vidMap.get(vid) || 0) + 1); });
-                            const multiVisit = Array.from(vidMap.entries()).filter(([, c]) => c > 1);
-                            const noV = todayPV.filter((ev: any) => !ev.v).length;
-                            const paidVidSet = new Set(todayPV.filter((ev: any) => ev.um === 'paid').map((ev: any) => ev.v || ev.s).filter(Boolean));
-                            const orgVidSet = new Set(todayPV.filter((ev: any) => ev.um !== 'paid').map((ev: any) => ev.v || ev.s).filter(Boolean));
-                            const overlap = Array.from(paidVidSet).filter(id => orgVidSet.has(id)).length;
-                            alert(`📊 Visitor Debug (오늘)\n\n전체 page_view 이벤트: ${todayPV.length}개\n유니크 visitor_id: ${vidMap.size}명\nvisitor_id 없음 (session 폴백): ${noV}개\n재방문 (2회↑): ${multiVisit.length}명\n  → 예: ${multiVisit.slice(0, 3).map(([id, c]) => `${id.slice(-6)}(${c}회)`).join(', ')}\n\nPaid visitors (raw): ${paidVidSet.size}명\nOrganic visitors (raw): ${orgVidSet.size}명\nPaid+Organic 중복: ${overlap}명 (Paid로 분류됨)\n보정 후 Organic: ${orgVidSet.size - overlap}명\nPaid + Organic 합산: ${paidVidSet.size + (orgVidSet.size - overlap)}명 (= 유니크 ${vidMap.size}명)`);
-                          }}
-                          className="text-[8px] bg-sky-500/10 text-sky-500 px-1.5 py-0.5 rounded border border-sky-500/20 hover:bg-sky-500/20"
-                        >Debug</button>
+                        <button onClick={() => {
+                          if (!analyticsData?.rawEvents) return;
+                          const todayPV = analyticsData.rawEvents.filter((ev: any) => ev.d === todayStr && ev.n === 'page_view');
+                          const vidMap = new Map<string, number>();
+                          todayPV.forEach((ev: any) => { const vid = ev.v || ev.s || 'no-id'; vidMap.set(vid, (vidMap.get(vid) || 0) + 1); });
+                          const paidVidSet = new Set(todayPV.filter((ev: any) => ev.um === 'paid').map((ev: any) => ev.v || ev.s).filter(Boolean));
+                          const orgVidSet  = new Set(todayPV.filter((ev: any) => ev.um !== 'paid').map((ev: any) => ev.v || ev.s).filter(Boolean));
+                          const overlap = Array.from(paidVidSet).filter(id => orgVidSet.has(id)).length;
+                          alert(`📊 Visitor Debug (오늘)\n\n전체 page_view: ${todayPV.length}개\n유니크 visitor_id: ${vidMap.size}명\nPaid visitors: ${paidVidSet.size}명\nOrganic visitors: ${orgVidSet.size}명\nPaid+Organic 중복: ${overlap}명`);
+                        }} className="text-[8px] bg-sky-500/10 text-sky-500 px-1.5 py-0.5 rounded border border-sky-500/20 hover:bg-sky-500/20">Debug</button>
                         <span className="text-[8px] bg-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded font-bold">TODAY</span>
                       </div>
                     </div>
@@ -1346,9 +1430,7 @@ export default function DashboardPage() {
                           <p className="text-base font-black text-zinc-300">{todayAnalytics.visitors}</p>
                         </div>
                       </div>
-                    ) : (
-                      <p className="text-3xl font-black text-zinc-600">—</p>
-                    )}
+                    ) : <p className="text-3xl font-black text-zinc-700">—</p>}
                   </div>
                   {/* CVR */}
                   <div className="bg-purple-950/30 border border-purple-900/30 rounded-xl p-3 sm:p-5">
@@ -1377,15 +1459,13 @@ export default function DashboardPage() {
                           <p className="text-base font-black text-purple-300">{todayAnalytics.cvr}</p>
                         </div>
                       </div>
-                    ) : (
-                      <p className="text-3xl font-black text-zinc-600">—</p>
-                    )}
+                    ) : <p className="text-3xl font-black text-zinc-700">—</p>}
                   </div>
                 </div>
               );
             })()}
 
-            {/* Search & Filters */}
+            {/* ── Search & Filters ── */}
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
               <div className="relative flex-1">
                 <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
@@ -1423,14 +1503,17 @@ export default function DashboardPage() {
 
             {showAdvancedFilters && (
               <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 space-y-4">
-                <div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-white">Advanced Filters</h3>{activeFilterCount > 0 && <button onClick={clearAllFilters} className="text-xs text-purple-400 hover:text-purple-300">Clear all filters</button>}</div>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-white">Advanced Filters</h3>
+                  {activeFilterCount > 0 && <button onClick={clearAllFilters} className="text-xs text-purple-400 hover:text-purple-300">Clear all filters</button>}
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   {[
-                    { label: 'Reason', value: reasonFilter, onChange: (v: string) => setReasonFilter(v), options: [{ v: 'all', l: 'All Reasons' }, ...uniqueReasons.map(r => ({ v: r, l: r }))] },
-                    { label: 'Country', value: countryFilter, onChange: (v: string) => setCountryFilter(v), options: [{ v: '', l: 'All Countries' }, ...uniqueCountries.map(c => ({ v: c, l: c }))] },
-                    { label: 'City', value: cityFilter, onChange: (v: string) => setCityFilter(v), options: [{ v: '', l: 'All Cities' }, ...uniqueCities.map(c => ({ v: c, l: c }))] },
-                    { label: 'Device', value: deviceFilter, onChange: (v: string) => setDeviceFilter(v), options: [{ v: '', l: 'All Devices' }, ...uniqueDevices.map(d => ({ v: d, l: d }))] },
-                    { label: 'Email Domain', value: domainFilter, onChange: (v: string) => setDomainFilter(v), options: [{ v: '', l: 'All Domains' }, ...uniqueDomains.map(d => ({ v: d, l: `@${d}` }))] },
+                    { label: 'Reason',       value: reasonFilter,  onChange: setReasonFilter,  options: [{ v: 'all', l: 'All Reasons' },  ...uniqueReasons.map(r  => ({ v: r,  l: r  }))] },
+                    { label: 'Country',      value: countryFilter, onChange: setCountryFilter, options: [{ v: '',    l: 'All Countries' }, ...uniqueCountries.map(c => ({ v: c,  l: c  }))] },
+                    { label: 'City',         value: cityFilter,    onChange: setCityFilter,    options: [{ v: '',    l: 'All Cities' },    ...uniqueCities.map(c   => ({ v: c,  l: c  }))] },
+                    { label: 'Device',       value: deviceFilter,  onChange: setDeviceFilter,  options: [{ v: '',    l: 'All Devices' },   ...uniqueDevices.map(d  => ({ v: d,  l: d  }))] },
+                    { label: 'Email Domain', value: domainFilter,  onChange: setDomainFilter,  options: [{ v: '',    l: 'All Domains' },   ...uniqueDomains.map(d  => ({ v: d,  l: `@${d}` }))] },
                   ].map(f => (
                     <div key={f.label}>
                       <label className="block text-[10px] text-zinc-500 uppercase tracking-widest mb-1.5">{f.label}</label>
@@ -1439,38 +1522,31 @@ export default function DashboardPage() {
                       </select>
                     </div>
                   ))}
-                  <div><label className="block text-[10px] text-zinc-500 uppercase tracking-widest mb-1.5">Date From</label><input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:border-zinc-600" /></div>
-                  <div><label className="block text-[10px] text-zinc-500 uppercase tracking-widest mb-1.5">Date To</label><input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:border-zinc-600" /></div>
+                  <div>
+                    <label className="block text-[10px] text-zinc-500 uppercase tracking-widest mb-1.5">Date From</label>
+                    <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:border-zinc-600" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-zinc-500 uppercase tracking-widest mb-1.5">Date To</label>
+                    <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:border-zinc-600" />
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* 참가자 수 + PageSize 선택 */}
+            {/* ── 참가자 수 + PageSize ── */}
             <div className="flex items-center justify-between">
               <p className="text-zinc-500 text-xs sm:text-sm">
                 {filteredParticipants.length === (variant === 'main' ? mergedParticipants.length : currentParticipants.length)
                   ? `${filteredParticipants.length} participants`
                   : `${filteredParticipants.length} of ${variant === 'main' ? mergedParticipants.length : currentParticipants.length} participants`}
-                {variant === 'main' && (
-                  <span className="text-zinc-600 ml-1">(Main {currentParticipants.length} + Quiz {currentOtherParticipants.length})</span>
-                )}
-                {totalPages > 1 && (
-                  <span className="text-zinc-600 ml-2">· Page {currentPage}/{totalPages}</span>
-                )}
+                {variant === 'main' && <span className="text-zinc-600 ml-1">(Main {currentParticipants.length} + Quiz {currentOtherParticipants.length})</span>}
+                {totalPages > 1 && <span className="text-zinc-600 ml-2">· Page {currentPage}/{totalPages}</span>}
               </p>
               <div className="flex items-center gap-2">
-                <p className={`text-xs px-2 py-0.5 rounded ${variant === 'main' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-purple-500/20 text-purple-400'}`}>{variant === 'main' ? 'Main' : 'Quiz'}</p>
-                <p className={`text-xs px-2 py-0.5 rounded ${activeSource === 'klaviyo' ? 'bg-purple-500/20 text-purple-400' : 'bg-emerald-500/20 text-emerald-400'}`}>{activeSource === 'klaviyo' ? 'Klaviyo' : 'Supabase'}</p>
-                {/* Page Size 드롭다운 */}
-                <select
-                  value={pageSize}
-                  onChange={e => {
-                    const v = e.target.value;
-                    setPageSize(v === 'all' ? 'all' : Number(v));
-                    setCurrentPage(1);
-                  }}
-                  className="px-2 py-1 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-400 focus:outline-none focus:border-zinc-600 cursor-pointer"
-                >
+                <span className={`text-xs px-2 py-0.5 rounded ${variant === 'main' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-purple-500/20 text-purple-400'}`}>{variant === 'main' ? 'Main' : 'Quiz'}</span>
+                <span className={`text-xs px-2 py-0.5 rounded ${activeSource === 'klaviyo' ? 'bg-purple-500/20 text-purple-400' : 'bg-emerald-500/20 text-emerald-400'}`}>{activeSource === 'klaviyo' ? 'Klaviyo' : 'Supabase'}</span>
+                <select value={pageSize} onChange={e => { const v = e.target.value; setPageSize(v === 'all' ? 'all' : Number(v)); setCurrentPage(1); }} className="px-2 py-1 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-400 focus:outline-none focus:border-zinc-600 cursor-pointer">
                   <option value={20}>20개</option>
                   <option value={50}>50개</option>
                   <option value={100}>100개</option>
@@ -1479,8 +1555,11 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {participantsLoading ? (
-              <div className="flex items-center justify-center py-16"><div className="w-8 h-8 border-2 border-zinc-800 border-t-emerald-500 rounded-full animate-spin" /></div>
+            {/* ── Participant list ── */}
+            {participantsLoading && currentParticipants.length === 0 ? (
+              <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl overflow-hidden">
+                {Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)}
+              </div>
             ) : filteredParticipants.length === 0 ? (
               <div className="text-center py-16 text-zinc-600">
                 <svg className="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
@@ -1493,60 +1572,82 @@ export default function DashboardPage() {
                 <div className="hidden sm:block bg-zinc-900/40 border border-zinc-800 rounded-xl overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left">
-                      <thead><tr className="border-b border-zinc-800/80 bg-zinc-900/60">
-                        <th className="px-3 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold w-10">#</th>
-                        {variant === 'main' && <th className="px-2 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold w-16">LP</th>}
-                        {[{ f: 'email' as const, l: 'Email' }, { f: 'segment' as const, l: variant === 'type' ? 'Type' : 'Seg' }, { f: null, l: 'Source' }, { f: 'country' as const, l: 'Location' }, { f: null, l: 'Device' }, { f: 'signed_up_at' as const, l: 'Date' }].map(col => (
-                          <th key={col.l} className={`px-3 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold ${col.f ? 'cursor-pointer hover:text-zinc-300 select-none' : ''}`} onClick={() => col.f && handleSort(col.f)}>
-                            <span className="flex items-center gap-1">{col.l}{col.f && sortField === col.f && <span className="text-white">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
-                          </th>
-                        ))}
-                        <th className="px-3 py-3 w-10"></th>
-                      </tr></thead>
+                      <thead>
+                        <tr className="border-b border-zinc-800/80 bg-zinc-900/60">
+                          <th className="px-3 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold w-10">#</th>
+                          {variant === 'main' && <th className="px-2 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold w-16">LP</th>}
+                          {[
+                            { f: 'email'      as const, l: 'Email' },
+                            { f: 'segment'    as const, l: variant === 'type' ? 'Type' : 'Seg' },
+                            { f: null,                  l: 'Source' },
+                            { f: 'country'    as const, l: 'Location' },
+                            { f: null,                  l: 'Device' },
+                            { f: 'signed_up_at' as const, l: 'Date' },
+                          ].map(col => (
+                            <th key={col.l} className={`px-3 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold ${col.f ? 'cursor-pointer hover:text-zinc-300 select-none' : ''}`} onClick={() => col.f && handleSort(col.f)}>
+                              <span className="flex items-center gap-1">{col.l}{col.f && sortField === col.f && <span className="text-white">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                            </th>
+                          ))}
+                          <th className="px-3 py-3 w-10" />
+                        </tr>
+                      </thead>
                       <tbody>
                         {pagedParticipants.map((p, i) => {
                           const vTag = (p as any)._variantTag as 'main' | 'type' | undefined;
                           const rowNum = pageSize === 'all' ? i + 1 : (currentPage - 1) * (pageSize as number) + i + 1;
+                          const segKey = vTag === 'type' ? (p.afterfeel_type || p.sub_reason) : p.segment;
                           return (
                             <tr key={p.id || i} className="border-b border-zinc-800/40 hover:bg-zinc-800/30 transition-colors">
                               <td className="px-3 py-3 text-xs text-zinc-600 font-mono">{rowNum}</td>
                               {variant === 'main' && (
                                 <td className="px-2 py-3">
-                                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${vTag === 'main' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-purple-500/20 text-purple-400'}`}>
-                                    {vTag === 'main' ? 'Main' : 'Quiz'}
-                                  </span>
+                                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${vTag === 'main' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-purple-500/20 text-purple-400'}`}>{vTag === 'main' ? 'Main' : 'Quiz'}</span>
                                 </td>
                               )}
                               <td className="px-3 py-3 text-sm text-white font-medium max-w-[180px] truncate">{p.email}</td>
-                              <td className="px-3 py-3"><span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-md border ${segColor(vTag === 'type' ? (p.afterfeel_type || p.sub_reason) : p.segment)}`}>{segLabel(p.segment, p)}</span></td>
-                              <td className="px-3 py-3 text-xs text-zinc-400 max-w-[100px] truncate">{(() => { const s = trafficSourceLabel(p); return <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-md border ${s.color}`}>{s.label}</span>; })()}</td>
+                              <td className="px-3 py-3"><span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-md border ${segColor(segKey)}`}>{segLabel(p.segment, p)}</span></td>
+                              <td className="px-3 py-3">{(() => { const s = trafficSourceLabel(p); return <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-md border ${s.color}`}>{s.label}</span>; })()}</td>
                               <td className="px-3 py-3 text-xs text-zinc-300 whitespace-nowrap">{p.city && p.country ? `${p.city}, ${p.country}` : p.country || '—'}</td>
                               <td className="px-3 py-3 text-sm whitespace-nowrap">{deviceIcon(p.device_type)}</td>
                               <td className="px-3 py-3 text-xs text-zinc-500 font-mono whitespace-nowrap">{fmtDate(p.signed_up_at)}</td>
-                              <td className="px-3 py-3"><button onClick={() => setSelectedParticipant(p)} className="text-zinc-600 hover:text-white transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></button></td>
+                              <td className="px-3 py-3">
+                                <button onClick={() => setSelectedParticipant(p)} className="text-zinc-600 hover:text-white transition-colors">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                </button>
+                              </td>
                             </tr>
                           );
                         })}
                       </tbody>
                     </table>
                   </div>
-                  <PaginationUI />
+                  <div className="px-4"><PaginationUI /></div>
                 </div>
 
                 {/* Mobile Cards */}
                 <div className="sm:hidden space-y-2">
                   {pagedParticipants.map((p, i) => {
                     const vTag = (p as any)._variantTag as 'main' | 'type' | undefined;
+                    const segKey = vTag === 'type' ? (p.afterfeel_type || p.sub_reason) : p.segment;
                     return (
                       <div key={p.id || i} className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-3 space-y-2" onClick={() => setSelectedParticipant(p)}>
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1 flex items-center gap-1.5">
                             {variant === 'main' && <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${vTag === 'main' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-purple-500/20 text-purple-400'}`}>{vTag === 'main' ? 'Main' : 'Quiz'}</span>}
-                            <div className="min-w-0"><p className="text-sm font-medium text-white truncate">{p.email}</p><div className="flex items-center gap-2 mt-0.5">{p.city && <span className="text-[10px] text-zinc-500">{p.city}, {p.country}</span>}{p.device_type && <span className="text-xs">{deviceIcon(p.device_type)}</span>}</div></div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-white truncate">{p.email}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                {p.city && <span className="text-[10px] text-zinc-500">{p.city}, {p.country}</span>}
+                                {p.device_type && <span className="text-xs">{deviceIcon(p.device_type)}</span>}
+                              </div>
+                            </div>
                           </div>
-                          <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-md border shrink-0 ${segColor(vTag === 'type' ? (p.afterfeel_type || p.sub_reason) : p.segment)}`}>{segLabel(p.segment, p)}</span>
+                          <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-md border shrink-0 ${segColor(segKey)}`}>{segLabel(p.segment, p)}</span>
                         </div>
-                        <div className="flex items-center justify-between text-[10px]">{(() => { const s = trafficSourceLabel(p); return <span className={`inline-flex items-center px-1.5 py-0.5 text-[9px] font-bold rounded border ${s.color}`}>{s.label}</span>; })()}<span className="text-zinc-600 font-mono whitespace-nowrap ml-auto">{fmtDate(p.signed_up_at)}</span></div>
+                        <div className="flex items-center justify-between text-[10px]">
+                          {(() => { const s = trafficSourceLabel(p); return <span className={`inline-flex items-center px-1.5 py-0.5 text-[9px] font-bold rounded border ${s.color}`}>{s.label}</span>; })()}
+                          <span className="text-zinc-600 font-mono whitespace-nowrap ml-auto">{fmtDate(p.signed_up_at)}</span>
+                        </div>
                       </div>
                     );
                   })}
@@ -1557,34 +1658,41 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Detail Modal */}
+        {/* ── Detail Modal ── */}
         {selectedParticipant && (
           <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setSelectedParticipant(null)}>
             <div className="bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto p-5 sm:p-6 space-y-4" onClick={e => e.stopPropagation()}>
               <div className="flex items-start justify-between">
-                <div><p className="text-lg font-bold text-white">{selectedParticipant.email}</p>{selectedParticipant.name && <p className="text-sm text-zinc-400">{selectedParticipant.name}</p>}</div>
-                <button onClick={() => setSelectedParticipant(null)} className="text-zinc-500 hover:text-white p-1"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                <div>
+                  <p className="text-lg font-bold text-white">{selectedParticipant.email}</p>
+                  {selectedParticipant.name && <p className="text-sm text-zinc-400">{selectedParticipant.name}</p>}
+                </div>
+                <button onClick={() => setSelectedParticipant(null)} className="text-zinc-500 hover:text-white p-1">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
               </div>
-              <div className="flex items-center gap-3">
-                <span className={`inline-flex items-center px-3 py-1 text-xs font-bold rounded-lg border ${segColor(variant === 'type' ? (selectedParticipant.afterfeel_type || selectedParticipant.sub_reason) : selectedParticipant.segment)}`}>{segLabel(selectedParticipant.segment, selectedParticipant)}</span>
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className={`inline-flex items-center px-3 py-1 text-xs font-bold rounded-lg border ${segColor(variant === 'type' ? (selectedParticipant.afterfeel_type || selectedParticipant.sub_reason) : selectedParticipant.segment)}`}>
+                  {segLabel(selectedParticipant.segment, selectedParticipant)}
+                </span>
                 {(() => { const s = trafficSourceLabel(selectedParticipant); return <span className={`inline-flex items-center px-2.5 py-1 text-xs font-bold rounded-lg border ${s.color}`}>{s.label}</span>; })()}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { l: 'Country', v: selectedParticipant.country },
-                  { l: 'Region', v: selectedParticipant.region },
-                  { l: 'City', v: selectedParticipant.city },
-                  { l: 'Device', v: selectedParticipant.device_type },
-                  { l: 'Language', v: selectedParticipant.language },
-                  { l: 'Timezone', v: selectedParticipant.timezone },
-                  { l: 'IP Address', v: selectedParticipant.ip_address },
-                  { l: 'Referrer', v: selectedParticipant.referrer },
-                  { l: 'UTM Source', v: selectedParticipant.utm_source },
-                  { l: 'UTM Medium', v: selectedParticipant.utm_medium },
-                  { l: 'UTM Campaign', v: selectedParticipant.utm_campaign },
-                  { l: 'Source', v: selectedParticipant.source },
-                  { l: 'Afterfeel Type', v: selectedParticipant.afterfeel_type },
-                  { l: 'Signed Up', v: fmtDate(selectedParticipant.signed_up_at) },
+                  { l: 'Country',       v: selectedParticipant.country },
+                  { l: 'Region',        v: selectedParticipant.region },
+                  { l: 'City',          v: selectedParticipant.city },
+                  { l: 'Device',        v: selectedParticipant.device_type },
+                  { l: 'Language',      v: selectedParticipant.language },
+                  { l: 'Timezone',      v: selectedParticipant.timezone },
+                  { l: 'IP Address',    v: selectedParticipant.ip_address },
+                  { l: 'Referrer',      v: selectedParticipant.referrer },
+                  { l: 'UTM Source',    v: selectedParticipant.utm_source },
+                  { l: 'UTM Medium',    v: selectedParticipant.utm_medium },
+                  { l: 'UTM Campaign',  v: selectedParticipant.utm_campaign },
+                  { l: 'Source',        v: selectedParticipant.source },
+                  { l: 'Afterfeel Type',v: selectedParticipant.afterfeel_type },
+                  { l: 'Signed Up',     v: fmtDate(selectedParticipant.signed_up_at) },
                 ].map(item => (
                   <div key={item.l} className="bg-zinc-800/50 rounded-lg p-2.5">
                     <p className="text-[9px] text-zinc-500 uppercase tracking-widest font-semibold mb-0.5">{item.l}</p>
@@ -1596,21 +1704,33 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* ══════ ANALYTICS ══════ */}
+        {/* ════════════════════════════════════════
+            ANALYTICS TAB
+        ════════════════════════════════════════ */}
         {viewMode === 'analytics' && (
           <div className="space-y-4 sm:space-y-6">
+            {/* Period selector */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <h2 className="text-sm sm:text-base font-bold text-zinc-400 uppercase tracking-widest">Funnel Analytics</h2>
                 <span className={`text-xs px-2 py-0.5 rounded border ${variant === 'main' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-purple-500/10 text-purple-400 border-purple-500/30'}`}>{variant === 'main' ? 'Main Teaser' : 'Quiz Type'}</span>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                {[{ key: 'all', label: 'All' }, { key: 'today', label: 'Today' }, { key: 'yesterday', label: 'Yesterday' }, { key: 'last_7_days', label: 'Last 7D' }, { key: 'this_week', label: 'This Week' }, { key: 'this_month', label: 'This Month' }, { key: 'last_month', label: 'Last Month' }].map(opt => (
+                {[
+                  { key: 'all',        label: 'All'       },
+                  { key: 'today',      label: 'Today'     },
+                  { key: 'yesterday',  label: 'Yesterday' },
+                  { key: 'last_7_days',label: 'Last 7D'   },
+                  { key: 'this_week',  label: 'This Week' },
+                  { key: 'this_month', label: 'This Month'},
+                  { key: 'last_month', label: 'Last Month'},
+                ].map(opt => (
                   <button key={opt.key} onClick={() => { setAnalyticsPeriod(opt.key); setAnalyticsDateFrom(''); setAnalyticsDateTo(''); }} className={`px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-medium transition-all ${analyticsPeriod === opt.key ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-500 hover:text-zinc-300'}`}>{opt.label}</button>
                 ))}
                 {availableMonths.length > 1 && (
                   <select value={analyticsPeriod.match(/^\d{4}-\d{2}$/) ? analyticsPeriod : ''} onChange={e => { if (e.target.value) setAnalyticsPeriod(e.target.value); }} className="px-2 py-1 bg-zinc-800 border border-zinc-700 rounded-lg text-[10px] sm:text-xs text-zinc-400 focus:outline-none cursor-pointer">
-                    <option value="">Month...</option>{availableMonths.map(m => <option key={m} value={m}>{m}</option>)}
+                    <option value="">Month...</option>
+                    {availableMonths.map(m => <option key={m} value={m}>{m}</option>)}
                   </select>
                 )}
                 <button onClick={fetchAnalytics} disabled={analyticsLoading} className="px-3 py-1 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-400 text-xs hover:bg-zinc-800 hover:text-white transition-colors disabled:opacity-50 flex items-center gap-1.5">
@@ -1619,7 +1739,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Custom Date Range + Traffic Filter + IP 제외 */}
+            {/* Custom date + traffic filter + IP exclude */}
             <div className="flex flex-col gap-2">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                 <div className="flex items-center gap-2">
@@ -1631,7 +1751,9 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex gap-1 bg-zinc-800 rounded-lg p-0.5">
                   {([{ key: 'all' as const, label: 'All', icon: '🌐' }, { key: 'paid' as const, label: 'Paid', icon: '💰' }, { key: 'organic' as const, label: 'Organic', icon: '🌱' }]).map(opt => (
-                    <button key={opt.key} onClick={() => setTrafficFilter(opt.key)} className={`px-2.5 py-1.5 rounded-md text-[10px] sm:text-xs font-bold transition-all flex items-center gap-1 ${trafficFilter === opt.key ? (opt.key === 'paid' ? 'bg-red-500 text-white' : opt.key === 'organic' ? 'bg-emerald-500 text-white' : 'bg-white text-black') : 'text-zinc-500 hover:text-zinc-300'}`}><span>{opt.icon}</span>{opt.label}</button>
+                    <button key={opt.key} onClick={() => setTrafficFilter(opt.key)} className={`px-2.5 py-1.5 rounded-md text-[10px] sm:text-xs font-bold transition-all flex items-center gap-1 ${trafficFilter === opt.key ? (opt.key === 'paid' ? 'bg-red-500 text-white' : opt.key === 'organic' ? 'bg-emerald-500 text-white' : 'bg-white text-black') : 'text-zinc-500 hover:text-zinc-300'}`}>
+                      <span>{opt.icon}</span>{opt.label}
+                    </button>
                   ))}
                 </div>
                 <button onClick={() => setShowIPFilter(v => !v)} className={`ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${excludeIPs.length > 0 ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:text-white'}`}>
@@ -1639,7 +1761,6 @@ export default function DashboardPage() {
                 </button>
               </div>
 
-              {/* IP 제외 필터 패널 */}
               {showIPFilter && (
                 <div className="bg-zinc-900/60 border border-zinc-700 rounded-xl p-4 space-y-3">
                   <div className="flex items-center justify-between">
@@ -1654,15 +1775,14 @@ export default function DashboardPage() {
                       setExcludeIPs(newIPs);
                       localStorage.setItem('piilk_exclude_ips', JSON.stringify(newIPs));
                     }} className="text-[10px] bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded-full font-bold hover:bg-orange-500/30">
-                      🤖 DigitalOcean 봇 전체 ({['209.38', '64.23', '137.184', '146.190', '24.199', '134.199', '147.182', '165.225', '143.110', '176.3', '172.56'].filter(ip => !excludeIPs.includes(ip)).length}개 추가)
+                      🤖 DigitalOcean 봇 ({['209.38', '64.23', '137.184', '146.190', '24.199', '134.199', '147.182', '165.225', '143.110', '176.3', '172.56'].filter(ip => !excludeIPs.includes(ip)).length}개 추가)
                     </button>
                   </div>
                   <div className="flex gap-2">
-                    <input
-                      type="text" value={excludeIPInput} onChange={e => setExcludeIPInput(e.target.value)}
+                    <input type="text" value={excludeIPInput} onChange={e => setExcludeIPInput(e.target.value)}
                       onKeyDown={e => {
                         if (e.key === 'Enter' && excludeIPInput.trim()) {
-                          const newEntries = excludeIPInput.split(/[\n,\s]+/).map((s: string) => s.trim()).filter(Boolean);
+                          const newEntries = excludeIPInput.split(/[\n,\s]+/).map(s => s.trim()).filter(Boolean);
                           const newIPs = Array.from(new Set([...excludeIPs, ...newEntries]));
                           setExcludeIPs(newIPs);
                           localStorage.setItem('piilk_exclude_ips', JSON.stringify(newIPs));
@@ -1674,7 +1794,7 @@ export default function DashboardPage() {
                     />
                     <button onClick={() => {
                       if (!excludeIPInput.trim()) return;
-                      const newEntries = excludeIPInput.split(/[\n,\s]+/).map((s: string) => s.trim()).filter(Boolean);
+                      const newEntries = excludeIPInput.split(/[\n,\s]+/).map(s => s.trim()).filter(Boolean);
                       const newIPs = Array.from(new Set([...excludeIPs, ...newEntries]));
                       setExcludeIPs(newIPs);
                       localStorage.setItem('piilk_exclude_ips', JSON.stringify(newIPs));
@@ -1683,11 +1803,11 @@ export default function DashboardPage() {
                   </div>
                   {excludeIPs.length > 0 && (
                     <div className="flex flex-wrap gap-1.5">
-                      {excludeIPs.map((ip: string, i: number) => (
+                      {excludeIPs.map((ip, i) => (
                         <span key={i} className="flex items-center gap-1 bg-red-500/10 text-red-400 border border-red-500/30 text-[10px] font-mono px-2 py-0.5 rounded-full">
                           {ip}
                           <button onClick={() => {
-                            const newIPs = excludeIPs.filter((_: string, j: number) => j !== i);
+                            const newIPs = excludeIPs.filter((_, j) => j !== i);
                             setExcludeIPs(newIPs);
                             localStorage.setItem('piilk_exclude_ips', JSON.stringify(newIPs));
                           }} className="text-red-500 hover:text-red-300 ml-0.5">✕</button>
@@ -1695,14 +1815,14 @@ export default function DashboardPage() {
                       ))}
                     </div>
                   )}
-                  <p className="text-[10px] text-zinc-600">부분 IP 입력 가능 (예: <span className="font-mono text-zinc-500">192.168</span> → 해당 대역 전체 제외) · 여러 IP 동시 입력 가능 · 설정은 브라우저에 저장됩니다</p>
+                  <p className="text-[10px] text-zinc-600">부분 IP 입력 가능 (예: <span className="font-mono text-zinc-500">192.168</span>) · 여러 IP 동시 입력 가능 · 브라우저에 저장됩니다</p>
                 </div>
               )}
             </div>
 
             {/* Meta Ads Upload */}
             <div className="flex items-center gap-3">
-              <input ref={metaFileRef} type="file" accept=".xlsx,.xls,.csv" onChange={async (e) => {
+              <input ref={metaFileRef} type="file" accept=".xlsx,.xls,.csv" onChange={async e => {
                 const file = e.target.files?.[0];
                 if (!file) return;
                 try {
@@ -1721,19 +1841,25 @@ export default function DashboardPage() {
                       linkClicks: Number(r['링크 클릭'] || 0) || 0, cpc: Number(r['CPC(링크 클릭당 비용) (USD)'] || 0) || 0,
                       ctrLink: Number(r['CTR(링크 클릭률)'] || 0) || 0, allClicks: Number(r['클릭(전체)'] || 0) || 0,
                       landingPageViews: Number(r['랜딩 페이지 조회'] || 0) || 0,
-                      variant: nl.includes('_main') || nl.includes('main') ? 'main' : nl.includes('_type') || nl.includes('type') ? 'type' : 'unknown'
+                      variant: nl.includes('_main') || nl.includes('main') ? 'main' : nl.includes('_type') || nl.includes('type') ? 'type' : 'unknown',
                     };
                   }).filter((r: any) => r.spend > 0 || r.impressions > 0);
                   setMetaAdsData(parsed);
                   if (parsed.length > 0) setMetaAdsDate(parsed[0].date);
-                } catch (err) { alert('파일 파싱 실패'); }
+                } catch { alert('파일 파싱 실패'); }
               }} className="hidden" />
-              <button onClick={() => metaFileRef.current?.click()} className="px-3 py-1.5 bg-blue-600/20 border border-blue-600/30 rounded-lg text-xs text-blue-400 hover:bg-blue-600/30 transition-colors flex items-center gap-1.5"><span>📊</span>Upload Meta Ads Report</button>
+              <button onClick={() => metaFileRef.current?.click()} className="px-3 py-1.5 bg-blue-600/20 border border-blue-600/30 rounded-lg text-xs text-blue-400 hover:bg-blue-600/30 transition-colors flex items-center gap-1.5">
+                <span>📊</span>Upload Meta Ads Report
+              </button>
               {metaAdsDate && <span className="text-[10px] text-blue-400">✓ {metaAdsDate} ({metaAdsData.length} ads)</span>}
             </div>
 
             {analyticsLoading && !analyticsData ? (
-              <div className="flex items-center justify-center py-16"><div className="w-8 h-8 border-2 border-zinc-800 border-t-emerald-500 rounded-full animate-spin" /></div>
+              <div className="space-y-3">
+                <SkeletonCard className="h-32" />
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2"><SkeletonCard className="h-20" /><SkeletonCard className="h-20" /><SkeletonCard className="h-20" /><SkeletonCard className="h-20" /></div>
+                <SkeletonCard className="h-64" />
+              </div>
             ) : analyticsData ? (
               <>
                 <UtmSourceStatsSection />
@@ -1743,23 +1869,27 @@ export default function DashboardPage() {
                   const metaTotal = metaAdsData.reduce((acc: any, ad: any) => ({
                     spend: acc.spend + ad.spend, impressions: acc.impressions + ad.impressions,
                     linkClicks: acc.linkClicks + ad.linkClicks, landingPageViews: acc.landingPageViews + ad.landingPageViews,
-                    results: acc.results + ad.results
+                    results: acc.results + ad.results,
                   }), { spend: 0, impressions: 0, linkClicks: 0, landingPageViews: 0, results: 0 });
                   const ourSubmits = currentParticipants.filter(p => p.signed_up_at?.slice(0, 10) === metaAdsDate && normalizeUtmSource(p.utm_source) === 'meta').length;
                   return (
                     <div className="bg-gradient-to-br from-blue-950/30 to-zinc-900/60 border border-blue-900/40 rounded-xl p-4 sm:p-6">
                       <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2"><span className="text-base">📊</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Meta Ads vs Dashboard</h3><span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">{metaAdsDate}</span></div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">📊</span>
+                          <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Meta Ads vs Dashboard</h3>
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">{metaAdsDate}</span>
+                        </div>
                         <button onClick={() => { setMetaAdsData([]); setMetaAdsDate(''); }} className="text-[10px] text-zinc-500 hover:text-red-400">✕ Remove</button>
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-                        <div className="bg-zinc-800/50 border border-zinc-700/30 rounded-lg p-3"><p className="text-[8px] text-zinc-500 uppercase tracking-widest font-semibold mb-0.5">Meta Spend</p><p className="text-xl font-black text-white">${metaTotal.spend.toFixed(2)}</p></div>
-                        <div className="bg-zinc-800/50 border border-zinc-700/30 rounded-lg p-3"><p className="text-[8px] text-zinc-500 uppercase tracking-widest font-semibold mb-0.5">Link Clicks</p><p className="text-xl font-black text-white">{metaTotal.linkClicks}</p></div>
-                        <div className="bg-zinc-800/50 border border-zinc-700/30 rounded-lg p-3"><p className="text-[8px] text-zinc-500 uppercase tracking-widest font-semibold mb-0.5">LP Views</p><p className="text-xl font-black text-amber-400">{metaTotal.landingPageViews}</p></div>
-                        <div className="bg-emerald-950/30 border border-emerald-900/30 rounded-lg p-3"><p className="text-[8px] text-emerald-500 uppercase tracking-widest font-semibold mb-0.5">Our Submits</p><p className="text-xl font-black text-emerald-400">{ourSubmits}</p></div>
+                        <div className="bg-zinc-800/50 border border-zinc-700/30 rounded-lg p-3"><p className="text-[8px] text-zinc-500 uppercase font-semibold mb-0.5">Meta Spend</p><p className="text-xl font-black text-white">${metaTotal.spend.toFixed(2)}</p></div>
+                        <div className="bg-zinc-800/50 border border-zinc-700/30 rounded-lg p-3"><p className="text-[8px] text-zinc-500 uppercase font-semibold mb-0.5">Link Clicks</p><p className="text-xl font-black text-white">{metaTotal.linkClicks}</p></div>
+                        <div className="bg-zinc-800/50 border border-zinc-700/30 rounded-lg p-3"><p className="text-[8px] text-zinc-500 uppercase font-semibold mb-0.5">LP Views</p><p className="text-xl font-black text-amber-400">{metaTotal.landingPageViews}</p></div>
+                        <div className="bg-emerald-950/30 border border-emerald-900/30 rounded-lg p-3"><p className="text-[8px] text-emerald-500 uppercase font-semibold mb-0.5">Our Submits</p><p className="text-xl font-black text-emerald-400">{ourSubmits}</p></div>
                       </div>
                       <div className="bg-zinc-800/30 rounded-lg p-3 mb-4">
-                        <p className="text-[9px] text-zinc-500 uppercase tracking-widest font-semibold mb-2">Full Funnel</p>
+                        <p className="text-[9px] text-zinc-500 uppercase font-semibold mb-2">Full Funnel</p>
                         <div className="flex items-center gap-2 text-xs flex-wrap">
                           <span className="text-zinc-400">Impressions <span className="text-white font-bold">{metaTotal.impressions.toLocaleString()}</span></span>
                           <span className="text-zinc-600">→</span>
@@ -1791,7 +1921,7 @@ export default function DashboardPage() {
                               <tr key={i} className="border-b border-zinc-800/30 hover:bg-zinc-800/20">
                                 <td className="px-2 py-1.5 text-xs text-white max-w-[180px] truncate">{ad.adName}</td>
                                 <td className="px-2 py-1.5"><span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${ad.variant === 'main' ? 'bg-emerald-500/20 text-emerald-400' : ad.variant === 'type' ? 'bg-purple-500/20 text-purple-400' : 'bg-zinc-700/30 text-zinc-500'}`}>{ad.variant}</span></td>
-                                <td className="px-2 py-1.5 text-xs text-white text-right font-mono">${ad.spend.toFixed(2)}</td>
+                                <td className="px-2 py-1.5 text-xs text-right font-mono">${ad.spend.toFixed(2)}</td>
                                 <td className="px-2 py-1.5 text-xs text-zinc-300 text-right font-mono">{ad.linkClicks}</td>
                                 <td className="px-2 py-1.5 text-xs text-amber-400 text-right font-mono">{ad.landingPageViews}</td>
                                 <td className="px-2 py-1.5 text-xs text-zinc-400 text-right font-mono">{ad.ctrLink?.toFixed(2)}%</td>
@@ -1810,22 +1940,19 @@ export default function DashboardPage() {
                   <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-6">
                     <div className="flex items-center gap-2 mb-4"><span className="text-base">💰</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Paid vs Organic</h3></div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="bg-red-950/20 border border-red-900/30 rounded-xl p-4">
-                        <div className="flex items-center gap-2 mb-3"><span className="w-2.5 h-2.5 rounded-full bg-red-500" /><span className="text-sm font-bold text-red-400">Paid</span></div>
-                        <div className="grid grid-cols-3 gap-3">
-                          <div className="text-center"><p className="text-2xl font-black text-white">{filteredAnalytics.paidVsOrganic.paid.views}</p><p className="text-[8px] text-zinc-500 uppercase mt-1">Views</p></div>
-                          <div className="text-center"><p className="text-2xl font-black text-emerald-400">{filteredAnalytics.paidVsOrganic.paid.submits}</p><p className="text-[8px] text-zinc-500 uppercase mt-1">Submits</p></div>
-                          <div className="text-center"><p className={`text-2xl font-black ${Number(filteredAnalytics.paidVsOrganic.paid.cvr) > 0 ? 'text-amber-400' : 'text-zinc-500'}`}>{filteredAnalytics.paidVsOrganic.paid.cvr}%</p><p className="text-[8px] text-zinc-500 uppercase mt-1">CVR</p></div>
+                      {[
+                        { key: 'paid' as const,    label: 'Paid',    color: 'red',     dot: 'bg-red-500',     border: 'border-red-900/30',     bg: 'from-red-950/20',     text: 'text-red-400'    },
+                        { key: 'organic' as const, label: 'Organic', color: 'emerald', dot: 'bg-emerald-500', border: 'border-emerald-900/30', bg: 'from-emerald-950/20', text: 'text-emerald-400' },
+                      ].map(side => (
+                        <div key={side.key} className={`bg-gradient-to-br ${side.bg} to-zinc-900/60 border ${side.border} rounded-xl p-4`}>
+                          <div className="flex items-center gap-2 mb-3"><span className={`w-2.5 h-2.5 rounded-full ${side.dot}`} /><span className={`text-sm font-bold ${side.text}`}>{side.label}</span></div>
+                          <div className="grid grid-cols-3 gap-3">
+                            <div className="text-center"><p className="text-2xl font-black text-white">{filteredAnalytics.paidVsOrganic[side.key].views}</p><p className="text-[8px] text-zinc-500 uppercase mt-1">Views</p></div>
+                            <div className="text-center"><p className="text-2xl font-black text-emerald-400">{filteredAnalytics.paidVsOrganic[side.key].submits}</p><p className="text-[8px] text-zinc-500 uppercase mt-1">Submits</p></div>
+                            <div className="text-center"><p className={`text-2xl font-black ${Number(filteredAnalytics.paidVsOrganic[side.key].cvr) > 0 ? 'text-amber-400' : 'text-zinc-500'}`}>{filteredAnalytics.paidVsOrganic[side.key].cvr}%</p><p className="text-[8px] text-zinc-500 uppercase mt-1">CVR</p></div>
+                          </div>
                         </div>
-                      </div>
-                      <div className="bg-emerald-950/20 border border-emerald-900/30 rounded-xl p-4">
-                        <div className="flex items-center gap-2 mb-3"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /><span className="text-sm font-bold text-emerald-400">Organic</span></div>
-                        <div className="grid grid-cols-3 gap-3">
-                          <div className="text-center"><p className="text-2xl font-black text-white">{filteredAnalytics.paidVsOrganic.organic.views}</p><p className="text-[8px] text-zinc-500 uppercase mt-1">Views</p></div>
-                          <div className="text-center"><p className="text-2xl font-black text-emerald-400">{filteredAnalytics.paidVsOrganic.organic.submits}</p><p className="text-[8px] text-zinc-500 uppercase mt-1">Submits</p></div>
-                          <div className="text-center"><p className={`text-2xl font-black ${Number(filteredAnalytics.paidVsOrganic.organic.cvr) > 0 ? 'text-amber-400' : 'text-zinc-500'}`}>{filteredAnalytics.paidVsOrganic.organic.cvr}%</p><p className="text-[8px] text-zinc-500 uppercase mt-1">CVR</p></div>
-                        </div>
-                      </div>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -1843,23 +1970,30 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-2 mb-4 sm:mb-6"><span className="text-base">🎯</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Conversion Funnel</h3></div>
                   <div className="space-y-3">
                     {[
-                      { key: 'page_view', label: 'Page View', desc: 'Landed on site', color: 'bg-zinc-500' },
-                      { key: 'step1_cta_click', label: 'Get in Line', desc: 'Clicked CTA', color: 'bg-sky-500' },
-                      { key: 'step2_answer', label: 'Answered', desc: 'Selected Yes/No/Never', color: 'bg-amber-500' },
-                      { key: 'step3_email_focus', label: 'Email Focus', desc: 'Started typing email', color: 'bg-purple-500' },
-                      { key: 'step4_submit', label: 'Submitted', desc: 'Completed signup', color: 'bg-emerald-500' },
+                      { key: 'page_view',          label: 'Page View',   desc: 'Landed on site',          color: 'bg-zinc-500'   },
+                      { key: 'step1_cta_click',    label: 'Get in Line', desc: 'Clicked CTA',             color: 'bg-sky-500'    },
+                      { key: 'step2_answer',       label: 'Answered',    desc: 'Selected Yes/No/Never',   color: 'bg-amber-500'  },
+                      { key: 'step3_email_focus',  label: 'Email Focus', desc: 'Started typing email',    color: 'bg-purple-500' },
+                      { key: 'step4_submit',       label: 'Submitted',   desc: 'Completed signup',        color: 'bg-emerald-500'},
                     ].map((step, idx) => {
                       const count = filteredAnalytics?.funnel?.[step.key] || 0;
                       const pv = filteredAnalytics?.funnel?.page_view || 1;
-                      const prevKey = ['page_view', 'step1_cta_click', 'step2_answer', 'step3_email_focus', 'step4_submit'][idx - 1];
-                      const prev = idx === 0 ? count : (filteredAnalytics?.funnel?.[prevKey] || 1);
+                      const prevKeys = ['page_view', 'step1_cta_click', 'step2_answer', 'step3_email_focus', 'step4_submit'];
+                      const prev = idx === 0 ? count : (filteredAnalytics?.funnel?.[prevKeys[idx - 1]] || 1);
                       const pct = pv > 0 ? (count / pv) * 100 : 0;
                       const drop = idx > 0 && prev > 0 ? ((1 - count / prev) * 100).toFixed(0) : null;
                       return (
                         <div key={step.key}>
                           <div className="flex items-center justify-between mb-1">
-                            <div className="flex items-center gap-2"><span className={`w-2 h-2 rounded-full ${step.color}`} /><span className="text-xs sm:text-sm font-semibold text-white">{step.label}</span><span className="text-[10px] text-zinc-600 hidden sm:inline">{step.desc}</span></div>
-                            <div className="flex items-center gap-3"><span className="text-sm sm:text-base font-black text-white">{count}</span>{drop && Number(drop) > 0 && <span className="text-[10px] text-red-400 font-medium">-{drop}%</span>}</div>
+                            <div className="flex items-center gap-2">
+                              <span className={`w-2 h-2 rounded-full ${step.color}`} />
+                              <span className="text-xs sm:text-sm font-semibold text-white">{step.label}</span>
+                              <span className="text-[10px] text-zinc-600 hidden sm:inline">{step.desc}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm sm:text-base font-black text-white">{count}</span>
+                              {drop && Number(drop) > 0 && <span className="text-[10px] text-red-400 font-medium">-{drop}%</span>}
+                            </div>
                           </div>
                           <div className="h-6 sm:h-8 bg-zinc-800/50 rounded-lg overflow-hidden">
                             <div className={`h-full rounded-lg ${step.color} transition-all duration-700 flex items-center px-2`} style={{ width: `${Math.max(pct, count > 0 ? 3 : 0)}%` }}>
@@ -1879,14 +2013,11 @@ export default function DashboardPage() {
                     <div className="overflow-x-auto">
                       <table className="w-full text-left">
                         <thead><tr className="border-b border-zinc-800/80">
-                          <th className="px-3 py-2 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Source</th>
-                          <th className="px-3 py-2 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">Views</th>
-                          <th className="px-3 py-2 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">Submits</th>
-                          <th className="px-3 py-2 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">CVR</th>
+                          {['Source', 'Views', 'Submits', 'CVR'].map(h => <th key={h} className={`px-3 py-2 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold ${h !== 'Source' ? 'text-right' : ''}`}>{h}</th>)}
                         </tr></thead>
                         <tbody>
                           {filteredAnalytics.utmPerformance.map((utm: any) => (
-                            <tr key={utm.source} className="border-b border-zinc-800/40">
+                            <tr key={utm.source} className="border-b border-zinc-800/40 hover:bg-zinc-800/20">
                               <td className="px-3 py-2.5 text-sm text-white font-medium">{utm.source}</td>
                               <td className="px-3 py-2.5 text-sm text-zinc-400 text-right font-mono">{utm.views}</td>
                               <td className="px-3 py-2.5 text-sm text-emerald-400 text-right font-mono font-bold">{utm.submits}</td>
@@ -1906,12 +2037,7 @@ export default function DashboardPage() {
                     <div className="overflow-x-auto">
                       <table className="w-full text-left">
                         <thead><tr className="border-b border-zinc-800/80">
-                          <th className="px-3 py-2 text-[10px] text-zinc-500 uppercase font-semibold">Campaign</th>
-                          <th className="px-3 py-2 text-[10px] text-zinc-500 uppercase font-semibold">Source</th>
-                          <th className="px-3 py-2 text-[10px] text-zinc-500 uppercase font-semibold">Type</th>
-                          <th className="px-3 py-2 text-[10px] text-zinc-500 uppercase font-semibold text-right">Views</th>
-                          <th className="px-3 py-2 text-[10px] text-zinc-500 uppercase font-semibold text-right">Submits</th>
-                          <th className="px-3 py-2 text-[10px] text-zinc-500 uppercase font-semibold text-right">CVR</th>
+                          {['Campaign', 'Source', 'Type', 'Views', 'Submits', 'CVR'].map(h => <th key={h} className={`px-3 py-2 text-[10px] text-zinc-500 uppercase font-semibold ${['Views','Submits','CVR'].includes(h) ? 'text-right' : ''}`}>{h}</th>)}
                         </tr></thead>
                         <tbody>
                           {filteredAnalytics.campaignPerformance.map((c: any) => (
@@ -1958,10 +2084,7 @@ export default function DashboardPage() {
                       <div className="overflow-x-auto max-h-60 overflow-y-auto">
                         <table className="w-full text-left">
                           <thead className="sticky top-0 bg-zinc-900"><tr className="border-b border-zinc-800/80">
-                            <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Date</th>
-                            <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">Views</th>
-                            <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">CTA</th>
-                            <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">Submits</th>
+                            {['Date', 'Views', 'CTA', 'Submits'].map(h => <th key={h} className={`px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold ${h !== 'Date' ? 'text-right' : ''}`}>{h}</th>)}
                           </tr></thead>
                           <tbody>
                             {[...filteredAnalytics.daily].reverse().map((d: any) => (
@@ -1983,10 +2106,7 @@ export default function DashboardPage() {
                       <div className="overflow-x-auto">
                         <table className="w-full text-left">
                           <thead><tr className="border-b border-zinc-800/80">
-                            <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Week</th>
-                            <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">Views</th>
-                            <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">Submits</th>
-                            <th className="px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold text-right">CVR</th>
+                            {['Week', 'Views', 'Submits', 'CVR'].map(h => <th key={h} className={`px-3 py-1.5 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold ${h !== 'Week' ? 'text-right' : ''}`}>{h}</th>)}
                           </tr></thead>
                           <tbody>
                             {[...filteredAnalytics.weekly].reverse().map((w: any) => (
@@ -2094,10 +2214,11 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Footer */}
+        {/* ── Footer ── */}
         <footer className="text-center pt-4 sm:pt-6 border-t border-zinc-900/50">
-          <p className="text-[10px] sm:text-xs text-zinc-700">PIILK Internal - Confidential</p>
+          <p className="text-[10px] sm:text-xs text-zinc-700">PIILK Internal — Confidential</p>
         </footer>
+
       </div>
     </main>
   );
