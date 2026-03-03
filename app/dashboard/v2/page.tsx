@@ -163,7 +163,7 @@ const BarChart = ({ data, color, total }: { data: [string, number][]; color: str
   </div>
 );
 
-// BUG FIX: SignupChart defined OUTSIDE DashboardPage to prevent state reset on re-render
+// SignupChart — OUTSIDE DashboardPage to prevent state reset on re-render
 const SignupChart = ({ daily, cumulative }: { daily: [string, number][]; cumulative: [string, number][] }) => {
   const [chartMode, setChartMode] = useState<'daily' | 'cumulative'>('daily');
   const chartData = chartMode === 'daily' ? daily : cumulative;
@@ -237,13 +237,37 @@ interface DataCache {
   otherParticipants: Record<VariantKey, { klaviyo: Participant[]; supabase: Participant[] } | null>;
 }
 
+/* ─────────────────────────── localStorage safe read helper ─────────────────────────── */
+function lsGet(key: string, fallback: string): string {
+  if (typeof window === 'undefined') return fallback;
+  return localStorage.getItem(key) ?? fallback;
+}
+function lsGetJSON<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback;
+  try { return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback; }
+  catch { return fallback; }
+}
+
 /* ─────────────────────────── Main Component ─────────────────────────── */
 
 export default function DashboardPage() {
-  /* ── Auth ── */
-  const [authenticated, setAuthenticated] = useState(false);
-  const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
+
+  /* ══════════════════════════════════════════════════════════
+     PATCH 1: lazy initializer — localStorage를 렌더 전에 읽음
+     → "로그인 화면 잠깐 뜨는" 플래시 완전 제거
+  ══════════════════════════════════════════════════════════ */
+  const [authenticated, setAuthenticated] = useState<boolean>(() =>
+    lsGet('piilk_dash', '') === 'true'
+  );
+  const [password, setPassword] = useState<string>(() =>
+    lsGet('piilk_saved_pw', '')
+  );
+  const [rememberMe, setRememberMe] = useState<boolean>(() =>
+    lsGet('piilk_saved_pw', '') !== ''
+  );
+  const [excludeIPs, setExcludeIPs] = useState<string[]>(() =>
+    lsGetJSON<string[]>('piilk_exclude_ips', [])
+  );
 
   /* ── Variant ── */
   const [variant, setVariant] = useState<VariantKey>('main');
@@ -252,15 +276,15 @@ export default function DashboardPage() {
   const [supabaseData, setSupabaseData] = useState<DashboardData | null>(null);
   const [klaviyoData, setKlaviyoData] = useState<DashboardData | null>(null);
   const [activeSource, setActiveSource] = useState<'klaviyo' | 'supabase'>('supabase');
-  const [isStatsLoading, setIsStatsLoading] = useState(false);      // 개별 로딩 상태로 분리
-  const [isRefreshing, setIsRefreshing] = useState(false);          // 백그라운드 갱신 표시
+  const [isStatsLoading, setIsStatsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState('');
 
   /* ── variant별 total 캐싱 ── */
   const [supabaseTotals, setSupabaseTotals] = useState<{ main: number | null; type: number | null }>({ main: null, type: null });
   const [klaviyoTotals, setKlaviyoTotals] = useState<{ main: number | null; type: number | null }>({ main: null, type: null });
 
-  /* ── 데이터 캐시 ref (variant 전환 시 즉시 표시용) ── */
+  /* ── 데이터 캐시 ref ── */
   const dataCache = useRef<DataCache>({
     stats: { main: null, type: null },
     participants: { main: null, type: null },
@@ -279,7 +303,6 @@ export default function DashboardPage() {
   const [trafficFilter, setTrafficFilter] = useState<'all' | 'paid' | 'organic'>('all');
 
   /* ── IP 제외 ── */
-  const [excludeIPs, setExcludeIPs] = useState<string[]>([]);
   const [excludeIPInput, setExcludeIPInput] = useState('');
   const [showIPFilter, setShowIPFilter] = useState(false);
 
@@ -316,16 +339,10 @@ export default function DashboardPage() {
   /* ── Detail modal ── */
   const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
 
-  /* ── localStorage 초기화 (SSR 안전 — useEffect 내부에서만) ── */
-  useEffect(() => {
-    if (localStorage.getItem('piilk_dash') === 'true') setAuthenticated(true);
-    const savedPw = localStorage.getItem('piilk_saved_pw');
-    if (savedPw) { setPassword(savedPw); setRememberMe(true); }
-    try {
-      const saved = JSON.parse(localStorage.getItem('piilk_exclude_ips') || '[]');
-      setExcludeIPs(saved);
-    } catch { setExcludeIPs([]); }
-  }, []);
+  /* ══════════════════════════════════════════════════════════
+     PATCH 1 continued: localStorage useEffect 완전 제거
+     (lazy initializer로 대체됐으므로 불필요)
+  ══════════════════════════════════════════════════════════ */
 
   /* ── Auth handler ── */
   const handleAuth = (e: React.FormEvent) => {
@@ -340,85 +357,117 @@ export default function DashboardPage() {
     }
   };
 
-  /* ── Fetch: stats ── */
+  /* ── variant를 ref로 관리 → fetchData/fetchParticipants/fetchAnalytics deps에서 variant 제거 ── */
+  const variantRef = useRef<VariantKey>(variant);
+  useEffect(() => { variantRef.current = variant; }, [variant]);
+
+  /* ── Fetch: stats — variant는 ref로 읽어 stable reference 유지 ── */
   const fetchData = useCallback(async (silent = false) => {
+    const v = variantRef.current;
     if (!silent) setIsStatsLoading(true);
     try {
-      const res = await fetch(`/api/dashboard/stats?variant=${variant}`);
+      const res = await fetch(`/api/dashboard/stats?variant=${v}`);
       const result: ApiResponse = await res.json();
       if (result.success) {
         setSupabaseData(result.supabase);
         setKlaviyoData(result.klaviyo);
         setLastUpdated(new Date().toLocaleTimeString('ko-KR'));
-        // 캐시 저장
-        dataCache.current.stats[variant] = { supabase: result.supabase, klaviyo: result.klaviyo };
+        dataCache.current.stats[v] = { supabase: result.supabase, klaviyo: result.klaviyo };
       }
     } catch (err) { console.error('fetchData error:', err); }
     finally { setIsStatsLoading(false); }
-  }, [variant]);
+  }, []); // deps 없음 → stable
 
-  /* ── Fetch: participants ── */
+  /* ══════════════════════════════════════════════════════════
+     PATCH 4: participants를 Supabase 먼저 → Klaviyo 후속 표시
+     → 화면에 데이터가 더 빨리 뜸 (Supabase가 보통 더 빠름)
+     PATCH 3: otherVariant는 완전 비동기 후속 처리
+     → participantsLoading 해제를 현재 variant 완료 즉시
+  ══════════════════════════════════════════════════════════ */
   const fetchParticipants = useCallback(async () => {
+    const v = variantRef.current;
+    const otherVariant: VariantKey = v === 'main' ? 'type' : 'main';
     setParticipantsLoading(true);
-    const otherVariant: VariantKey = variant === 'main' ? 'type' : 'main';
-    try {
-      const [kRes, sRes, sOtherRes, kOtherRes] = await Promise.all([
-        fetch(`/api/dashboard/participants?source=klaviyo&variant=${variant}`),
-        fetch(`/api/dashboard/participants?source=supabase&variant=${variant}`),
-        fetch(`/api/dashboard/participants?source=supabase&variant=${otherVariant}`),
-        fetch(`/api/dashboard/participants?source=klaviyo&variant=${otherVariant}`),
-      ]);
-      const kResult: ParticipantsResponse = await kRes.json();
-      const sResult: ParticipantsResponse = await sRes.json();
-      const sOtherResult: ParticipantsResponse = await sOtherRes.json();
-      const kOtherResult: ParticipantsResponse = await kOtherRes.json();
 
+    try {
+      // ── STEP 1: Supabase 현재 variant만 먼저 (가장 빠른 첫 화면) ──
+      const sRes = await fetch(`/api/dashboard/participants?source=supabase&variant=${v}`);
+      const sResult: ParticipantsResponse = await sRes.json();
+
+      if (sResult.success) {
+        setParticipants(prev => ({ ...prev, supabase: sResult.data }));
+        setSupabaseTotals(prev => ({ ...prev, [v]: sResult.total }));
+      }
+      // Supabase 오자마자 로딩 해제 → 사용자 즉시 확인 가능
+      setParticipantsLoading(false);
+
+      // ── STEP 2: Klaviyo 현재 variant (백그라운드) ──
+      const kRes = await fetch(`/api/dashboard/participants?source=klaviyo&variant=${v}`);
+      const kResult: ParticipantsResponse = await kRes.json();
+
+      if (kResult.success) {
+        setParticipants(prev => ({ ...prev, klaviyo: kResult.data }));
+        setKlaviyoTotals(prev => ({ ...prev, [v]: kResult.total }));
+      }
+
+      // 캐시 저장 (Klaviyo까지 완료 후)
       const currentData = {
         klaviyo: kResult.success ? kResult.data : [],
         supabase: sResult.success ? sResult.data : [],
       };
+      dataCache.current.participants[v] = currentData;
+
+      // ── STEP 3: otherVariant 완전 백그라운드 (화면 블로킹 0) ──
+      const [sOtherRes, kOtherRes] = await Promise.all([
+        fetch(`/api/dashboard/participants?source=supabase&variant=${otherVariant}`),
+        fetch(`/api/dashboard/participants?source=klaviyo&variant=${otherVariant}`),
+      ]);
+      const [sOtherResult, kOtherResult]: [ParticipantsResponse, ParticipantsResponse] = await Promise.all([
+        sOtherRes.json(), kOtherRes.json(),
+      ]);
+
       const otherData = {
         klaviyo: kOtherResult.success ? kOtherResult.data : [],
         supabase: sOtherResult.success ? sOtherResult.data : [],
       };
-
-      setParticipants(currentData);
       setOtherParticipants(otherData);
-
-      // totals
-      if (sResult.success) setSupabaseTotals(prev => ({ ...prev, [variant]: sResult.total }));
-      if (kResult.success) setKlaviyoTotals(prev => ({ ...prev, [variant]: kResult.total }));
       if (sOtherResult.success) setSupabaseTotals(prev => ({ ...prev, [otherVariant]: sOtherResult.total }));
       if (kOtherResult.success) setKlaviyoTotals(prev => ({ ...prev, [otherVariant]: kOtherResult.total }));
+      dataCache.current.otherParticipants[v] = otherData;
 
-      // 캐시 저장
-      dataCache.current.participants[variant] = currentData;
-      dataCache.current.otherParticipants[variant] = otherData;
-    } catch (err) { console.error('fetchParticipants error:', err); }
-    finally { setParticipantsLoading(false); }
-  }, [variant]);
+    } catch (err) {
+      console.error('fetchParticipants error:', err);
+      setParticipantsLoading(false);
+    }
+  }, []); // deps 없음 → stable
 
   /* ── Fetch: analytics ── */
   const fetchAnalytics = useCallback(async () => {
+    const v = variantRef.current;
     setAnalyticsLoading(true);
     try {
-      const res = await fetch(`/api/dashboard/analytics?variant=${variant}`);
+      const res = await fetch(`/api/dashboard/analytics?variant=${v}`);
       const result = await res.json();
       if (result.success) setAnalyticsData(result);
     } catch (err) { console.error('fetchAnalytics error:', err); }
     finally { setAnalyticsLoading(false); }
-  }, [variant]);
+  }, []); // deps 없음 → stable
 
-  /* ── 최초 인증 후 로딩: participants 먼저, analytics는 500ms 지연 ── */
+  /* ══════════════════════════════════════════════════════════
+     PATCH 2: isFirstMount ref로 variant effect 최초 마운트 중복 방지
+     → 로그인 직후 API 이중 호출 제거
+  ══════════════════════════════════════════════════════════ */
+  const isFirstMount = useRef(true);
+
+  /* ── 최초 인증 후 로딩 ── */
   useEffect(() => {
     if (!authenticated) return;
-    const isFirstLoad = participants.klaviyo.length === 0 && participants.supabase.length === 0;
-    if (!isFirstLoad) return;
-
+    // variant effect도 최초에 실행되지 않도록 플래그
+    isFirstMount.current = false;
     fetchData();
     fetchParticipants();
-    // analytics는 participants 뜬 뒤 로드 → 초기 체감속도 향상
-    const timer = setTimeout(() => fetchAnalytics(), 500);
+    // analytics는 participants 뜬 뒤 로드
+    const timer = setTimeout(() => fetchAnalytics(), 800);
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authenticated]);
@@ -427,10 +476,16 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!authenticated) return;
 
-    setCurrentPage(1);
-    setAnalyticsData(null); // analytics는 variant마다 달라서 항상 초기화
+    // PATCH 2: 최초 마운트는 authenticated effect가 처리하므로 skip
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      return;
+    }
 
-    // 캐시가 있으면 즉시 표시 (빈 화면 없음)
+    setCurrentPage(1);
+    setAnalyticsData(null);
+
+    // 캐시 있으면 즉시 표시 (빈 화면 없음)
     const cachedStats = dataCache.current.stats[variant];
     if (cachedStats) {
       setSupabaseData(cachedStats.supabase);
@@ -439,30 +494,19 @@ export default function DashboardPage() {
       setSupabaseData(null);
       setKlaviyoData(null);
     }
+    setParticipants(dataCache.current.participants[variant] ?? { klaviyo: [], supabase: [] });
+    setOtherParticipants(dataCache.current.otherParticipants[variant] ?? { klaviyo: [], supabase: [] });
 
-    const cachedP = dataCache.current.participants[variant];
-    const cachedOther = dataCache.current.otherParticipants[variant];
-    if (cachedP) {
-      setParticipants(cachedP);
-    } else {
-      setParticipants({ klaviyo: [], supabase: [] });
-    }
-    if (cachedOther) {
-      setOtherParticipants(cachedOther);
-    } else {
-      setOtherParticipants({ klaviyo: [], supabase: [] });
-    }
-
-    // 백그라운드에서 최신 데이터 갱신
+    // 백그라운드 갱신
     setIsRefreshing(true);
     Promise.all([fetchData(true), fetchParticipants()])
       .finally(() => setIsRefreshing(false));
-    const timer = setTimeout(() => fetchAnalytics(), 300);
+    const timer = setTimeout(() => fetchAnalytics(), 500);
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [variant]);
 
-  /* ── Auto-refresh stats (30초마다 silent) ── */
+  /* ── Auto-refresh stats (30초, stable ref) ── */
   useEffect(() => {
     if (!authenticated) return;
     const iv = setInterval(() => fetchData(true), 30000);
@@ -479,7 +523,6 @@ export default function DashboardPage() {
     return [...mainList, ...typeList].sort((a, b) => (b.signed_up_at || '').localeCompare(a.signed_up_at || ''));
   }, [currentParticipants, currentOtherParticipants, variant]);
 
-  // BUG FIX: Main 탭은 mergedParticipants 기준으로 todaySignups 계산
   const todaySignups = useMemo(() => {
     const todayStr = getNYCDate(0);
     const base = variant === 'main' ? mergedParticipants : currentParticipants;
@@ -514,11 +557,11 @@ export default function DashboardPage() {
   }, [dailySignups]);
 
   /* ── Filter options ── */
-  const uniqueReasons  = useMemo(() => Array.from(new Set(currentParticipants.map(p => p.sub_reason).filter(Boolean) as string[])).sort(), [currentParticipants]);
-  const uniqueDomains  = useMemo(() => Array.from(new Set(currentParticipants.filter(p => p.email?.includes('@')).map(p => p.email!.split('@')[1].toLowerCase()))).sort(), [currentParticipants]);
+  const uniqueReasons   = useMemo(() => Array.from(new Set(currentParticipants.map(p => p.sub_reason).filter(Boolean) as string[])).sort(), [currentParticipants]);
+  const uniqueDomains   = useMemo(() => Array.from(new Set(currentParticipants.filter(p => p.email?.includes('@')).map(p => p.email!.split('@')[1].toLowerCase()))).sort(), [currentParticipants]);
   const uniqueCountries = useMemo(() => Array.from(new Set(currentParticipants.map(p => p.country).filter(Boolean) as string[])).sort(), [currentParticipants]);
-  const uniqueCities   = useMemo(() => Array.from(new Set(currentParticipants.map(p => p.city).filter(Boolean) as string[])).sort(), [currentParticipants]);
-  const uniqueDevices  = useMemo(() => Array.from(new Set(currentParticipants.map(p => p.device_type).filter(Boolean) as string[])).sort(), [currentParticipants]);
+  const uniqueCities    = useMemo(() => Array.from(new Set(currentParticipants.map(p => p.city).filter(Boolean) as string[])).sort(), [currentParticipants]);
+  const uniqueDevices   = useMemo(() => Array.from(new Set(currentParticipants.map(p => p.device_type).filter(Boolean) as string[])).sort(), [currentParticipants]);
 
   const activeFilterCount = useMemo(() => {
     return [segmentFilter !== 'all', reasonFilter !== 'all', !!domainFilter, !!countryFilter, !!cityFilter, !!deviceFilter, !!dateFrom, !!dateTo].filter(Boolean).length;
@@ -563,7 +606,6 @@ export default function DashboardPage() {
     if (dateFrom) list = list.filter(p => p.signed_up_at && p.signed_up_at.slice(0, 10) >= dateFrom);
     if (dateTo) list = list.filter(p => p.signed_up_at && p.signed_up_at.slice(0, 10) <= dateTo);
 
-    // BUG FIX: 조건 없이 항상 sort 실행 (name, city 포함)
     list.sort((a, b) => {
       const aVal = (String((a as any)[sortField] || '')).toLowerCase();
       const bVal = (String((b as any)[sortField] || '')).toLowerCase();
@@ -575,7 +617,7 @@ export default function DashboardPage() {
     return list;
   }, [mergedParticipants, currentParticipants, searchQuery, segmentFilter, reasonFilter, domainFilter, countryFilter, cityFilter, deviceFilter, dateFrom, dateTo, sortField, sortDir, variant]);
 
-  /* ── 필터/검색/variant/source/pageSize 변경 시 1페이지로 리셋 ── */
+  /* ── 필터/검색/variant/source/pageSize 변경 시 1페이지 리셋 ── */
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, segmentFilter, reasonFilter, domainFilter, countryFilter, cityFilter, deviceFilter, dateFrom, dateTo, variant, activeSource, pageSize]);
@@ -591,7 +633,6 @@ export default function DashboardPage() {
     else { setSortField(field); setSortDir('asc'); }
   };
 
-  // Export는 항상 filteredParticipants 전체 기준
   const exportToCSV = () => {
     const headers = ['Email', 'Segment', 'Reason', 'AfterfeelType', 'Country', 'Region', 'City', 'Device', 'Language', 'Timezone', 'IP', 'Referrer', 'UTM Source', 'UTM Medium', 'UTM Campaign', 'Source', 'Signed Up'];
     const rows = filteredParticipants.map(p => [p.email || '', p.segment || '', p.sub_reason || '', p.afterfeel_type || '', p.country || '', p.region || '', p.city || '', p.device_type || '', p.language || '', p.timezone || '', p.ip_address || '', p.referrer || '', p.utm_source || '', p.utm_medium || '', p.utm_campaign || '', p.source || '', p.signed_up_at || '']);
@@ -758,8 +799,8 @@ export default function DashboardPage() {
       if (ev.n === 'step4_submit') { if (ip) pSub.add(ev.s); else oSub.add(ev.s); }
     });
     const paidVsOrganic = {
-      paid:    { views: pS.size,   submits: pSub.size,  cvr: pS.size   > 0 ? ((pSub.size  / pS.size)  * 100).toFixed(1) : '0' },
-      organic: { views: oS.size,   submits: oSub.size,  cvr: oS.size   > 0 ? ((oSub.size  / oS.size)  * 100).toFixed(1) : '0' },
+      paid:    { views: pS.size,  submits: pSub.size, cvr: pS.size  > 0 ? ((pSub.size  / pS.size)  * 100).toFixed(1) : '0' },
+      organic: { views: oS.size,  submits: oSub.size, cvr: oS.size  > 0 ? ((oSub.size  / oS.size)  * 100).toFixed(1) : '0' },
     };
 
     const hourMapF: Record<number, number> = {};
@@ -808,7 +849,7 @@ export default function DashboardPage() {
     };
   }, [analyticsData, analyticsPeriod, analyticsDateFrom, analyticsDateTo, trafficFilter, variant]);
 
-  /* ── Today analytics (CVR 계산) ── */
+  /* ── Today analytics (CVR) ── */
   const todayAnalytics = useMemo(() => {
     const empty = { visitors: 0, sessions: 0, submits: 0, cvr: '—', paid: { visitors: 0, submits: 0, cvr: '—' }, organic: { visitors: 0, submits: 0, cvr: '—' } };
     if (!analyticsData?.rawEvents) return empty;
@@ -912,7 +953,7 @@ export default function DashboardPage() {
   const goal = 15000;
   const progress = data ? Math.min((data.total / goal) * 100, 100) : 0;
 
-  /* ── BUG FIX: UtmSourceStatsSection defined OUTSIDE render (using useCallback) to prevent remount ── */
+  /* ── UtmSourceStatsSection — useCallback으로 stable 유지 ── */
   const UtmSourceStatsSection = useCallback(() => {
     const [utmView, setUtmView] = useState<'today' | 'total'>('today');
     const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.[utmView];
@@ -989,11 +1030,11 @@ export default function DashboardPage() {
                   </div>
                   <div className="grid grid-cols-5 gap-2">
                     {[
-                      { v: utm.visitors,  l: 'Visitors',  c: 'text-white' },
-                      { v: utm.sessions,  l: 'Sessions',  c: 'text-zinc-300' },
-                      { v: utm.events,    l: 'Events',    c: 'text-zinc-400' },
-                      { v: utm.page_views,l: 'Views',     c: 'text-zinc-400' },
-                      { v: utm.submits,   l: 'Submits',   c: 'text-emerald-400' },
+                      { v: utm.visitors,   l: 'Visitors', c: 'text-white' },
+                      { v: utm.sessions,   l: 'Sessions', c: 'text-zinc-300' },
+                      { v: utm.events,     l: 'Events',   c: 'text-zinc-400' },
+                      { v: utm.page_views, l: 'Views',    c: 'text-zinc-400' },
+                      { v: utm.submits,    l: 'Submits',  c: 'text-emerald-400' },
                     ].map(item => (
                       <div key={item.l} className="text-center">
                         <p className={`text-sm sm:text-lg font-black ${item.c}`}>{item.v.toLocaleString()}</p>
@@ -1192,7 +1233,6 @@ export default function DashboardPage() {
                     <div className="flex justify-between mt-1.5 sm:mt-2 text-[10px] sm:text-xs text-zinc-700 font-mono"><span>0</span><span>5K</span><span>10K</span><span>15K</span></div>
                   </>
                 ) : (
-                  // Skeleton for hero
                   <div className="space-y-4">
                     <div className="flex gap-2"><SkeletonCard className="h-6 w-20" /><SkeletonCard className="h-6 w-24" /></div>
                     <SkeletonCard className="h-16 w-48" />
@@ -1227,7 +1267,6 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
-                  {/* Segment A */}
                   <div className="lg:col-span-2 bg-gradient-to-br from-emerald-950/40 to-zinc-900/60 border border-emerald-900/40 rounded-xl sm:rounded-2xl p-4 sm:p-6 relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 sm:w-48 h-32 sm:h-48 bg-emerald-500/10 rounded-full blur-3xl" />
                     <div className="relative">
@@ -1260,7 +1299,6 @@ export default function DashboardPage() {
                       )}
                     </div>
                   </div>
-                  {/* Segments B & C */}
                   <div className="grid grid-cols-2 lg:grid-cols-1 gap-3 sm:gap-4">
                     <div className="bg-gradient-to-br from-amber-950/30 to-zinc-900/50 border border-amber-900/30 rounded-xl sm:rounded-2xl p-3 sm:p-5">
                       <div className="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3"><span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-amber-500 rounded-full" /><p className="text-[9px] sm:text-xs text-amber-500 uppercase tracking-widest font-bold">Segment B</p></div>
@@ -1278,14 +1316,12 @@ export default function DashboardPage() {
                 </div>
               )
             ) : (
-              // Segment skeleton
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
                 <SkeletonCard className="lg:col-span-2 h-48" />
                 <div className="grid grid-cols-2 lg:grid-cols-1 gap-3"><SkeletonCard className="h-32" /><SkeletonCard className="h-32" /></div>
               </div>
             )}
 
-            {/* Tracking analytics */}
             {trackingAnalytics?.hasTrackingData && (
               <div className="space-y-3 sm:space-y-4">
                 <h2 className="text-sm sm:text-base font-bold text-zinc-400 uppercase tracking-widest">Audience Insights</h2>
@@ -1359,7 +1395,6 @@ export default function DashboardPage() {
                 );
               }
 
-              // Main variant
               const todayA = currentParticipants.filter(p => isToday(p) && p.segment === 'A').length;
               const otherTotal = activeSource === 'supabase' ? supabaseTotals[oppositeVariant] : klaviyoTotals[oppositeVariant];
               const combinedTotal = otherTotal !== null ? currentParticipants.length + otherTotal : currentParticipants.length;
@@ -1373,13 +1408,11 @@ export default function DashboardPage() {
 
               return (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-                  {/* Total */}
                   <div className="relative bg-gradient-to-br from-zinc-800/80 to-zinc-900 border-2 border-zinc-600 rounded-xl p-4 overflow-hidden flex flex-col items-center justify-center text-center min-h-[160px]">
                     <p className="text-[9px] text-zinc-400 uppercase tracking-widest font-bold mb-2">Total</p>
                     <p className="text-6xl sm:text-7xl font-black text-white leading-none">{combinedTotal.toLocaleString()}</p>
                     <p className="text-lg sm:text-xl font-black text-emerald-400 mt-2">+{combinedTodayAll} today</p>
                   </div>
-                  {/* Hot Leads today */}
                   <div className="bg-emerald-950/30 border border-emerald-900/30 rounded-xl p-4 flex flex-col items-center justify-center text-center min-h-[160px]">
                     <div className="flex items-center justify-between w-full mb-2">
                       <p className="text-[10px] text-emerald-500 uppercase tracking-widest font-bold">Hot Leads</p>
@@ -1397,7 +1430,6 @@ export default function DashboardPage() {
                       );
                     })()}
                   </div>
-                  {/* Visitors */}
                   <div className="bg-sky-950/30 border border-sky-900/30 rounded-xl p-3 sm:p-5">
                     <div className="flex items-center justify-between mb-3">
                       <p className="text-[10px] sm:text-xs text-sky-400 uppercase tracking-widest font-bold">Visitors</p>
@@ -1432,7 +1464,6 @@ export default function DashboardPage() {
                       </div>
                     ) : <p className="text-3xl font-black text-zinc-700">—</p>}
                   </div>
-                  {/* CVR */}
                   <div className="bg-purple-950/30 border border-purple-900/30 rounded-xl p-3 sm:p-5">
                     <div className="flex items-center justify-between mb-3">
                       <p className="text-[10px] sm:text-xs text-purple-400 uppercase tracking-widest font-bold">CVR</p>
@@ -1577,11 +1608,11 @@ export default function DashboardPage() {
                           <th className="px-3 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold w-10">#</th>
                           {variant === 'main' && <th className="px-2 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold w-16">LP</th>}
                           {[
-                            { f: 'email'      as const, l: 'Email' },
-                            { f: 'segment'    as const, l: variant === 'type' ? 'Type' : 'Seg' },
-                            { f: null,                  l: 'Source' },
-                            { f: 'country'    as const, l: 'Location' },
-                            { f: null,                  l: 'Device' },
+                            { f: 'email'       as const, l: 'Email' },
+                            { f: 'segment'     as const, l: variant === 'type' ? 'Type' : 'Seg' },
+                            { f: null,                   l: 'Source' },
+                            { f: 'country'     as const, l: 'Location' },
+                            { f: null,                   l: 'Device' },
                             { f: 'signed_up_at' as const, l: 'Date' },
                           ].map(col => (
                             <th key={col.l} className={`px-3 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold ${col.f ? 'cursor-pointer hover:text-zinc-300 select-none' : ''}`} onClick={() => col.f && handleSort(col.f)}>
@@ -1679,20 +1710,20 @@ export default function DashboardPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { l: 'Country',       v: selectedParticipant.country },
-                  { l: 'Region',        v: selectedParticipant.region },
-                  { l: 'City',          v: selectedParticipant.city },
-                  { l: 'Device',        v: selectedParticipant.device_type },
-                  { l: 'Language',      v: selectedParticipant.language },
-                  { l: 'Timezone',      v: selectedParticipant.timezone },
-                  { l: 'IP Address',    v: selectedParticipant.ip_address },
-                  { l: 'Referrer',      v: selectedParticipant.referrer },
-                  { l: 'UTM Source',    v: selectedParticipant.utm_source },
-                  { l: 'UTM Medium',    v: selectedParticipant.utm_medium },
-                  { l: 'UTM Campaign',  v: selectedParticipant.utm_campaign },
-                  { l: 'Source',        v: selectedParticipant.source },
-                  { l: 'Afterfeel Type',v: selectedParticipant.afterfeel_type },
-                  { l: 'Signed Up',     v: fmtDate(selectedParticipant.signed_up_at) },
+                  { l: 'Country',        v: selectedParticipant.country },
+                  { l: 'Region',         v: selectedParticipant.region },
+                  { l: 'City',           v: selectedParticipant.city },
+                  { l: 'Device',         v: selectedParticipant.device_type },
+                  { l: 'Language',       v: selectedParticipant.language },
+                  { l: 'Timezone',       v: selectedParticipant.timezone },
+                  { l: 'IP Address',     v: selectedParticipant.ip_address },
+                  { l: 'Referrer',       v: selectedParticipant.referrer },
+                  { l: 'UTM Source',     v: selectedParticipant.utm_source },
+                  { l: 'UTM Medium',     v: selectedParticipant.utm_medium },
+                  { l: 'UTM Campaign',   v: selectedParticipant.utm_campaign },
+                  { l: 'Source',         v: selectedParticipant.source },
+                  { l: 'Afterfeel Type', v: selectedParticipant.afterfeel_type },
+                  { l: 'Signed Up',      v: fmtDate(selectedParticipant.signed_up_at) },
                 ].map(item => (
                   <div key={item.l} className="bg-zinc-800/50 rounded-lg p-2.5">
                     <p className="text-[9px] text-zinc-500 uppercase tracking-widest font-semibold mb-0.5">{item.l}</p>
@@ -1709,7 +1740,6 @@ export default function DashboardPage() {
         ════════════════════════════════════════ */}
         {viewMode === 'analytics' && (
           <div className="space-y-4 sm:space-y-6">
-            {/* Period selector */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <h2 className="text-sm sm:text-base font-bold text-zinc-400 uppercase tracking-widest">Funnel Analytics</h2>
@@ -1717,13 +1747,13 @@ export default function DashboardPage() {
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 {[
-                  { key: 'all',        label: 'All'       },
-                  { key: 'today',      label: 'Today'     },
-                  { key: 'yesterday',  label: 'Yesterday' },
-                  { key: 'last_7_days',label: 'Last 7D'   },
-                  { key: 'this_week',  label: 'This Week' },
-                  { key: 'this_month', label: 'This Month'},
-                  { key: 'last_month', label: 'Last Month'},
+                  { key: 'all',         label: 'All'        },
+                  { key: 'today',       label: 'Today'      },
+                  { key: 'yesterday',   label: 'Yesterday'  },
+                  { key: 'last_7_days', label: 'Last 7D'    },
+                  { key: 'this_week',   label: 'This Week'  },
+                  { key: 'this_month',  label: 'This Month' },
+                  { key: 'last_month',  label: 'Last Month' },
                 ].map(opt => (
                   <button key={opt.key} onClick={() => { setAnalyticsPeriod(opt.key); setAnalyticsDateFrom(''); setAnalyticsDateTo(''); }} className={`px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-medium transition-all ${analyticsPeriod === opt.key ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-500 hover:text-zinc-300'}`}>{opt.label}</button>
                 ))}
@@ -1739,7 +1769,6 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Custom date + traffic filter + IP exclude */}
             <div className="flex flex-col gap-2">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                 <div className="flex items-center gap-2">
@@ -1864,7 +1893,6 @@ export default function DashboardPage() {
               <>
                 <UtmSourceStatsSection />
 
-                {/* Meta Ads Comparison */}
                 {metaAdsData.length > 0 && (() => {
                   const metaTotal = metaAdsData.reduce((acc: any, ad: any) => ({
                     spend: acc.spend + ad.spend, impressions: acc.impressions + ad.impressions,
@@ -1935,14 +1963,13 @@ export default function DashboardPage() {
                   );
                 })()}
 
-                {/* Paid vs Organic */}
                 {filteredAnalytics?.paidVsOrganic && (
                   <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-6">
                     <div className="flex items-center gap-2 mb-4"><span className="text-base">💰</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Paid vs Organic</h3></div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {[
-                        { key: 'paid' as const,    label: 'Paid',    color: 'red',     dot: 'bg-red-500',     border: 'border-red-900/30',     bg: 'from-red-950/20',     text: 'text-red-400'    },
-                        { key: 'organic' as const, label: 'Organic', color: 'emerald', dot: 'bg-emerald-500', border: 'border-emerald-900/30', bg: 'from-emerald-950/20', text: 'text-emerald-400' },
+                        { key: 'paid'    as const, label: 'Paid',    dot: 'bg-red-500',     border: 'border-red-900/30',     bg: 'from-red-950/20',     text: 'text-red-400'    },
+                        { key: 'organic' as const, label: 'Organic', dot: 'bg-emerald-500', border: 'border-emerald-900/30', bg: 'from-emerald-950/20', text: 'text-emerald-400' },
                       ].map(side => (
                         <div key={side.key} className={`bg-gradient-to-br ${side.bg} to-zinc-900/60 border ${side.border} rounded-xl p-4`}>
                           <div className="flex items-center gap-2 mb-3"><span className={`w-2.5 h-2.5 rounded-full ${side.dot}`} /><span className={`text-sm font-bold ${side.text}`}>{side.label}</span></div>
@@ -1957,7 +1984,6 @@ export default function DashboardPage() {
                   </div>
                 )}
 
-                {/* Summary Cards */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                   <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-3 sm:p-4"><p className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-widest mb-1">Visitors</p><p className="text-xl sm:text-2xl font-black text-white">{filteredAnalytics?.totalVisitors}</p></div>
                   <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-3 sm:p-4"><p className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-widest mb-1">Sessions</p><p className="text-xl sm:text-2xl font-black text-white">{filteredAnalytics?.totalSessions}</p></div>
@@ -1965,16 +1991,15 @@ export default function DashboardPage() {
                   <div className="bg-purple-950/30 border border-purple-900/30 rounded-xl p-3 sm:p-4"><p className="text-[10px] sm:text-xs text-purple-500 uppercase tracking-widest mb-1">CVR</p><p className="text-xl sm:text-2xl font-black text-purple-400">{filteredAnalytics?.funnel?.page_view > 0 ? ((filteredAnalytics.funnel.step4_submit / filteredAnalytics.funnel.page_view) * 100).toFixed(1) : '0'}%</p></div>
                 </div>
 
-                {/* Funnel */}
                 <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-6">
                   <div className="flex items-center gap-2 mb-4 sm:mb-6"><span className="text-base">🎯</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Conversion Funnel</h3></div>
                   <div className="space-y-3">
                     {[
-                      { key: 'page_view',          label: 'Page View',   desc: 'Landed on site',          color: 'bg-zinc-500'   },
-                      { key: 'step1_cta_click',    label: 'Get in Line', desc: 'Clicked CTA',             color: 'bg-sky-500'    },
-                      { key: 'step2_answer',       label: 'Answered',    desc: 'Selected Yes/No/Never',   color: 'bg-amber-500'  },
-                      { key: 'step3_email_focus',  label: 'Email Focus', desc: 'Started typing email',    color: 'bg-purple-500' },
-                      { key: 'step4_submit',       label: 'Submitted',   desc: 'Completed signup',        color: 'bg-emerald-500'},
+                      { key: 'page_view',         label: 'Page View',   desc: 'Landed on site',        color: 'bg-zinc-500'    },
+                      { key: 'step1_cta_click',   label: 'Get in Line', desc: 'Clicked CTA',           color: 'bg-sky-500'     },
+                      { key: 'step2_answer',      label: 'Answered',    desc: 'Selected Yes/No/Never', color: 'bg-amber-500'   },
+                      { key: 'step3_email_focus', label: 'Email Focus', desc: 'Started typing email',  color: 'bg-purple-500'  },
+                      { key: 'step4_submit',      label: 'Submitted',   desc: 'Completed signup',      color: 'bg-emerald-500' },
                     ].map((step, idx) => {
                       const count = filteredAnalytics?.funnel?.[step.key] || 0;
                       const pv = filteredAnalytics?.funnel?.page_view || 1;
@@ -2006,7 +2031,6 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* UTM Performance */}
                 {filteredAnalytics?.utmPerformance?.length > 0 && (
                   <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-6">
                     <div className="flex items-center gap-2 mb-4"><span className="text-base">🔗</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">UTM Source Performance</h3></div>
@@ -2030,7 +2054,6 @@ export default function DashboardPage() {
                   </div>
                 )}
 
-                {/* Campaign Performance */}
                 {filteredAnalytics?.campaignPerformance?.length > 0 && (
                   <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-6">
                     <div className="flex items-center gap-2 mb-4"><span className="text-base">🎯</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Campaign Performance</h3></div>
@@ -2056,7 +2079,6 @@ export default function DashboardPage() {
                   </div>
                 )}
 
-                {/* Hourly */}
                 {filteredAnalytics?.hourly?.some((h: any) => h.count > 0) && (
                   <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5">
                     <div className="flex items-center gap-2 mb-4"><span className="text-base">🕒</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Signup by Hour</h3></div>
@@ -2075,7 +2097,6 @@ export default function DashboardPage() {
                   </div>
                 )}
 
-                {/* Period Breakdown */}
                 <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-6">
                   <div className="flex items-center gap-2 mb-4"><span className="text-base">📅</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Period Breakdown</h3></div>
                   {filteredAnalytics?.daily?.length > 0 && (
@@ -2164,7 +2185,6 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* Segment & Reason Distribution */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
                   {filteredAnalytics?.segmentDistribution && Object.keys(filteredAnalytics.segmentDistribution).length > 0 && (
                     <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5">
