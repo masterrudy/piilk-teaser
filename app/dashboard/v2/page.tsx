@@ -280,9 +280,13 @@ export default function DashboardPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState('');
 
-  /* ── variant별 total 캐싱 ── */
-  const [supabaseTotals, setSupabaseTotals] = useState<{ main: number | null; type: number | null }>({ main: null, type: null });
-  const [klaviyoTotals, setKlaviyoTotals] = useState<{ main: number | null; type: number | null }>({ main: null, type: null });
+  /* ── variant별 total 캐싱 — localStorage에서 즉시 복원해 버퍼 없이 바로 표시 ── */
+  const [supabaseTotals, setSupabaseTotals] = useState<{ main: number | null; type: number | null }>(() =>
+    lsGetJSON('piilk_supabase_totals', { main: null, type: null })
+  );
+  const [klaviyoTotals, setKlaviyoTotals] = useState<{ main: number | null; type: number | null }>(() =>
+    lsGetJSON('piilk_klaviyo_totals', { main: null, type: null })
+  );
 
   /* ── 데이터 캐시 ref ── */
   const dataCache = useRef<DataCache>({
@@ -396,7 +400,11 @@ export default function DashboardPage() {
 
       if (sResult.success) {
         setParticipants(prev => ({ ...prev, supabase: sResult.data }));
-        setSupabaseTotals(prev => ({ ...prev, [v]: sResult.total }));
+        setSupabaseTotals(prev => {
+          const next = { ...prev, [v]: sResult.total };
+          localStorage.setItem('piilk_supabase_totals', JSON.stringify(next));
+          return next;
+        });
       }
       // Supabase 오자마자 로딩 해제 → 사용자 즉시 확인 가능
       setParticipantsLoading(false);
@@ -407,7 +415,11 @@ export default function DashboardPage() {
 
       if (kResult.success) {
         setParticipants(prev => ({ ...prev, klaviyo: kResult.data }));
-        setKlaviyoTotals(prev => ({ ...prev, [v]: kResult.total }));
+        setKlaviyoTotals(prev => {
+          const next = { ...prev, [v]: kResult.total };
+          localStorage.setItem('piilk_klaviyo_totals', JSON.stringify(next));
+          return next;
+        });
       }
 
       // 캐시 저장 (Klaviyo까지 완료 후)
@@ -431,8 +443,16 @@ export default function DashboardPage() {
         supabase: sOtherResult.success ? sOtherResult.data : [],
       };
       setOtherParticipants(otherData);
-      if (sOtherResult.success) setSupabaseTotals(prev => ({ ...prev, [otherVariant]: sOtherResult.total }));
-      if (kOtherResult.success) setKlaviyoTotals(prev => ({ ...prev, [otherVariant]: kOtherResult.total }));
+      if (sOtherResult.success) setSupabaseTotals(prev => {
+        const next = { ...prev, [otherVariant]: sOtherResult.total };
+        localStorage.setItem('piilk_supabase_totals', JSON.stringify(next));
+        return next;
+      });
+      if (kOtherResult.success) setKlaviyoTotals(prev => {
+        const next = { ...prev, [otherVariant]: kOtherResult.total };
+        localStorage.setItem('piilk_klaviyo_totals', JSON.stringify(next));
+        return next;
+      });
       dataCache.current.otherParticipants[v] = otherData;
 
     } catch (err) {
@@ -1145,7 +1165,7 @@ export default function DashboardPage() {
             <button onClick={() => { fetchData(); fetchParticipants(); fetchAnalytics(); }} className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center hover:bg-zinc-800 active:scale-95">
               <svg className="w-3 h-3 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
             </button>
-            <button onClick={() => { localStorage.removeItem('piilk_dash'); localStorage.removeItem('piilk_saved_pw'); setAuthenticated(false); setPassword(''); setRememberMe(false); }} className="text-[10px] sm:text-xs text-zinc-500 hover:text-white transition-colors">Logout</button>
+            <button onClick={() => { localStorage.removeItem('piilk_dash'); localStorage.removeItem('piilk_saved_pw'); localStorage.removeItem('piilk_supabase_totals'); localStorage.removeItem('piilk_klaviyo_totals'); setAuthenticated(false); setPassword(''); setRememberMe(false); }} className="text-[10px] sm:text-xs text-zinc-500 hover:text-white transition-colors">Logout</button>
           </div>
         </div>
       </header>
