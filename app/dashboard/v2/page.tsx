@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Image from 'next/image';
 
-/* \\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500 Types \\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500 */
+/* ─────────────────────────── Types ─────────────────────────── */
 
 interface SegmentData {
   total: number;
@@ -88,7 +88,7 @@ interface VisitorStat {
   events: number;
 }
 
-/* \\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500 UTM Normalization \\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500 */
+/* ─────────────────────────── UTM Normalization ─────────────────────────── */
 const META_SOURCES = ['fb', 'ig', 'meta', 'facebook', 'instagram'];
 
 function normalizeUtmSource(source: string | undefined | null): string {
@@ -113,8 +113,8 @@ function getNYCDate(offset = 0): string {
   return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;
 }
 
-/* \\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500 BUG FIX: NYC timezone date helper \\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500 */
-// \\u2705 signed_up_at (UTC ISO string) \\u2192 NYC \\ub0a0\\uc9dc \\ubb38\\uc790\\uc5f4 (YYYY-MM-DD)
+/* ─────────────────────────── BUG FIX: NYC timezone date helper ─────────────────────────── */
+// ✅ signed_up_at (UTC ISO string) → NYC 날짜 문자열 (YYYY-MM-DD)
 function toNYCDateStr(signed_up_at: string | undefined): string {
   if (!signed_up_at) return '';
   try {
@@ -125,13 +125,13 @@ function toNYCDateStr(signed_up_at: string | undefined): string {
   }
 }
 
-/* \\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500 Quiz Type Labels \\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500 */
+/* ─────────────────────────── Quiz Type Labels ─────────────────────────── */
 
 const QUIZ_TYPE_LABELS: Record<string, { name: string; icon: string; color: string; bgColor: string; borderColor: string }> = {
-  brick:   { name: 'Brick Stomach',     icon: '\\ud83e\\uddf1', color: 'text-orange-400', bgColor: 'from-orange-950/40 to-zinc-900/60', borderColor: 'border-orange-900/40' },
-  chalk:   { name: 'Chalk Mouth',       icon: '\\ud83e\\uddb7', color: 'text-slate-300',  bgColor: 'from-slate-900/40 to-zinc-900/60',  borderColor: 'border-slate-700/40'  },
-  zombie:  { name: 'Post-Shake Zombie', icon: '\\ud83e\\udddf', color: 'text-green-400',  bgColor: 'from-green-950/40 to-zinc-900/60',  borderColor: 'border-green-900/40'  },
-  gambler: { name: '30-Min Gambler',    icon: '\\ud83c\\udfb0', color: 'text-yellow-400', bgColor: 'from-yellow-950/40 to-zinc-900/60', borderColor: 'border-yellow-900/40' },
+  brick:   { name: 'Brick Stomach',     icon: '\ud83e\uddf1', color: 'text-orange-400', bgColor: 'from-orange-950/40 to-zinc-900/60', borderColor: 'border-orange-900/40' },
+  chalk:   { name: 'Chalk Mouth',       icon: '\ud83e\uddb7', color: 'text-slate-300',  bgColor: 'from-slate-900/40 to-zinc-900/60',  borderColor: 'border-slate-700/40'  },
+  zombie:  { name: 'Post-Shake Zombie', icon: '\ud83e\udddf', color: 'text-green-400',  bgColor: 'from-green-950/40 to-zinc-900/60',  borderColor: 'border-green-900/40'  },
+  gambler: { name: '30-Min Gambler',    icon: '\ud83c\udfb0', color: 'text-yellow-400', bgColor: 'from-yellow-950/40 to-zinc-900/60', borderColor: 'border-yellow-900/40' },
 };
 
 const UTM_SOURCE_COLORS: Record<string, { bg: string; text: string; border: string; dot: string }> = {
@@ -145,7 +145,7 @@ function getUtmColor(source: string) {
   return UTM_SOURCE_COLORS[source] || { bg: 'bg-purple-500/10', text: 'text-purple-400', border: 'border-purple-500/30', dot: 'bg-purple-500' };
 }
 
-/* \\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500 Component \\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500 */
+/* ─────────────────────────── Component ─────────────────────────── */
 
 export default function DashboardPage() {
   // Auth
@@ -163,7 +163,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState('');
 
-  // \\ub450 variant\\uc758 supabase/klaviyo total \\uce90\\uc2f1
+  // 두 variant의 supabase/klaviyo total 캐싱
   const [supabaseTotals, setSupabaseTotals] = useState<{ main: number | null; type: number | null }>({ main: null, type: null });
   const [klaviyoTotals, setKlaviyoTotals] = useState<{ main: number | null; type: number | null }>({ main: null, type: null });
   // ✅ DB 직접값 — 프론트 filter 25명 누락 버그 수정
@@ -183,7 +183,7 @@ export default function DashboardPage() {
   const [analyticsDateTo, setAnalyticsDateTo] = useState<string>('');
   const [trafficFilter, setTrafficFilter] = useState<'all' | 'paid' | 'organic'>('all');
 
-  // \\u2705 excludeIPs: SSR safe (lazy initializer\\ub85c window \\uc811\\uadfc)
+  // ✅ excludeIPs: SSR safe (lazy initializer로 window 접근)
   const [excludeIPs, setExcludeIPs] = useState<string[]>(() => {
     if (typeof window === 'undefined') return [];
     try { return JSON.parse(localStorage.getItem('piilk_exclude_ips') || '[]'); } catch { return []; }
@@ -334,7 +334,7 @@ export default function DashboardPage() {
   const currentParticipants = activeSource === 'klaviyo' ? participants.klaviyo : participants.supabase;
   const currentOtherParticipants = activeSource === 'klaviyo' ? otherParticipants.klaviyo : otherParticipants.supabase;
 
-  // \\ud1b5\\ud569 \\ub9ac\\uc2a4\\ud2b8: \\ud604\\uc7ac variant + \\ubc18\\ub300 variant, \\uc2dc\\uac04\\uc21c \\uc815\\ub82c, variant \\ud0dc\\uadf8 \\ucd94\\uac00
+  // 통합 리스트: 현재 variant + 반대 variant, 시간순 정렬, variant 태그 추가
   const mergedParticipants = useMemo(() => {
     const mainList = (variant === 'main' ? currentParticipants : currentOtherParticipants)
       .map(p => ({ ...p, _variantTag: 'main' as const }));
@@ -347,29 +347,29 @@ export default function DashboardPage() {
     });
   }, [currentParticipants, currentOtherParticipants, variant]);
 
-  /* \\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500
-   * BUG FIX #1: todaySignups \\u2014 UTC slice(0,10) \\u2192 NYC timezone \\ubcc0\\ud658
-   * \\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500 */
+  /* ─────────────────────────────────────────────────────────────────────
+   * BUG FIX #1: todaySignups — UTC slice(0,10) → NYC timezone 변환
+   * ───────────────────────────────────────────────────────────────────── */
   // ✅ DB 직접값 우선
   const todaySignups = apiTodayCount ?? (() => {
     const todayStr = getNYCDate(0);
     return currentParticipants.filter(p => toNYCDateStr(p.signed_up_at) === todayStr).length;
   })();
 
-  /* \\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500
-   * BUG FIX #2: dailySignups \\u2014 UTC slice(0,10) \\u2192 NYC timezone \\ubcc0\\ud658
-   * \\uc608: UTC 2025-03-04T02:00Z \\u2192 NYC 2025-03-03 (\\uc790\\uc815 \\uc774\\uc804) \\uac00 slice\\ub85c\\ub294 \\uc798\\ubabb \\uc9d1\\uacc4\\ub428
-   * \\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500 */
+  /* ─────────────────────────────────────────────────────────────────────
+   * BUG FIX #2: dailySignups — UTC slice(0,10) → NYC timezone 변환
+   * 예: UTC 2025-03-04T02:00Z → NYC 2025-03-03 (자정 이전) 가 slice로는 잘못 집계됨
+   * ───────────────────────────────────────────────────────────────────── */
   const dailySignups = useMemo(() => {
     const dayMap: Record<string, number> = {};
     currentParticipants.forEach(p => {
-      const day = toNYCDateStr(p.signed_up_at); // \\u2705 NYC timezone
+      const day = toNYCDateStr(p.signed_up_at); // ✅ NYC timezone
       if (day) dayMap[day] = (dayMap[day] || 0) + 1;
     });
     const sorted = Object.entries(dayMap).sort((a, b) => a[0].localeCompare(b[0]));
     if (sorted.length > 1) {
       const filled: [string, number][] = [];
-      const start = new Date(sorted[0][0] + 'T00:00:00'); // \\u2705 local date parse \\ubc29\\uc9c0
+      const start = new Date(sorted[0][0] + 'T00:00:00'); // ✅ local date parse 방지
       const end   = new Date(sorted[sorted.length - 1][0] + 'T00:00:00');
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -465,9 +465,9 @@ export default function DashboardPage() {
     if (countryFilter) list = list.filter(p => p.country === countryFilter);
     if (cityFilter) list = list.filter(p => p.city === cityFilter);
     if (deviceFilter) list = list.filter(p => p.device_type === deviceFilter);
-    /* \\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500
-     * BUG FIX #3: dateFrom/dateTo \\ud544\\ud130\\ub3c4 NYC timezone \\uae30\\uc900\\uc73c\\ub85c \\ube44\\uad50
-     * \\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500 */
+    /* ─────────────────────────────────────────────────────────────────────
+     * BUG FIX #3: dateFrom/dateTo 필터도 NYC timezone 기준으로 비교
+     * ───────────────────────────────────────────────────────────────────── */
     if (dateFrom) list = list.filter(p => toNYCDateStr(p.signed_up_at) >= dateFrom);
     if (dateTo)   list = list.filter(p => toNYCDateStr(p.signed_up_at) <= dateTo);
 
@@ -489,16 +489,22 @@ export default function DashboardPage() {
   const exportToCSV = () => {
     const headers = ['Email', 'Segment', 'Reason', 'AfterfeelType', 'Country', 'Region', 'City', 'Device', 'Language', 'Timezone', 'IP', 'Referrer', 'UTM Source', 'UTM Medium', 'UTM Campaign', 'Source', 'Signed Up'];
     const rows = filteredParticipants.map(p => [p.email||'', p.segment||'', p.sub_reason||'', p.afterfeel_type||'', p.country||'', p.region||'', p.city||'', p.device_type||'', p.language||'', p.timezone||'', p.ip_address||'', p.referrer||'', p.utm_source||'', p.utm_medium||'', p.utm_campaign||'', p.source||'', p.signed_up_at||'']);
-        const csv = [headers, ...rows].map(row => row.map(cell => '"' + String(cell).replace(/"/g, '""') + '"').join(',')).join('\n');
-');
-    const blob = new Blob(['\\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const csvRows = [headers, ...rows].map(row =>
+      row.map(cell => {
+        const s = String(cell).replace(/"/g, '""');
+        return '"' + s + '"';
+      }).join(',')
+    );
+    const csv = csvRows.join('\n');
+    const bom = '\uFEFF';
+    const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a'); link.href = url;
-    link.download = `piilk-${variant}-participants-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = 'piilk-' + variant + '-participants-' + new Date().toISOString().slice(0, 10) + '.csv';
     link.click(); URL.revokeObjectURL(url);
   };
 
-  // Quiz Type: afterfeel_type\\ubcc4 \\uce74\\uc6b4\\ud2b8
+  // Quiz Type: afterfeel_type별 카운트
   const quizTypeCounts = useMemo(() => {
     if (variant !== 'type') return null;
     const counts: Record<string, number> = { brick: 0, chalk: 0, zombie: 0, gambler: 0 };
@@ -666,12 +672,12 @@ export default function DashboardPage() {
     return {...analyticsData,funnel,daily:filteredDaily,weekly,weekday,monthly,utmPerformance,platformPerformance,campaignPerformance,paidVsOrganic,hourly,segmentDistribution:segDist,reasonDistribution:reasonDist,totalVisitors:uvVisitors.size,totalSessions:uvSessions.size};
   }, [analyticsData, analyticsPeriod, analyticsDateFrom, analyticsDateTo, trafficFilter, variant]);
 
-  /* \\u2500\\u2500\\u2500 Today analytics helper (paid/organic \\ubd84\\ub9ac + IP \\uc81c\\uc678) \\u2500\\u2500\\u2500 */
+  /* ─── Today analytics helper (paid/organic 분리 + IP 제외) ─── */
   const todayAnalytics = useMemo(() => {
     const empty = {
-      visitors: 0, sessions: 0, submits: 0, cvr: '\\u2014',
-      paid:    { visitors: 0, submits: 0, cvr: '\\u2014' },
-      organic: { visitors: 0, submits: 0, cvr: '\\u2014' },
+      visitors: 0, sessions: 0, submits: 0, cvr: '—',
+      paid:    { visitors: 0, submits: 0, cvr: '—' },
+      organic: { visitors: 0, submits: 0, cvr: '—' },
     };
     if (!analyticsData?.rawEvents) return empty;
     const todayStr = getNYCDate(0);
@@ -697,9 +703,9 @@ export default function DashboardPage() {
     const pVisitors = paidVids.size;
     const oVisitors = orgVids.size;
 
-    /* \\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500
-     * BUG FIX #4: todayAnalytics submits \\u2014 NYC timezone \\uae30\\uc900\\uc73c\\ub85c \\uc624\\ub298 \\ud310\\ub2e8
-     * \\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500 */
+    /* ─────────────────────────────────────────────────────────────────────
+     * BUG FIX #4: todayAnalytics submits — NYC timezone 기준으로 오늘 판단
+     * ───────────────────────────────────────────────────────────────────── */
     const todayParticipants = currentParticipants.filter((p: any) =>
       toNYCDateStr(p.signed_up_at) === todayStr
     );
@@ -707,9 +713,9 @@ export default function DashboardPage() {
     const pSubmits = todayParticipants.filter((p: any) => p.utm_medium === 'paid').length;
     const oSubmits = todayParticipants.filter((p: any) => p.utm_medium !== 'paid').length;
 
-    const cvr  = visitors  > 0 ? `${((submits  / visitors)  * 100).toFixed(1)}%` : '\\u2014';
-    const pCvr = pVisitors > 0 ? `${((pSubmits / pVisitors) * 100).toFixed(1)}%` : '\\u2014';
-    const oCvr = oVisitors > 0 ? `${((oSubmits / oVisitors) * 100).toFixed(1)}%` : '\\u2014';
+    const cvr  = visitors  > 0 ? `${((submits  / visitors)  * 100).toFixed(1)}%` : '—';
+    const pCvr = pVisitors > 0 ? `${((pSubmits / pVisitors) * 100).toFixed(1)}%` : '—';
+    const oCvr = oVisitors > 0 ? `${((oSubmits / oVisitors) * 100).toFixed(1)}%` : '—';
 
     const sessions = new Set(
       analyticsData.rawEvents
@@ -724,10 +730,10 @@ export default function DashboardPage() {
     };
   }, [analyticsData, excludeIPs, currentParticipants]);
 
-  /* \\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500
-   * BUG FIX #5: segColor \\u2014 main \\ud0ed\\uc5d0\\uc11c quiz type \\ucc38\\uac00\\uc790(vTag==='type') \\ub80c\\ub354 \\uc2dc
-   * variant\\uac00 'main'\\uc774\\ubbc0\\ub85c QUIZ_TYPE_LABELS \\ubd84\\uae30\\uac00 \\uc548 \\ub428 \\u2192 vTag\\ub97c \\uc778\\uc790\\ub85c \\ucd94\\uac00
-   * \\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500 */
+  /* ─────────────────────────────────────────────────────────────────────
+   * BUG FIX #5: segColor — main 탭에서 quiz type 참가자(vTag==='type') 렌더 시
+   * variant가 'main'이므로 QUIZ_TYPE_LABELS 분기가 안 됨 → vTag를 인자로 추가
+   * ───────────────────────────────────────────────────────────────────── */
   const segColor = (s?: string, vTag?: 'main' | 'type') => {
     const isType = vTag === 'type' || variant === 'type';
     if (isType) {
@@ -753,12 +759,12 @@ export default function DashboardPage() {
       case 'A': return 'Hot Leads';
       case 'B': return 'Skeptic';
       case 'C': return 'Newbie';
-      default:  return s||'\\u2014';
+      default:  return s||'—';
     }
   };
 
   const fmtDate = (d?: string) => {
-    if(!d)return'\\u2014';
+    if(!d)return'—';
     try {
       const dt=new Date(d);
       return dt.toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'})+' '+dt.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
@@ -786,7 +792,7 @@ export default function DashboardPage() {
   };
 
   const deviceIcon = (d?: string) => {
-    switch(d) { case 'mobile': return '\\ud83d\\udcf1'; case 'desktop': return '\\ud83d\\udcbb'; case 'tablet': return '\\ud83d\\udcdf'; default: return '\\u2014'; }
+    switch(d) { case 'mobile': return '\ud83d\udcf1'; case 'desktop': return '\ud83d\udcbb'; case 'tablet': return '\ud83d\udcdf'; default: return '—'; }
   };
 
   const BarChart = ({ data, color, total }: { data: [string, number][]; color: string; total: number }) => (
@@ -808,11 +814,11 @@ export default function DashboardPage() {
     const chartData = chartMode === 'daily' ? daily : cumulative;
     if (chartData.length === 0) return null;
     const maxVal = Math.max(...chartData.map(d => d[1]), 1);
-    const todayNYC = getNYCDate(0); // \\u2705 NYC \\uae30\\uc900 \\uc624\\ub298
+    const todayNYC = getNYCDate(0); // ✅ NYC 기준 오늘
     return (
       <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5">
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2"><span className="text-base">\\ud83d\\udcc8</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Signup Trend</h3></div>
+          <div className="flex items-center gap-2"><span className="text-base">\ud83d\udcc8</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Signup Trend</h3></div>
           <div className="flex gap-1 bg-zinc-800 rounded-lg p-0.5">
             <button onClick={() => setChartMode('daily')} className={`px-2.5 py-1 rounded-md text-[10px] sm:text-xs font-medium transition-all ${chartMode === 'daily' ? 'bg-white text-black' : 'text-zinc-500 hover:text-zinc-300'}`}>Daily</button>
             <button onClick={() => setChartMode('cumulative')} className={`px-2.5 py-1 rounded-md text-[10px] sm:text-xs font-medium transition-all ${chartMode === 'cumulative' ? 'bg-white text-black' : 'text-zinc-500 hover:text-zinc-300'}`}>Cumulative</button>
@@ -828,7 +834,7 @@ export default function DashboardPage() {
           <div className="absolute left-9 right-0 top-0 bottom-5 flex items-end gap-[1px]">
             {chartData.map(([day, count], i) => {
               const height = maxVal > 0 ? (count / maxVal) * 100 : 0;
-              const isToday = day === todayNYC; // \\u2705 NYC \\uae30\\uc900
+              const isToday = day === todayNYC; // ✅ NYC 기준
               return (
                 <div key={day} className="flex-1 flex flex-col items-center justify-end h-full group relative">
                   <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-zinc-800 text-white text-[9px] px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none">{fmtShortDate(day)}: <span className="font-bold">{count}</span></div>
@@ -850,7 +856,7 @@ export default function DashboardPage() {
     );
   };
 
-  /* \\u2500\\u2500\\u2500 UTM Source Stats Section \\u2500\\u2500\\u2500 */
+  /* ─── UTM Source Stats Section ─── */
   const UtmSourceStatsSection = () => {
     const [utmView, setUtmView] = useState<'today' | 'total'>('today');
     const rawUtmStats: UtmSourceStat[] | undefined = analyticsData?.utmSourceStats?.[utmView];
@@ -880,7 +886,7 @@ export default function DashboardPage() {
       <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4 sm:mb-5">
           <div className="flex items-center gap-2">
-            <span className="text-base">\\ud83d\\udce1</span>
+            <span className="text-base">\ud83d\udce1</span>
             <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Traffic Source Breakdown</h3>
             <span className={`text-[10px] px-2 py-0.5 rounded border ${variant === 'main' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-purple-500/10 text-purple-400 border-purple-500/30'}`}>{variant === 'main' ? 'Main Teaser' : 'Quiz Type'}</span>
           </div>
@@ -926,7 +932,7 @@ export default function DashboardPage() {
     );
   };
 
-  /* \\u2500\\u2500\\u2500 LOGIN \\u2500\\u2500\\u2500 */
+  /* ─── LOGIN ─── */
   if (!authenticated) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-4">
@@ -1013,7 +1019,7 @@ export default function DashboardPage() {
         {viewMode !== 'analytics' && (
           <div className="flex gap-2">
             <button onClick={() => setActiveSource('klaviyo')} className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${activeSource === 'klaviyo' ? 'bg-purple-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>
-              \\ud83d\\udce7 Klaviyo
+              \ud83d\udce7 Klaviyo
               {klaviyoData && <span className="text-xs opacity-80">({klaviyoData.total})</span>}
               {oppKlaviyoTotal !== null && (
                 <>
@@ -1025,7 +1031,7 @@ export default function DashboardPage() {
               )}
             </button>
             <button onClick={() => setActiveSource('supabase')} className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${activeSource === 'supabase' ? 'bg-emerald-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>
-              \\ud83d\\uddc4\\ufe0f Supabase
+              \ud83d\uddc4️ Supabase
               {supabaseData && <span className="text-xs opacity-80">({supabaseData.total})</span>}
               {oppSupabaseTotal !== null && (
                 <>
@@ -1039,7 +1045,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* \\u2550\\u2550\\u2550\\u2550\\u2550\\u2550 OVERVIEW \\u2550\\u2550\\u2550\\u2550\\u2550\\u2550 */}
+        {/* ══════ OVERVIEW ══════ */}
         {viewMode === 'overview' && data ? (
           <>
             <section className="relative overflow-hidden bg-gradient-to-br from-zinc-900/80 to-zinc-950 border border-zinc-800 rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:p-8">
@@ -1140,10 +1146,10 @@ export default function DashboardPage() {
                 <h2 className="text-sm sm:text-base font-bold text-zinc-400 uppercase tracking-widest">Audience Insights</h2>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
                   {[
-                    { icon: '\\ud83c\\udf0d', title: 'Country',        data: trackingAnalytics.countries,  color: 'bg-emerald-500' },
-                    { icon: '\\ud83c\\udfd9\\ufe0f', title: 'Top Cities',     data: trackingAnalytics.cities,     color: 'bg-purple-500'  },
-                    { icon: '\\ud83d\\udcf1', title: 'Device',         data: trackingAnalytics.devices,    color: 'bg-amber-500'   },
-                    { icon: '\\ud83d\\udd17', title: 'Traffic Source', data: trackingAnalytics.utmSources, color: 'bg-sky-500'     },
+                    { icon: '\ud83c\udf0d', title: 'Country',        data: trackingAnalytics.countries,  color: 'bg-emerald-500' },
+                    { icon: '\ud83c\udfd9️', title: 'Top Cities',     data: trackingAnalytics.cities,     color: 'bg-purple-500'  },
+                    { icon: '\ud83d\udcf1', title: 'Device',         data: trackingAnalytics.devices,    color: 'bg-amber-500'   },
+                    { icon: '\ud83d\udd17', title: 'Traffic Source', data: trackingAnalytics.utmSources, color: 'bg-sky-500'     },
                   ].map(section => (
                     <div key={section.title} className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5">
                       <div className="flex items-center gap-2 mb-3 sm:mb-4"><span className="text-base">{section.icon}</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">{section.title}</h3></div>
@@ -1155,15 +1161,15 @@ export default function DashboardPage() {
             )}
           </>
         ) : viewMode === 'overview' ? (
-          <div className="text-center text-zinc-500 py-12">\\ub370\\uc774\\ud130\\ub97c \\ubd88\\ub7ec\\uc62c \\uc218 \\uc5c6\\uc2b5\\ub2c8\\ub2e4.</div>
+          <div className="text-center text-zinc-500 py-12">데이터를 불러올 수 없습니다.</div>
         ) : null}
 
-        {/* \\u2550\\u2550\\u2550\\u2550\\u2550\\u2550 PARTICIPANTS \\u2550\\u2550\\u2550\\u2550\\u2550\\u2550 */}
+        {/* ══════ PARTICIPANTS ══════ */}
         {viewMode === 'participants' && (
           <div className="space-y-4">
             {(() => {
               const todayStr = getNYCDate(0);
-              // \\u2705 BUG FIX: isToday \\u2014 NYC timezone \\uae30\\uc900 (toNYCDateStr \\uc0ac\\uc6a9)
+              // ✅ BUG FIX: isToday — NYC timezone 기준 (toNYCDateStr 사용)
               const isToday = (p: Participant) => toNYCDateStr(p.signed_up_at) === todayStr;
               const kTotal = participants.klaviyo.length;
               const sTotal = participants.supabase.length;
@@ -1197,7 +1203,7 @@ export default function DashboardPage() {
                 );
               }
 
-              // Main Teaser \\uce74\\ub4dc
+              // Main Teaser 카드
               // ✅ DB 직접값 우선
               const todayA = apiTodayCount ?? currentParticipants.filter(p => isToday(p) && p.segment === 'A').length;
               const otherTotal: number | null = supabaseTotals.type;
@@ -1215,7 +1221,7 @@ export default function DashboardPage() {
                     <p className="text-[9px] text-zinc-400 uppercase tracking-widest font-bold mb-2">Total</p>
                     <div className="flex items-baseline gap-1.5 justify-center">
                       <p className="text-6xl sm:text-7xl font-black text-white leading-none">{combinedTotal.toLocaleString()}</p>
-                      {!isCombined && <span className="text-[9px] text-zinc-600 animate-pulse">\\u2026</span>}
+                      {!isCombined && <span className="text-[9px] text-zinc-600 animate-pulse">…</span>}
                     </div>
                     <div className="flex items-center gap-3 mt-2">
                       <span className="text-lg sm:text-xl font-black text-emerald-400">+{combinedTodayAll} today</span>
@@ -1230,7 +1236,7 @@ export default function DashboardPage() {
                     </div>
                     <p className="text-6xl sm:text-7xl font-black text-emerald-400 leading-none">{todayA}</p>
                     {(() => {
-                      // \\u2705 BUG FIX #2: yesterdayA \\u2014 NYC timezone \\uae30\\uc900
+                      // ✅ BUG FIX #2: yesterdayA — NYC timezone 기준
                       const yStr = getNYCDate(-1);
                       // ✅ DB 직접값 우선
                       const yesterdayA = apiYesterdayCount ?? currentParticipants.filter(p => {
@@ -1242,7 +1248,7 @@ export default function DashboardPage() {
                       const pct = ((diff / yesterdayA) * 100).toFixed(0);
                       return (
                         <div className="mt-2 flex items-baseline gap-1.5">
-                          <span className={`text-base font-black ${diff >= 0 ? 'text-sky-400' : 'text-red-400'}`}>{diff >= 0 ? '\\u25b2' : '\\u25bc'}{Math.abs(Number(pct))}%</span>
+                          <span className={`text-base font-black ${diff >= 0 ? 'text-sky-400' : 'text-red-400'}`}>{diff >= 0 ? '▲' : '▼'}{Math.abs(Number(pct))}%</span>
                           <span className="text-xs text-zinc-500">vs yesterday ({yesterdayA})</span>
                         </div>
                       );
@@ -1270,29 +1276,17 @@ export default function DashboardPage() {
                             const orgVidSet  = new Set(todayPV.filter((ev:any)=>ev.um!=='paid').map((ev:any)=>ev.v||ev.s).filter(Boolean));
                             const overlap = Array.from(paidVidSet).filter(id => orgVidSet.has(id)).length;
                             alert(
-                              `\\ud83d\\udcca Visitor Debug (\\uc624\\ub298)\\
-\\
-` +
-                              `\\uc804\\uccb4 page_view \\uc774\\ubca4\\ud2b8: ${todayPV.length}\\uac1c\\
-` +
-                              `\\uc720\\ub2c8\\ud06c visitor_id: ${vidMap.size}\\uba85\\
-` +
-                              `visitor_id \\uc5c6\\uc74c (session \\ud3f4\\ubc31): ${noV}\\uac1c\\
-` +
-                              `\\uc7ac\\ubc29\\ubb38 (2\\ud68c\\u2191): ${multiVisit.length}\\uba85\\
-` +
-                              `  \\u2192 \\uc608: ${multiVisit.slice(0,3).map(([id,c])=>`${id.slice(-6)}(${c}\\ud68c)`).join(', ')}\\
-\\
-` +
-                              `Paid visitors (raw): ${paidVidSet.size}\\uba85\\
-` +
-                              `Organic visitors (raw): ${orgVidSet.size}\\uba85\\
-` +
-                              `Paid+Organic \\uc911\\ubcf5: ${overlap}\\uba85 (Paid\\ub85c \\ubd84\\ub958\\ub428)\\
-` +
-                              `\\ubcf4\\uc815 \\ud6c4 Organic: ${orgVidSet.size - overlap}\\uba85\\
-` +
-                              `Paid + Organic \\ud569\\uc0b0: ${paidVidSet.size + (orgVidSet.size - overlap)}\\uba85 (= \\uc720\\ub2c8\\ud06c ${vidMap.size}\\uba85)`
+                              `\ud83d\udcca Visitor Debug (오늘)\n` +
+                              `전체 page_view 이벤트: ${todayPV.length}개\n` +
+                              `유니크 visitor_id: ${vidMap.size}명\n` +
+                              `visitor_id 없음 (session 폴백): ${noV}개\n` +
+                              `재방문 (2회↑): ${multiVisit.length}명\n` +
+                              `  → 예: ${multiVisit.slice(0,3).map(([id,c])=>`${id.slice(-6)}(${c}회)`).join(', ')}\n` +
+                              `Paid visitors (raw): ${paidVidSet.size}명\n` +
+                              `Organic visitors (raw): ${orgVidSet.size}명\n` +
+                              `Paid+Organic 중복: ${overlap}명 (Paid로 분류됨)\n` +
+                              `보정 후 Organic: ${orgVidSet.size - overlap}명\n` +
+                              `Paid + Organic 합산: ${paidVidSet.size + (orgVidSet.size - overlap)}명 (= 유니크 ${vidMap.size}명)`
                             );
                           }}
                           className="text-[8px] bg-sky-500/10 text-sky-500 px-1.5 py-0.5 rounded border border-sky-500/20 hover:bg-sky-500/20"
@@ -1316,7 +1310,7 @@ export default function DashboardPage() {
                         </div>
                       </div>
                     ) : (
-                      <p className="text-3xl font-black text-zinc-600">\\u2014</p>
+                      <p className="text-3xl font-black text-zinc-600">—</p>
                     )}
                   </div>
 
@@ -1348,7 +1342,7 @@ export default function DashboardPage() {
                         </div>
                       </div>
                     ) : (
-                      <p className="text-3xl font-black text-zinc-600">\\u2014</p>
+                      <p className="text-3xl font-black text-zinc-600">—</p>
                     )}
                   </div>
                 </div>
@@ -1366,10 +1360,10 @@ export default function DashboardPage() {
                 <option value="all">All Segments</option>
                 {variant === 'type' ? (
                   <>
-                    <option value="brick">\\ud83e\\uddf1 Brick Stomach</option>
-                    <option value="chalk">\\ud83e\\uddb7 Chalk Mouth</option>
-                    <option value="zombie">\\ud83e\\udddf Post-Shake Zombie</option>
-                    <option value="gambler">\\ud83c\\udfb0 30-Min Gambler</option>
+                    <option value="brick">\ud83e\uddf1 Brick Stomach</option>
+                    <option value="chalk">\ud83e\uddb7 Chalk Mouth</option>
+                    <option value="zombie">\ud83e\udddf Post-Shake Zombie</option>
+                    <option value="gambler">\ud83c\udfb0 30-Min Gambler</option>
                   </>
                 ) : (
                   <>
@@ -1447,7 +1441,7 @@ export default function DashboardPage() {
                         {variant === 'main' && <th className="px-2 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold w-16">LP</th>}
                         {[{f:'email' as const,l:'Email'},{f:'segment' as const,l:variant==='type'?'Type':'Seg'},{f:null,l:'Source'},{f:'country' as const,l:'Location'},{f:null,l:'Device'},{f:'signed_up_at' as const,l:'Date'}].map(col => (
                           <th key={col.l} className={`px-3 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold ${col.f ? 'cursor-pointer hover:text-zinc-300 select-none' : ''}`} onClick={() => col.f && handleSort(col.f)}>
-                            <span className="flex items-center gap-1">{col.l}{col.f && sortField===col.f && <span className="text-white">{sortDir==='asc'?'\\u2191':'\\u2193'}</span>}</span>
+                            <span className="flex items-center gap-1">{col.l}{col.f && sortField===col.f && <span className="text-white">{sortDir==='asc'?'↑':'↓'}</span>}</span>
                           </th>
                         ))}
                         <th className="px-3 py-3 w-10"></th>
@@ -1455,7 +1449,7 @@ export default function DashboardPage() {
                       <tbody>
                         {filteredParticipants.map((p, i) => {
                           const vTag = (p as any)._variantTag as 'main' | 'type' | undefined;
-                          // \\u2705 BUG FIX #5: segColor/segLabel\\uc5d0 vTag \\uc804\\ub2ec
+                          // ✅ BUG FIX #5: segColor/segLabel에 vTag 전달
                           const segKey = vTag === 'type' ? (p.afterfeel_type || p.sub_reason) : p.segment;
                           return (
                             <tr key={p.id || i} className="border-b border-zinc-800/40 hover:bg-zinc-800/30 transition-colors">
@@ -1474,7 +1468,7 @@ export default function DashboardPage() {
                                 </span>
                               </td>
                               <td className="px-3 py-3 text-xs max-w-[100px] truncate">{(() => { const s = trafficSourceLabel(p); return <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-md border ${s.color}`}>{s.label}</span>; })()}</td>
-                              <td className="px-3 py-3 text-xs text-zinc-300 whitespace-nowrap">{p.city && p.country ? `${p.city}, ${p.country}` : p.country || '\\u2014'}</td>
+                              <td className="px-3 py-3 text-xs text-zinc-300 whitespace-nowrap">{p.city && p.country ? `${p.city}, ${p.country}` : p.country || '—'}</td>
                               <td className="px-3 py-3 text-sm whitespace-nowrap">{deviceIcon(p.device_type)}</td>
                               <td className="px-3 py-3 text-xs text-zinc-500 font-mono whitespace-nowrap">{fmtDate(p.signed_up_at)}</td>
                               <td className="px-3 py-3"><button onClick={() => setSelectedParticipant(p)} className="text-zinc-600 hover:text-white transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></button></td>
@@ -1550,7 +1544,7 @@ export default function DashboardPage() {
                 ].map(item => (
                   <div key={item.l} className="bg-zinc-800/50 rounded-lg p-2.5">
                     <p className="text-[9px] text-zinc-500 uppercase tracking-widest font-semibold mb-0.5">{item.l}</p>
-                    <p className="text-xs text-white font-medium truncate">{item.v || '\\u2014'}</p>
+                    <p className="text-xs text-white font-medium truncate">{item.v || '—'}</p>
                   </div>
                 ))}
               </div>
@@ -1558,7 +1552,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* \\u2550\\u2550\\u2550\\u2550\\u2550\\u2550 ANALYTICS \\u2550\\u2550\\u2550\\u2550\\u2550\\u2550 */}
+        {/* ══════ ANALYTICS ══════ */}
         {viewMode === 'analytics' && (
           <div className="space-y-4 sm:space-y-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -1571,7 +1565,7 @@ export default function DashboardPage() {
                   <button key={opt.key} onClick={() => { setAnalyticsPeriod(opt.key); setAnalyticsDateFrom(''); setAnalyticsDateTo(''); }} className={`px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-medium transition-all ${analyticsPeriod === opt.key ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-500 hover:text-zinc-300'}`}>{opt.label}</button>
                 ))}
                 {availableMonths.length > 1 && (
-                  <select value={analyticsPeriod.match(/^\\d{4}-\\d{2}$/) ? analyticsPeriod : ''} onChange={e => { if (e.target.value) setAnalyticsPeriod(e.target.value); }} className="px-2 py-1 bg-zinc-800 border border-zinc-700 rounded-lg text-[10px] sm:text-xs text-zinc-400 focus:outline-none cursor-pointer">
+                  <select value={analyticsPeriod.match(/^\d{4}-\d{2}$/) ? analyticsPeriod : ''} onChange={e => { if (e.target.value) setAnalyticsPeriod(e.target.value); }} className="px-2 py-1 bg-zinc-800 border border-zinc-700 rounded-lg text-[10px] sm:text-xs text-zinc-400 focus:outline-none cursor-pointer">
                     <option value="">Month...</option>{availableMonths.map(m => <option key={m} value={m}>{m}</option>)}
                   </select>
                 )}
@@ -1581,42 +1575,42 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Custom Date Range + Traffic Filter + IP \\uc81c\\uc678 */}
+            {/* Custom Date Range + Traffic Filter + IP 제외 */}
             <div className="flex flex-col gap-2">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                 <div className="flex items-center gap-2">
                   <label className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold">Range:</label>
                   <input type="date" value={analyticsDateFrom} onChange={e => { setAnalyticsDateFrom(e.target.value); if (e.target.value && analyticsDateTo) setAnalyticsPeriod('custom_range'); }} className="px-2 py-1 bg-zinc-800 border border-zinc-700 rounded-lg text-xs text-white focus:outline-none focus:border-zinc-600" />
-                  <span className="text-zinc-600 text-xs">\\u2192</span>
+                  <span className="text-zinc-600 text-xs">→</span>
                   <input type="date" value={analyticsDateTo} onChange={e => { setAnalyticsDateTo(e.target.value); if (analyticsDateFrom && e.target.value) setAnalyticsPeriod('custom_range'); }} className="px-2 py-1 bg-zinc-800 border border-zinc-700 rounded-lg text-xs text-white focus:outline-none focus:border-zinc-600" />
                   {analyticsPeriod === 'custom_range' && <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">Custom</span>}
                 </div>
                 <div className="flex gap-1 bg-zinc-800 rounded-lg p-0.5">
-                  {([{key:'all' as const,label:'All',icon:'\\ud83c\\udf10'},{key:'paid' as const,label:'Paid',icon:'\\ud83d\\udcb0'},{key:'organic' as const,label:'Organic',icon:'\\ud83c\\udf31'}]).map(opt => (
+                  {([{key:'all' as const,label:'All',icon:'\ud83c\udf10'},{key:'paid' as const,label:'Paid',icon:'\ud83d\udcb0'},{key:'organic' as const,label:'Organic',icon:'\ud83c\udf31'}]).map(opt => (
                     <button key={opt.key} onClick={() => setTrafficFilter(opt.key)} className={`px-2.5 py-1.5 rounded-md text-[10px] sm:text-xs font-bold transition-all flex items-center gap-1 ${trafficFilter === opt.key ? (opt.key === 'paid' ? 'bg-red-500 text-white' : opt.key === 'organic' ? 'bg-emerald-500 text-white' : 'bg-white text-black') : 'text-zinc-500 hover:text-zinc-300'}`}><span>{opt.icon}</span>{opt.label}</button>
                   ))}
                 </div>
                 <button onClick={() => setShowIPFilter(v => !v)} className={`ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${excludeIPs.length > 0 ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:text-white'}`}>
-                  \\ud83d\\udeab IP \\uc81c\\uc678 {excludeIPs.length > 0 && <span className="bg-red-500 text-white text-[9px] font-black rounded-full w-4 h-4 flex items-center justify-center">{excludeIPs.length}</span>}
+                  \ud83d\udeab IP 제외 {excludeIPs.length > 0 && <span className="bg-red-500 text-white text-[9px] font-black rounded-full w-4 h-4 flex items-center justify-center">{excludeIPs.length}</span>}
                 </button>
               </div>
 
-              {/* IP \\uc81c\\uc678 \\ud544\\ud130 \\ud328\\ub110 */}
+              {/* IP 제외 필터 패널 */}
               {showIPFilter && (
                 <div className="bg-zinc-900/60 border border-zinc-700 rounded-xl p-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold text-white">\\ud83d\\udeab \\uc81c\\uc678 IP \\uad00\\ub9ac <span className="text-zinc-500 font-normal">(\\ud14c\\uc2a4\\ud2b8/\\uc0ac\\ubb34\\uc2e4 IP)</span></p>
-                    {excludeIPs.length > 0 && <button onClick={() => { setExcludeIPs([]); localStorage.setItem('piilk_exclude_ips', '[]'); }} className="text-[10px] text-red-400 hover:text-red-300">\\uc804\\uccb4 \\uc0ad\\uc81c</button>}
+                    <p className="text-xs font-bold text-white">\ud83d\udeab 제외 IP 관리 <span className="text-zinc-500 font-normal">(테스트/사무실 IP)</span></p>
+                    {excludeIPs.length > 0 && <button onClick={() => { setExcludeIPs([]); localStorage.setItem('piilk_exclude_ips', '[]'); }} className="text-[10px] text-red-400 hover:text-red-300">전체 삭제</button>}
                   </div>
                   <div className="flex flex-wrap gap-1.5 items-center">
-                    <span className="text-[10px] text-zinc-500">\\ube60\\ub978 \\ucd94\\uac00:</span>
+                    <span className="text-[10px] text-zinc-500">빠른 추가:</span>
                     <button onClick={() => {
                       const botIPs = ['209.38','64.23','137.184','146.190','24.199','134.199','147.182','165.225','143.110','176.3','172.56'];
                       const newIPs = Array.from(new Set([...excludeIPs, ...botIPs]));
                       setExcludeIPs(newIPs);
                       localStorage.setItem('piilk_exclude_ips', JSON.stringify(newIPs));
                     }} className="text-[10px] bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded-full font-bold hover:bg-orange-500/30">
-                      \\ud83e\\udd16 DigitalOcean \\ubd07 \\uc804\\uccb4 ({['209.38','64.23','137.184','146.190','24.199','134.199','147.182','165.225','143.110','176.3','172.56'].filter(ip => !excludeIPs.includes(ip)).length}\\uac1c \\ucd94\\uac00)
+                      \ud83e\udd16 DigitalOcean 봇 전체 ({['209.38','64.23','137.184','146.190','24.199','134.199','147.182','165.225','143.110','176.3','172.56'].filter(ip => !excludeIPs.includes(ip)).length}개 추가)
                     </button>
                   </div>
                   <div className="flex gap-2">
@@ -1624,26 +1618,24 @@ export default function DashboardPage() {
                       type="text" value={excludeIPInput} onChange={e => setExcludeIPInput(e.target.value)}
                       onKeyDown={e => {
                         if (e.key === 'Enter' && excludeIPInput.trim()) {
-                          const newEntries = excludeIPInput.split(/[\\
-,\\s]+/).map(s => s.trim()).filter(Boolean);
+                          const newEntries = excludeIPInput.split(/[',\s]+/).map(s => s.trim()).filter(Boolean);
                           const newIPs = Array.from(new Set([...excludeIPs, ...newEntries]));
                           setExcludeIPs(newIPs);
                           localStorage.setItem('piilk_exclude_ips', JSON.stringify(newIPs));
                           setExcludeIPInput('');
                         }
                       }}
-                      placeholder="\\uc608: 123.456 \\ub610\\ub294 \\uc5ec\\ub7ec IP\\ub97c \\uc904\\ubc14\\uafc8/\\uc27c\\ud45c\\ub85c \\uc785\\ub825"
+                      placeholder="예: 123.456 또는 여러 IP를 줄바꿈/쉼표로 입력"
                       className="flex-1 px-3 py-1.5 bg-zinc-800 border border-zinc-700 rounded-lg text-xs text-white focus:outline-none focus:border-zinc-500 placeholder-zinc-600"
                     />
                     <button onClick={() => {
                       if (!excludeIPInput.trim()) return;
-                      const newEntries = excludeIPInput.split(/[\\
-,\\s]+/).map((s: string) => s.trim()).filter(Boolean);
+                      const newEntries = excludeIPInput.split(/[',\s]+/).map((s: string) => s.trim()).filter(Boolean);
                       const newIPs = Array.from(new Set([...excludeIPs, ...newEntries]));
                       setExcludeIPs(newIPs);
                       localStorage.setItem('piilk_exclude_ips', JSON.stringify(newIPs));
                       setExcludeIPInput('');
-                    }} className="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-500">\\ucd94\\uac00</button>
+                    }} className="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-500">추가</button>
                   </div>
                   {excludeIPs.length > 0 && (
                     <div className="flex flex-wrap gap-1.5">
@@ -1654,12 +1646,12 @@ export default function DashboardPage() {
                             const newIPs = excludeIPs.filter((_: string, j: number) => j !== i);
                             setExcludeIPs(newIPs);
                             localStorage.setItem('piilk_exclude_ips', JSON.stringify(newIPs));
-                          }} className="text-red-500 hover:text-red-300 ml-0.5">\\u2715</button>
+                          }} className="text-red-500 hover:text-red-300 ml-0.5">✕</button>
                         </span>
                       ))}
                     </div>
                   )}
-                  <p className="text-[10px] text-zinc-600">\\ubd80\\ubd84 IP \\uc785\\ub825 \\uac00\\ub2a5 (\\uc608: <span className="font-mono text-zinc-500">192.168</span> \\u2192 \\ud574\\ub2f9 \\ub300\\uc5ed \\uc804\\uccb4 \\uc81c\\uc678) \\u00b7 \\uc5ec\\ub7ec IP \\ub3d9\\uc2dc \\uc785\\ub825 \\uac00\\ub2a5 \\u00b7 \\uc124\\uc815\\uc740 \\ube0c\\ub77c\\uc6b0\\uc800\\uc5d0 \\uc800\\uc7a5\\ub429\\ub2c8\\ub2e4</p>
+                  <p className="text-[10px] text-zinc-600">부분 IP 입력 가능 (예: <span className="font-mono text-zinc-500">192.168</span> → 해당 대역 전체 제외) · 여러 IP 동시 입력 가능 · 설정은 브라우저에 저장됩니다</p>
                 </div>
               )}
             </div>
@@ -1676,24 +1668,24 @@ export default function DashboardPage() {
                   const ws = wb.Sheets[wb.SheetNames[0]];
                   const rows: any[] = XLSX.utils.sheet_to_json(ws);
                   const parsed = rows.map((r:any) => {
-                    const name = r['\\uad11\\uace0 \\uc774\\ub984']||r['Ad Name']||'';
+                    const name = r['광고 이름']||r['Ad Name']||'';
                     const nl = name.toLowerCase();
                     return {
-                      adName: name, date: r['\\ubcf4\\uace0 \\uc2dc\\uc791']||'', status: r['\\uad11\\uace0 \\uac8c\\uc7ac']||'',
-                      results: Number(r['\\uacb0\\uacfc']||0)||0, reach: Number(r['\\ub3c4\\ub2ec']||0)||0,
-                      spend: Number(r['\\uc9c0\\ucd9c \\uae08\\uc561 (USD)']||0)||0, impressions: Number(r['\\ub178\\ucd9c']||0)||0,
-                      linkClicks: Number(r['\\ub9c1\\ud06c \\ud074\\ub9ad']||0)||0, cpc: Number(r['CPC(\\ub9c1\\ud06c \\ud074\\ub9ad\\ub2f9 \\ube44\\uc6a9) (USD)']||0)||0,
-                      ctrLink: Number(r['CTR(\\ub9c1\\ud06c \\ud074\\ub9ad\\ub960)']||0)||0, allClicks: Number(r['\\ud074\\ub9ad(\\uc804\\uccb4)']||0)||0,
-                      landingPageViews: Number(r['\\ub79c\\ub529 \\ud398\\uc774\\uc9c0 \\uc870\\ud68c']||0)||0,
+                      adName: name, date: r['보고 시작']||'', status: r['광고 게재']||'',
+                      results: Number(r['결과']||0)||0, reach: Number(r['도달']||0)||0,
+                      spend: Number(r['지출 금액 (USD)']||0)||0, impressions: Number(r['노출']||0)||0,
+                      linkClicks: Number(r['링크 클릭']||0)||0, cpc: Number(r['CPC(링크 클릭당 비용) (USD)']||0)||0,
+                      ctrLink: Number(r['CTR(링크 클릭률)']||0)||0, allClicks: Number(r['클릭(전체)']||0)||0,
+                      landingPageViews: Number(r['랜딩 페이지 조회']||0)||0,
                       variant: nl.includes('_main')||nl.includes('main') ? 'main' : nl.includes('_type')||nl.includes('type') ? 'type' : 'unknown'
                     };
                   }).filter((r:any) => r.spend > 0 || r.impressions > 0);
                   setMetaAdsData(parsed);
                   if (parsed.length > 0) setMetaAdsDate(parsed[0].date);
-                } catch(err) { alert('\\ud30c\\uc77c \\ud30c\\uc2f1 \\uc2e4\\ud328'); }
+                } catch(err) { alert('파일 파싱 실패'); }
               }} className="hidden" />
-              <button onClick={() => metaFileRef.current?.click()} className="px-3 py-1.5 bg-blue-600/20 border border-blue-600/30 rounded-lg text-xs text-blue-400 hover:bg-blue-600/30 transition-colors flex items-center gap-1.5"><span>\\ud83d\\udcca</span>Upload Meta Ads Report</button>
-              {metaAdsDate && <span className="text-[10px] text-blue-400">\\u2713 {metaAdsDate} ({metaAdsData.length} ads)</span>}
+              <button onClick={() => metaFileRef.current?.click()} className="px-3 py-1.5 bg-blue-600/20 border border-blue-600/30 rounded-lg text-xs text-blue-400 hover:bg-blue-600/30 transition-colors flex items-center gap-1.5"><span>\ud83d\udcca</span>Upload Meta Ads Report</button>
+              {metaAdsDate && <span className="text-[10px] text-blue-400">✓ {metaAdsDate} ({metaAdsData.length} ads)</span>}
             </div>
 
             {analyticsLoading && !analyticsData ? (
@@ -1711,12 +1703,12 @@ export default function DashboardPage() {
                   }), { spend:0, impressions:0, linkClicks:0, landingPageViews:0, results:0 });
                   const ourSubmits = currentParticipants.filter(p =>
                     toNYCDateStr(p.signed_up_at) === metaAdsDate && normalizeUtmSource(p.utm_source) === 'meta'
-                  ).length; // \\u2705 BUG FIX: NYC timezone \\uae30\\uc900
+                  ).length; // ✅ BUG FIX: NYC timezone 기준
                   return (
                     <div className="bg-gradient-to-br from-blue-950/30 to-zinc-900/60 border border-blue-900/40 rounded-xl p-4 sm:p-6">
                       <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2"><span className="text-base">\\ud83d\\udcca</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Meta Ads vs Dashboard</h3><span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">{metaAdsDate}</span></div>
-                        <button onClick={() => { setMetaAdsData([]); setMetaAdsDate(''); }} className="text-[10px] text-zinc-500 hover:text-red-400">\\u2715 Remove</button>
+                        <div className="flex items-center gap-2"><span className="text-base">\ud83d\udcca</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Meta Ads vs Dashboard</h3><span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">{metaAdsDate}</span></div>
+                        <button onClick={() => { setMetaAdsData([]); setMetaAdsDate(''); }} className="text-[10px] text-zinc-500 hover:text-red-400">✕ Remove</button>
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
                         <div className="bg-zinc-800/50 border border-zinc-700/30 rounded-lg p-3"><p className="text-[8px] text-zinc-500 uppercase tracking-widest font-semibold mb-0.5">Meta Spend</p><p className="text-xl font-black text-white">${metaTotal.spend.toFixed(2)}</p></div>
@@ -1728,13 +1720,13 @@ export default function DashboardPage() {
                         <p className="text-[9px] text-zinc-500 uppercase tracking-widest font-semibold mb-2">Full Funnel</p>
                         <div className="flex items-center gap-2 text-xs flex-wrap">
                           <span className="text-zinc-400">Impressions <span className="text-white font-bold">{metaTotal.impressions.toLocaleString()}</span></span>
-                          <span className="text-zinc-600">\\u2192</span><span className="text-zinc-400">Clicks <span className="text-white font-bold">{metaTotal.linkClicks}</span></span>
-                          <span className="text-zinc-600">\\u2192</span><span className="text-zinc-400">LP Views <span className="text-amber-400 font-bold">{metaTotal.landingPageViews}</span></span>
-                          <span className="text-zinc-600">\\u2192</span><span className="text-zinc-400">Submits <span className="text-emerald-400 font-bold">{ourSubmits}</span></span>
+                          <span className="text-zinc-600">→</span><span className="text-zinc-400">Clicks <span className="text-white font-bold">{metaTotal.linkClicks}</span></span>
+                          <span className="text-zinc-600">→</span><span className="text-zinc-400">LP Views <span className="text-amber-400 font-bold">{metaTotal.landingPageViews}</span></span>
+                          <span className="text-zinc-600">→</span><span className="text-zinc-400">Submits <span className="text-emerald-400 font-bold">{ourSubmits}</span></span>
                         </div>
                         <div className="flex items-center gap-4 mt-2 text-[10px]">
                           <span className="text-zinc-500">CTR: <span className="text-white font-bold">{metaTotal.impressions > 0 ? ((metaTotal.linkClicks / metaTotal.impressions) * 100).toFixed(2) : '0'}%</span></span>
-                          <span className="text-zinc-500">Click\\u2192Submit: <span className="text-emerald-400 font-bold">{metaTotal.linkClicks > 0 ? ((ourSubmits / metaTotal.linkClicks) * 100).toFixed(1) : '0'}%</span></span>
+                          <span className="text-zinc-500">Click→Submit: <span className="text-emerald-400 font-bold">{metaTotal.linkClicks > 0 ? ((ourSubmits / metaTotal.linkClicks) * 100).toFixed(1) : '0'}%</span></span>
                           <span className="text-zinc-500">CPA: <span className="text-amber-400 font-bold">{ourSubmits > 0 ? `$${(metaTotal.spend / ourSubmits).toFixed(2)}` : 'N/A'}</span></span>
                         </div>
                       </div>
@@ -1771,7 +1763,7 @@ export default function DashboardPage() {
                 {/* Paid vs Organic */}
                 {filteredAnalytics?.paidVsOrganic && (
                   <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-6">
-                    <div className="flex items-center gap-2 mb-4"><span className="text-base">\\ud83d\\udcb0</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Paid vs Organic</h3></div>
+                    <div className="flex items-center gap-2 mb-4"><span className="text-base">\ud83d\udcb0</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Paid vs Organic</h3></div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="bg-red-950/20 border border-red-900/30 rounded-xl p-4">
                         <div className="flex items-center gap-2 mb-3"><span className="w-2.5 h-2.5 rounded-full bg-red-500" /><span className="text-sm font-bold text-red-400">Paid</span></div>
@@ -1803,7 +1795,7 @@ export default function DashboardPage() {
 
                 {/* Funnel */}
                 <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-6">
-                  <div className="flex items-center gap-2 mb-4 sm:mb-6"><span className="text-base">\\ud83c\\udfaf</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Conversion Funnel</h3></div>
+                  <div className="flex items-center gap-2 mb-4 sm:mb-6"><span className="text-base">\ud83c\udfaf</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Conversion Funnel</h3></div>
                   <div className="space-y-3">
                     {[
                       {key:'page_view',        label:'Page View',   desc:'Landed on site',        color:'bg-zinc-500'   },
@@ -1838,7 +1830,7 @@ export default function DashboardPage() {
                 {/* UTM Performance */}
                 {filteredAnalytics?.utmPerformance?.length > 0 && (
                   <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-6">
-                    <div className="flex items-center gap-2 mb-4"><span className="text-base">\\ud83d\\udd17</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">UTM Source Performance</h3></div>
+                    <div className="flex items-center gap-2 mb-4"><span className="text-base">\ud83d\udd17</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">UTM Source Performance</h3></div>
                     <div className="overflow-x-auto">
                       <table className="w-full text-left">
                         <thead><tr className="border-b border-zinc-800/80">
@@ -1865,7 +1857,7 @@ export default function DashboardPage() {
                 {/* Campaign Performance */}
                 {filteredAnalytics?.campaignPerformance?.length > 0 && (
                   <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-6">
-                    <div className="flex items-center gap-2 mb-4"><span className="text-base">\\ud83c\\udfaf</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Campaign Performance</h3></div>
+                    <div className="flex items-center gap-2 mb-4"><span className="text-base">\ud83c\udfaf</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Campaign Performance</h3></div>
                     <div className="overflow-x-auto">
                       <table className="w-full text-left">
                         <thead><tr className="border-b border-zinc-800/80">
@@ -1896,7 +1888,7 @@ export default function DashboardPage() {
                 {/* Hourly */}
                 {filteredAnalytics?.hourly?.some((h: any) => h.count > 0) && (
                   <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5">
-                    <div className="flex items-center gap-2 mb-4"><span className="text-base">\\ud83d\\udd52</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Signup by Hour</h3></div>
+                    <div className="flex items-center gap-2 mb-4"><span className="text-base">\ud83d\udd52</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Signup by Hour</h3></div>
                     <div className="h-24 sm:h-32 flex items-end gap-[2px]">
                       {filteredAnalytics.hourly.map((h: any) => {
                         const maxH = Math.max(...filteredAnalytics.hourly.map((x: any) => x.count), 1);
@@ -1914,7 +1906,7 @@ export default function DashboardPage() {
 
                 {/* Period Breakdown */}
                 <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-6">
-                  <div className="flex items-center gap-2 mb-4"><span className="text-base">\\ud83d\\udcc5</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Period Breakdown</h3></div>
+                  <div className="flex items-center gap-2 mb-4"><span className="text-base">\ud83d\udcc5</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Period Breakdown</h3></div>
                   {filteredAnalytics?.daily?.length > 0 && (
                     <div className="mb-6">
                       <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-2">Daily</p>
@@ -2011,7 +2003,7 @@ export default function DashboardPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
                   {filteredAnalytics?.segmentDistribution && Object.keys(filteredAnalytics.segmentDistribution).length > 0 && (
                     <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5">
-                      <div className="flex items-center gap-2 mb-3"><span className="text-base">\\ud83d\\udcca</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Segment Split (Events)</h3></div>
+                      <div className="flex items-center gap-2 mb-3"><span className="text-base">\ud83d\udcca</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Segment Split (Events)</h3></div>
                       <div className="space-y-2">
                         {Object.entries(filteredAnalytics.segmentDistribution).sort((a:any,b:any) => b[1]-a[1]).map(([seg, count]:any) => {
                           const total = Object.values(filteredAnalytics.segmentDistribution).reduce((s:any,v:any) => s+v, 0) as number;
@@ -2032,7 +2024,7 @@ export default function DashboardPage() {
                   )}
                   {filteredAnalytics?.reasonDistribution && Object.keys(filteredAnalytics.reasonDistribution).length > 0 && (
                     <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5">
-                      <div className="flex items-center gap-2 mb-3"><span className="text-base">\\ud83d\\udd0d</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Pain Points (Seg A)</h3></div>
+                      <div className="flex items-center gap-2 mb-3"><span className="text-base">\ud83d\udd0d</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Pain Points (Seg A)</h3></div>
                       <div className="space-y-2">
                         {Object.entries(filteredAnalytics.reasonDistribution).sort((a:any,b:any) => b[1]-a[1]).map(([reason, count]:any) => {
                           const total = Object.values(filteredAnalytics.reasonDistribution).reduce((s:any,v:any) => s+v, 0) as number;
