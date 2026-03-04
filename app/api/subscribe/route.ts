@@ -203,11 +203,24 @@ export async function POST(request: NextRequest) {
       console.log('Klaviyo skipped - missing credentials');
     }
 // ── 알림 발송 ──
-    const today = new Date().toISOString().slice(0, 10);
-    const [{ count: todayCount }, { count: totalCount }] = await Promise.all([
-      supabase.from('piilk_subscribers').select('*', { count: 'exact', head: true }).gte('created_at', today),
-      supabase.from('piilk_subscribers').select('*', { count: 'exact', head: true }),
-    ]);
+// ✅ 수정 (NYC 자정 기준)
+const getNYCMidnightUTC = (offsetDays = 0): string => {
+  const now = new Date();
+  const nycStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
+  const nycDate = new Date(nycStr);
+  nycDate.setHours(0, 0, 0, 0);
+  nycDate.setDate(nycDate.getDate() + offsetDays);
+  const utcOffset = now.getTime() - new Date(nycStr).getTime();
+  return new Date(nycDate.getTime() + utcOffset).toISOString();
+};
+
+const [{ count: todayCount }, { count: totalCount }] = await Promise.all([
+  supabase.from('piilk_subscribers').select('*', { count: 'exact', head: true })
+    .gte('created_at', getNYCMidnightUTC(0))
+    .lt('created_at',  getNYCMidnightUTC(1))
+    .neq('variant', 'type'),
+  supabase.from('piilk_subscribers').select('*', { count: 'exact', head: true }),
+]);
     sendNotifications({
       email: email.toLowerCase().trim(),
       variant: 'main',
