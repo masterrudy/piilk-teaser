@@ -489,8 +489,7 @@ export default function DashboardPage() {
   const exportToCSV = () => {
     const headers = ['Email', 'Segment', 'Reason', 'AfterfeelType', 'Country', 'Region', 'City', 'Device', 'Language', 'Timezone', 'IP', 'Referrer', 'UTM Source', 'UTM Medium', 'UTM Campaign', 'Source', 'Signed Up'];
     const rows = filteredParticipants.map(p => [p.email||'', p.segment||'', p.sub_reason||'', p.afterfeel_type||'', p.country||'', p.region||'', p.city||'', p.device_type||'', p.language||'', p.timezone||'', p.ip_address||'', p.referrer||'', p.utm_source||'', p.utm_medium||'', p.utm_campaign||'', p.source||'', p.signed_up_at||'']);
-    const csv = [headers, ...rows].map(row => row.map(cell => `\"${String(cell).replace(/\"/g, '\"\"')}\"`).join(',')).join('\\
-');
+    const csv = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a'); link.href = url;
