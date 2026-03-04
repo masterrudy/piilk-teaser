@@ -46,6 +46,7 @@ interface Participant {
   sub_reason?: string;
   signed_up_at?: string;
   source?: string;
+  variant?: string;        // ✅ 추가 — 'main' | 'type'
   ip_address?: string;
   device_type?: string;
   language?: string;
