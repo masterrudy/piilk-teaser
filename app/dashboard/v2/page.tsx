@@ -107,6 +107,18 @@ function getNYCDate(offset = 0): string {
   return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;
 }
 
+/* ─────────────────────────── BUG FIX: NYC timezone date helper ─────────────────────────── */
+// ✅ signed_up_at (UTC ISO string) → NYC 날짜 문자열 (YYYY-MM-DD)
+function toNYCDateStr(signed_up_at: string | undefined): string {
+  if (!signed_up_at) return '';
+  try {
+    const d = new Date(signed_up_at);
+    return d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  } catch {
+    return '';
+  }
+}
+
 /* ─────────────────────────── Quiz Type Labels ─────────────────────────── */
 
 const QUIZ_TYPE_LABELS: Record<string, { name: string; icon: string; color: string; bgColor: string; borderColor: string }> = {
@@ -117,10 +129,10 @@ const QUIZ_TYPE_LABELS: Record<string, { name: string; icon: string; color: stri
 };
 
 const UTM_SOURCE_COLORS: Record<string, { bg: string; text: string; border: string; dot: string }> = {
-  meta:       { bg: 'bg-blue-500/10',   text: 'text-blue-400',   border: 'border-blue-500/30',   dot: 'bg-blue-500'   },
-  tonic:      { bg: 'bg-pink-500/10',   text: 'text-pink-400',   border: 'border-pink-500/30',   dot: 'bg-pink-500'   },
-  '10almonds':{ bg: 'bg-amber-500/10',  text: 'text-amber-400',  border: 'border-amber-500/30',  dot: 'bg-amber-500'  },
-  Direct:     { bg: 'bg-zinc-500/10',   text: 'text-zinc-400',   border: 'border-zinc-500/30',   dot: 'bg-zinc-500'   },
+  meta:        { bg: 'bg-blue-500/10',   text: 'text-blue-400',   border: 'border-blue-500/30',   dot: 'bg-blue-500'   },
+  tonic:       { bg: 'bg-pink-500/10',   text: 'text-pink-400',   border: 'border-pink-500/30',   dot: 'bg-pink-500'   },
+  '10almonds': { bg: 'bg-amber-500/10',  text: 'text-amber-400',  border: 'border-amber-500/30',  dot: 'bg-amber-500'  },
+  Direct:      { bg: 'bg-zinc-500/10',   text: 'text-zinc-400',   border: 'border-zinc-500/30',   dot: 'bg-zinc-500'   },
 };
 
 function getUtmColor(source: string) {
@@ -145,7 +157,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState('');
 
-  // ✅ 두 variant의 supabase/klaviyo total 캐싱 (null = 아직 미로드)
+  // 두 variant의 supabase/klaviyo total 캐싱
   const [supabaseTotals, setSupabaseTotals] = useState<{ main: number | null; type: number | null }>({ main: null, type: null });
   const [klaviyoTotals, setKlaviyoTotals] = useState<{ main: number | null; type: number | null }>({ main: null, type: null });
 
@@ -161,7 +173,8 @@ export default function DashboardPage() {
   const [analyticsDateFrom, setAnalyticsDateFrom] = useState<string>('');
   const [analyticsDateTo, setAnalyticsDateTo] = useState<string>('');
   const [trafficFilter, setTrafficFilter] = useState<'all' | 'paid' | 'organic'>('all');
-  // ✅ 제외 IP 목록 (테스트/사무실 IP 필터링) - localStorage에 저장
+
+  // ✅ excludeIPs: SSR safe (lazy initializer로 window 접근)
   const [excludeIPs, setExcludeIPs] = useState<string[]>(() => {
     if (typeof window === 'undefined') return [];
     try { return JSON.parse(localStorage.getItem('piilk_exclude_ips') || '[]'); } catch { return []; }
@@ -174,7 +187,6 @@ export default function DashboardPage() {
 
   // Participant list
   const [participants, setParticipants] = useState<{ klaviyo: Participant[]; supabase: Participant[] }>({ klaviyo: [], supabase: [] });
-  // ✅ 반대 variant 참가자 캐시 (통합 리스트용)
   const [otherParticipants, setOtherParticipants] = useState<{ klaviyo: Participant[]; supabase: Participant[] }>({ klaviyo: [], supabase: [] });
   const [participantsLoading, setParticipantsLoading] = useState(false);
 
@@ -231,12 +243,10 @@ export default function DashboardPage() {
     finally { setLoading(false); }
   }, [variant]);
 
-  // ✅ fetchParticipants: 현재 + 반대 variant total 동시 캐싱 (깜빡임 방지)
   const fetchParticipants = useCallback(async () => {
     setParticipantsLoading(true);
     const otherVariant = variant === 'main' ? 'type' : 'main';
     try {
-      // 현재 variant 전체 데이터 + 반대 variant total만 동시 fetch
       const [kRes, sRes, sOtherRes, kOtherRes] = await Promise.all([
         fetch(`/api/dashboard/participants?source=klaviyo&variant=${variant}`),
         fetch(`/api/dashboard/participants?source=supabase&variant=${variant}`),
@@ -253,15 +263,11 @@ export default function DashboardPage() {
         supabase: sResult.success ? sResult.data : [],
       });
 
-      // 현재 variant 캐싱
       if (sResult.success) setSupabaseTotals(prev => ({ ...prev, [variant]: sResult.total }));
       if (kResult.success) setKlaviyoTotals(prev => ({ ...prev, [variant]: kResult.total }));
-
-      // 반대 variant total 캐싱 (깜빡임 원인 제거)
       if (sOtherResult.success) setSupabaseTotals(prev => ({ ...prev, [otherVariant]: sOtherResult.total }));
       if (kOtherResult.success) setKlaviyoTotals(prev => ({ ...prev, [otherVariant]: kOtherResult.total }));
 
-      // ✅ 반대 variant 전체 데이터도 저장 (통합 리스트용)
       setOtherParticipants({
         klaviyo: kOtherResult.success ? kOtherResult.data : [],
         supabase: sOtherResult.success ? sOtherResult.data : [],
@@ -293,16 +299,16 @@ export default function DashboardPage() {
       fetchParticipants();
       fetchAnalytics();
     }
+  // fetchData/fetchParticipants/fetchAnalytics는 variant를 이미 의존하므로
+  // variant 변경 시 자동으로 최신 버전이 호출됨 — 의도적 eslint-disable
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [variant]);
+  }, [variant, fetchData, fetchParticipants, fetchAnalytics]);
 
-  // Auto-refresh stats
+  // Auto-refresh stats (interval only — 초기 로드는 variant-change useEffect가 담당)
   useEffect(() => {
-    if (authenticated) {
-      fetchData();
-      const iv = setInterval(fetchData, 30000);
-      return () => clearInterval(iv);
-    }
+    if (!authenticated) return;
+    const iv = setInterval(fetchData, 30000);
+    return () => clearInterval(iv);
   }, [authenticated, fetchData]);
 
   // Load on first auth
@@ -316,7 +322,7 @@ export default function DashboardPage() {
   const currentParticipants = activeSource === 'klaviyo' ? participants.klaviyo : participants.supabase;
   const currentOtherParticipants = activeSource === 'klaviyo' ? otherParticipants.klaviyo : otherParticipants.supabase;
 
-  // ✅ 통합 리스트: 현재 variant + 반대 variant, 시간순 정렬, variant 태그 추가
+  // 통합 리스트: 현재 variant + 반대 variant, 시간순 정렬, variant 태그 추가
   const mergedParticipants = useMemo(() => {
     const mainList = (variant === 'main' ? currentParticipants : currentOtherParticipants)
       .map(p => ({ ...p, _variantTag: 'main' as const }));
@@ -325,31 +331,35 @@ export default function DashboardPage() {
     return [...mainList, ...typeList].sort((a, b) => {
       const aDate = a.signed_up_at || '';
       const bDate = b.signed_up_at || '';
-      return bDate.localeCompare(aDate); // 최신순
+      return bDate.localeCompare(aDate);
     });
   }, [currentParticipants, currentOtherParticipants, variant]);
 
-  /* ─── Today's signups (NYC timezone) ─── */
+  /* ─────────────────────────────────────────────────────────────────────
+   * BUG FIX #1: todaySignups — UTC slice(0,10) → NYC timezone 변환
+   * ───────────────────────────────────────────────────────────────────── */
   const todaySignups = useMemo(() => {
     const todayStr = getNYCDate(0);
-    return currentParticipants.filter(p => p.signed_up_at?.slice(0, 10) === todayStr).length;
+    return currentParticipants.filter(p => toNYCDateStr(p.signed_up_at) === todayStr).length;
   }, [currentParticipants]);
 
-  /* ─── Daily signups for chart ─── */
+  /* ─────────────────────────────────────────────────────────────────────
+   * BUG FIX #2: dailySignups — UTC slice(0,10) → NYC timezone 변환
+   * 예: UTC 2025-03-04T02:00Z → NYC 2025-03-03 (자정 이전) 가 slice로는 잘못 집계됨
+   * ───────────────────────────────────────────────────────────────────── */
   const dailySignups = useMemo(() => {
     const dayMap: Record<string, number> = {};
     currentParticipants.forEach(p => {
-      if (!p.signed_up_at) return;
-      const day = p.signed_up_at.slice(0, 10);
+      const day = toNYCDateStr(p.signed_up_at); // ✅ NYC timezone
       if (day) dayMap[day] = (dayMap[day] || 0) + 1;
     });
     const sorted = Object.entries(dayMap).sort((a, b) => a[0].localeCompare(b[0]));
     if (sorted.length > 1) {
       const filled: [string, number][] = [];
-      const start = new Date(sorted[0][0]);
-      const end = new Date(sorted[sorted.length - 1][0]);
+      const start = new Date(sorted[0][0] + 'T00:00:00'); // ✅ local date parse 방지
+      const end   = new Date(sorted[sorted.length - 1][0] + 'T00:00:00');
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const key = d.toISOString().slice(0, 10);
+        const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
         filled.push([key, dayMap[key] || 0]);
       }
       return filled;
@@ -416,12 +426,19 @@ export default function DashboardPage() {
   };
 
   const filteredParticipants = useMemo(() => {
-    // Main Teaser 탭에서는 통합 리스트(Main+QuizType), Quiz Type 탭은 기존대로
-    const baseList = variant === 'main' ? mergedParticipants : currentParticipants.map(p => ({ ...p, _variantTag: 'type' as const }));
+    const baseList = variant === 'main'
+      ? mergedParticipants
+      : currentParticipants.map(p => ({ ...p, _variantTag: 'type' as const }));
     let list = [...baseList] as (Participant & { _variantTag?: 'main' | 'type' })[];
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      list = list.filter(p => p.email?.toLowerCase().includes(q) || p.name?.toLowerCase().includes(q) || p.segment?.toLowerCase().includes(q) || p.sub_reason?.toLowerCase().includes(q) || p.country?.toLowerCase().includes(q) || p.city?.toLowerCase().includes(q) || p.ip_address?.includes(q));
+      list = list.filter(p =>
+        p.email?.toLowerCase().includes(q) || p.name?.toLowerCase().includes(q) ||
+        p.segment?.toLowerCase().includes(q) || p.sub_reason?.toLowerCase().includes(q) ||
+        p.country?.toLowerCase().includes(q) || p.city?.toLowerCase().includes(q) ||
+        p.ip_address?.includes(q)
+      );
     }
     if (segmentFilter !== 'all') {
       if (variant === 'type') {
@@ -435,18 +452,19 @@ export default function DashboardPage() {
     if (countryFilter) list = list.filter(p => p.country === countryFilter);
     if (cityFilter) list = list.filter(p => p.city === cityFilter);
     if (deviceFilter) list = list.filter(p => p.device_type === deviceFilter);
-    if (dateFrom) list = list.filter(p => p.signed_up_at && p.signed_up_at.slice(0, 10) >= dateFrom);
-    if (dateTo) list = list.filter(p => p.signed_up_at && p.signed_up_at.slice(0, 10) <= dateTo);
-    // 기본 정렬: 시간순 (signed_up_at desc)
-    if (sortField === 'signed_up_at' || sortField === 'email' || sortField === 'segment' || sortField === 'country') {
-      list.sort((a, b) => {
-        const aVal = (a[sortField] || '').toLowerCase();
-        const bVal = (b[sortField] || '').toLowerCase();
-        if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
-        if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
-        return 0;
-      });
-    }
+    /* ─────────────────────────────────────────────────────────────────────
+     * BUG FIX #3: dateFrom/dateTo 필터도 NYC timezone 기준으로 비교
+     * ───────────────────────────────────────────────────────────────────── */
+    if (dateFrom) list = list.filter(p => toNYCDateStr(p.signed_up_at) >= dateFrom);
+    if (dateTo)   list = list.filter(p => toNYCDateStr(p.signed_up_at) <= dateTo);
+
+    list.sort((a, b) => {
+      const aVal = (a[sortField] || '').toLowerCase();
+      const bVal = (b[sortField] || '').toLowerCase();
+      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
     return list;
   }, [mergedParticipants, currentParticipants, searchQuery, segmentFilter, reasonFilter, domainFilter, countryFilter, cityFilter, deviceFilter, dateFrom, dateTo, sortField, sortDir, variant]);
 
@@ -462,7 +480,7 @@ export default function DashboardPage() {
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a'); link.href = url;
-    link.download = `piilk-${variant}-participants-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `piilk-${variant}-participants-${getNYCDate(0)}.csv`;
     link.click(); URL.revokeObjectURL(url);
   };
 
@@ -472,7 +490,7 @@ export default function DashboardPage() {
     const counts: Record<string, number> = { brick: 0, chalk: 0, zombie: 0, gambler: 0 };
     currentParticipants.forEach(p => {
       const type = p.afterfeel_type || p.sub_reason || '';
-      if (counts.hasOwnProperty(type)) counts[type]++;
+      if (Object.prototype.hasOwnProperty.call(counts, type)) counts[type]++;
     });
     return counts;
   }, [currentParticipants, variant]);
@@ -504,17 +522,23 @@ export default function DashboardPage() {
         startDate = `${mon.getFullYear()}-${String(mon.getMonth()+1).padStart(2,'0')}-${String(mon.getDate()).padStart(2,'0')}`;
         endDate = getNYCDate(0);
       }
-      else if (analyticsPeriod === 'this_month') { startDate = `${nowNYC.getFullYear()}-${String(nowNYC.getMonth()+1).padStart(2,'0')}-01`; endDate = getNYCDate(0); }
+      else if (analyticsPeriod === 'this_month') {
+        startDate = `${nowNYC.getFullYear()}-${String(nowNYC.getMonth()+1).padStart(2,'0')}-01`;
+        endDate = getNYCDate(0);
+      }
       else if (analyticsPeriod === 'last_month') {
         const lm = new Date(nowNYC.getFullYear(), nowNYC.getMonth()-1, 1);
         startDate = `${lm.getFullYear()}-${String(lm.getMonth()+1).padStart(2,'0')}-01`;
+        // ✅ new Date(y, m, 0) → 로컬 날짜 기준 마지막 날 (UTC 변환 없음, 안전)
         const lmEnd = new Date(nowNYC.getFullYear(), nowNYC.getMonth(), 0);
         endDate = `${lmEnd.getFullYear()}-${String(lmEnd.getMonth()+1).padStart(2,'0')}-${String(lmEnd.getDate()).padStart(2,'0')}`;
       }
       else {
         startDate = `${analyticsPeriod}-01`;
         const [y, m] = analyticsPeriod.split('-').map(Number);
-        endDate = new Date(y, m, 0).toISOString().slice(0, 10);
+        // ✅ new Date(y, m, 0) → 해당 월의 마지막 날 (로컬 기준, toISOString 쓰면 UTC 오차 발생)
+        const lastDay = new Date(y, m, 0);
+        endDate = `${lastDay.getFullYear()}-${String(lastDay.getMonth()+1).padStart(2,'0')}-${String(lastDay.getDate()).padStart(2,'0')}`;
       }
     }
 
@@ -585,8 +609,8 @@ export default function DashboardPage() {
       if (ev.n==='step4_submit') { if(ip) pSub.add(ev.s); else oSub.add(ev.s); }
     });
     const paidVsOrganic = {
-      paid: { views: pS.size, submits: pSub.size, cvr: pS.size > 0 ? ((pSub.size/pS.size)*100).toFixed(1) : '0' },
-      organic: { views: oS.size, submits: oSub.size, cvr: oS.size > 0 ? ((oSub.size/oS.size)*100).toFixed(1) : '0' }
+      paid:    { views: pS.size,  submits: pSub.size, cvr: pS.size  > 0 ? ((pSub.size/pS.size)*100).toFixed(1)  : '0' },
+      organic: { views: oS.size,  submits: oSub.size, cvr: oS.size  > 0 ? ((oSub.size/oS.size)*100).toFixed(1)  : '0' },
     };
 
     const hourMapF: Record<number,number> = {};
@@ -631,7 +655,7 @@ export default function DashboardPage() {
     return {...analyticsData,funnel,daily:filteredDaily,weekly,weekday,monthly,utmPerformance,platformPerformance,campaignPerformance,paidVsOrganic,hourly,segmentDistribution:segDist,reasonDistribution:reasonDist,totalVisitors:uvVisitors.size,totalSessions:uvSessions.size};
   }, [analyticsData, analyticsPeriod, analyticsDateFrom, analyticsDateTo, trafficFilter, variant]);
 
-  /* ─── Today analytics helper (paid/organic 분리 + IP 제외 + 하루 visitor 유니크) ─── */
+  /* ─── Today analytics helper (paid/organic 분리 + IP 제외) ─── */
   const todayAnalytics = useMemo(() => {
     const empty = {
       visitors: 0, sessions: 0, submits: 0, cvr: '—',
@@ -641,8 +665,7 @@ export default function DashboardPage() {
     if (!analyticsData?.rawEvents) return empty;
     const todayStr = getNYCDate(0);
 
-    // ✅ 방문자: page_view 기준 유니크 visitor (IP 제외 + 하루 1회)
-    const uniqueVisitorMap = new Map<string, boolean>(); // vid → isPaid
+    const uniqueVisitorMap = new Map<string, boolean>();
     analyticsData.rawEvents
       .filter((ev: any) => ev.d === todayStr && ev.n === 'page_view')
       .filter((ev: any) => !(ev.ip_address && excludeIPs.some((ip: string) => ev.ip_address.startsWith(ip))))
@@ -663,16 +686,13 @@ export default function DashboardPage() {
     const pVisitors = paidVids.size;
     const oVisitors = orgVids.size;
 
-    // ✅ submits: Supabase participants 기준 (리얼 데이터) — NYC 타임존
-    const todayParticipants = currentParticipants.filter((p: any) => {
-      if (!p.signed_up_at) return false;
-      const d = new Date(p.signed_up_at);
-      const nycStr = d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-      return nycStr === todayStr;
-    });
-    const submits = todayParticipants.length;
-
-    // Paid/Organic 분리 — participant의 utm_medium 기준
+    /* ─────────────────────────────────────────────────────────────────────
+     * BUG FIX #4: todayAnalytics submits — NYC timezone 기준으로 오늘 판단
+     * ───────────────────────────────────────────────────────────────────── */
+    const todayParticipants = currentParticipants.filter((p: any) =>
+      toNYCDateStr(p.signed_up_at) === todayStr
+    );
+    const submits  = todayParticipants.length;
     const pSubmits = todayParticipants.filter((p: any) => p.utm_medium === 'paid').length;
     const oSubmits = todayParticipants.filter((p: any) => p.utm_medium !== 'paid').length;
 
@@ -693,8 +713,13 @@ export default function DashboardPage() {
     };
   }, [analyticsData, excludeIPs, currentParticipants]);
 
-  const segColor = (s?: string) => {
-    if (variant === 'type') {
+  /* ─────────────────────────────────────────────────────────────────────
+   * BUG FIX #5: segColor — main 탭에서 quiz type 참가자(vTag==='type') 렌더 시
+   * variant가 'main'이므로 QUIZ_TYPE_LABELS 분기가 안 됨 → vTag를 인자로 추가
+   * ───────────────────────────────────────────────────────────────────── */
+  const segColor = (s?: string, vTag?: 'main' | 'type') => {
+    const isType = vTag === 'type' || variant === 'type';
+    if (isType) {
       const t = QUIZ_TYPE_LABELS[s || ''];
       if (t) return `bg-zinc-800/30 ${t.color} border-zinc-700/30`;
     }
@@ -706,8 +731,9 @@ export default function DashboardPage() {
     }
   };
 
-  const segLabel = (s?: string, p?: Participant) => {
-    if (variant === 'type') {
+  const segLabel = (s?: string, p?: Participant, vTag?: 'main' | 'type') => {
+    const isType = vTag === 'type' || variant === 'type';
+    if (isType) {
       const type = p?.afterfeel_type || p?.sub_reason || s || '';
       const t = QUIZ_TYPE_LABELS[type];
       return t ? t.name : type || 'afterfeel_quiz';
@@ -730,32 +756,26 @@ export default function DashboardPage() {
 
   const fmtShortDate = (d: string) => { const p=d.split('-'); return `${p[1]}/${p[2]}`; };
 
-  // ✅ 트래픽 소스 배지 헬퍼
   const trafficSourceLabel = (p: Participant): { label: string; color: string } => {
     const src = (p.utm_source || '').toLowerCase();
     const med = (p.utm_medium || '').toLowerCase();
     const ref = (p.referrer || '').toLowerCase();
     if (med === 'paid' || src === 'meta' || src === 'facebook' || src === 'fb') {
-      // placement 구분
       if (src === 'instagram' || ref.includes('instagram')) return { label: 'IG', color: 'bg-pink-500/20 text-pink-400 border-pink-500/30' };
       return { label: 'Meta', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' };
     }
     if (src === 'instagram' || ref.includes('instagram.com')) return { label: 'IG', color: 'bg-pink-500/20 text-pink-400 border-pink-500/30' };
-    if (src === 'facebook' || ref.includes('facebook.com')) return { label: 'FB', color: 'bg-blue-600/20 text-blue-400 border-blue-600/30' };
-    if (src === 'google' || ref.includes('google.com')) return { label: 'Google', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' };
-    if (src === 'tiktok' || ref.includes('tiktok.com')) return { label: 'TikTok', color: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30' };
+    if (src === 'facebook'  || ref.includes('facebook.com'))  return { label: 'FB', color: 'bg-blue-600/20 text-blue-400 border-blue-600/30' };
+    if (src === 'google'    || ref.includes('google.com'))    return { label: 'Google', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' };
+    if (src === 'tiktok'    || ref.includes('tiktok.com'))    return { label: 'TikTok', color: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30' };
     if (src === 'twitter' || src === 'x' || ref.includes('twitter.com') || ref.includes('x.com')) return { label: 'X', color: 'bg-zinc-500/20 text-zinc-300 border-zinc-500/30' };
     if (src === 'email' || med === 'email') return { label: 'Email', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30' };
     if (src) return { label: src, color: 'bg-zinc-700/30 text-zinc-400 border-zinc-600/30' };
     return { label: 'Direct', color: 'bg-zinc-800/50 text-zinc-500 border-zinc-700/30' };
   };
+
   const deviceIcon = (d?: string) => {
-    switch(d) {
-      case 'mobile':  return '📱';
-      case 'desktop': return '💻';
-      case 'tablet':  return '📟';
-      default:        return '—';
-    }
+    switch(d) { case 'mobile': return '📱'; case 'desktop': return '💻'; case 'tablet': return '📟'; default: return '—'; }
   };
 
   const BarChart = ({ data, color, total }: { data: [string, number][]; color: string; total: number }) => (
@@ -777,6 +797,7 @@ export default function DashboardPage() {
     const chartData = chartMode === 'daily' ? daily : cumulative;
     if (chartData.length === 0) return null;
     const maxVal = Math.max(...chartData.map(d => d[1]), 1);
+    const todayNYC = getNYCDate(0); // ✅ NYC 기준 오늘
     return (
       <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5">
         <div className="flex items-center justify-between mb-4">
@@ -796,7 +817,7 @@ export default function DashboardPage() {
           <div className="absolute left-9 right-0 top-0 bottom-5 flex items-end gap-[1px]">
             {chartData.map(([day, count], i) => {
               const height = maxVal > 0 ? (count / maxVal) * 100 : 0;
-              const isToday = day === new Date().toISOString().slice(0, 10);
+              const isToday = day === todayNYC; // ✅ NYC 기준
               return (
                 <div key={day} className="flex-1 flex flex-col items-center justify-end h-full group relative">
                   <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-zinc-800 text-white text-[9px] px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none">{fmtShortDate(day)}: <span className="font-bold">{count}</span></div>
@@ -842,7 +863,7 @@ export default function DashboardPage() {
     if (!utmStats && !visitorStatsData) return null;
     const currentVS = visitorStatsData?.[utmView];
     const totalVisitorsSum = utmStats?.reduce((s, u) => s + u.visitors, 0) || 0;
-    const totalSubmitsSum = utmStats?.reduce((s, u) => s + u.submits, 0) || 0;
+    const totalSubmitsSum  = utmStats?.reduce((s, u) => s + u.submits,  0) || 0;
 
     return (
       <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-6">
@@ -925,10 +946,9 @@ export default function DashboardPage() {
   const goal = 15000;
   const progress = data ? Math.min((data.total / goal) * 100, 100) : 0;
 
-  // ✅ 반대 variant 숫자 (null이면 미로드 = 표시 안 함)
   const oppositeVariant = variant === 'main' ? 'type' : 'main';
   const oppSupabaseTotal = supabaseTotals[oppositeVariant];
-  const oppKlaviyoTotal = klaviyoTotals[oppositeVariant];
+  const oppKlaviyoTotal  = klaviyoTotals[oppositeVariant];
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-zinc-950 via-black to-zinc-900 text-white">
@@ -970,9 +990,9 @@ export default function DashboardPage() {
         <div className="flex items-center gap-1 bg-zinc-900/60 border border-zinc-800 rounded-xl p-1">
           {(['overview','participants','analytics'] as const).map(mode => (
             <button key={mode} onClick={() => setViewMode(mode)} className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-semibold transition-all capitalize ${viewMode === mode ? 'bg-white text-black shadow-lg shadow-white/5' : 'text-zinc-500 hover:text-zinc-300'}`}>
-              {mode === 'overview' && <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
+              {mode === 'overview'     && <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
               {mode === 'participants' && <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
-              {mode === 'analytics' && <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>}
+              {mode === 'analytics'   && <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>}
               {mode}
             </button>
           ))}
@@ -981,34 +1001,25 @@ export default function DashboardPage() {
         {/* Data Source Tabs */}
         {viewMode !== 'analytics' && (
           <div className="flex gap-2">
-            {/* Klaviyo 버튼 */}
             <button onClick={() => setActiveSource('klaviyo')} className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${activeSource === 'klaviyo' ? 'bg-purple-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>
               📧 Klaviyo
               {klaviyoData && <span className="text-xs opacity-80">({klaviyoData.total})</span>}
               {oppKlaviyoTotal !== null && (
                 <>
                   <span className="text-xs opacity-40">+</span>
-                  <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold border ${variant === 'main' ? 'bg-purple-900/50 text-purple-300 border-purple-700/40' : 'bg-emerald-900/50 text-emerald-300 border-emerald-700/40'}`}
-                    title={`${oppositeVariant === 'main' ? 'Main Teaser' : 'Quiz Type'} Klaviyo`}
-                  >
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold border ${variant === 'main' ? 'bg-purple-900/50 text-purple-300 border-purple-700/40' : 'bg-emerald-900/50 text-emerald-300 border-emerald-700/40'}`} title={`${oppositeVariant === 'main' ? 'Main Teaser' : 'Quiz Type'} Klaviyo`}>
                     {oppositeVariant === 'main' ? 'Main' : 'Quiz'} {oppKlaviyoTotal}
                   </span>
                 </>
               )}
             </button>
-
-            {/* Supabase 버튼 */}
             <button onClick={() => setActiveSource('supabase')} className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${activeSource === 'supabase' ? 'bg-emerald-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>
               🗄️ Supabase
               {supabaseData && <span className="text-xs opacity-80">({supabaseData.total})</span>}
               {oppSupabaseTotal !== null && (
                 <>
                   <span className="text-xs opacity-40">+</span>
-                  <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold border ${variant === 'main' ? 'bg-purple-900/50 text-purple-300 border-purple-700/40' : 'bg-emerald-900/50 text-emerald-300 border-emerald-700/40'}`}
-                    title={`${oppositeVariant === 'main' ? 'Main Teaser' : 'Quiz Type'} Supabase`}
-                  >
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold border ${variant === 'main' ? 'bg-purple-900/50 text-purple-300 border-purple-700/40' : 'bg-emerald-900/50 text-emerald-300 border-emerald-700/40'}`} title={`${oppositeVariant === 'main' ? 'Main Teaser' : 'Quiz Type'} Supabase`}>
                     {oppositeVariant === 'main' ? 'Main' : 'Quiz'} {oppSupabaseTotal}
                   </span>
                 </>
@@ -1047,7 +1058,6 @@ export default function DashboardPage() {
 
             {dailySignups.length > 0 && <SignupChart daily={dailySignups} cumulative={cumulativeSignups} />}
 
-            {/* Segments */}
             {variant === 'type' ? (
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 {Object.entries(QUIZ_TYPE_LABELS).map(([key, label]) => {
@@ -1114,16 +1124,15 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* Tracking Analytics */}
             {trackingAnalytics && trackingAnalytics.hasTrackingData && (
               <div className="space-y-3 sm:space-y-4">
                 <h2 className="text-sm sm:text-base font-bold text-zinc-400 uppercase tracking-widest">Audience Insights</h2>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
                   {[
-                    { icon: '🌍', title: 'Country',        data: trackingAnalytics.countries,   color: 'bg-emerald-500' },
-                    { icon: '🏙️', title: 'Top Cities',     data: trackingAnalytics.cities,      color: 'bg-purple-500'  },
-                    { icon: '📱', title: 'Device',         data: trackingAnalytics.devices,     color: 'bg-amber-500'   },
-                    { icon: '🔗', title: 'Traffic Source', data: trackingAnalytics.utmSources,  color: 'bg-sky-500'     },
+                    { icon: '🌍', title: 'Country',        data: trackingAnalytics.countries,  color: 'bg-emerald-500' },
+                    { icon: '🏙️', title: 'Top Cities',     data: trackingAnalytics.cities,     color: 'bg-purple-500'  },
+                    { icon: '📱', title: 'Device',         data: trackingAnalytics.devices,    color: 'bg-amber-500'   },
+                    { icon: '🔗', title: 'Traffic Source', data: trackingAnalytics.utmSources, color: 'bg-sky-500'     },
                   ].map(section => (
                     <div key={section.title} className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5">
                       <div className="flex items-center gap-2 mb-3 sm:mb-4"><span className="text-base">{section.icon}</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">{section.title}</h3></div>
@@ -1141,16 +1150,10 @@ export default function DashboardPage() {
         {/* ══════ PARTICIPANTS ══════ */}
         {viewMode === 'participants' && (
           <div className="space-y-4">
-            {/* ✅ 상단 카드 — Quiz Type vs Main Teaser */}
             {(() => {
               const todayStr = getNYCDate(0);
-              // ✅ NYC 타임존 기준 오늘 판단 (UTC signed_up_at → NYC 변환)
-              const isToday = (p: Participant) => {
-                if (!p.signed_up_at) return false;
-                const d = new Date(p.signed_up_at);
-                const nycStr = d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' }); // YYYY-MM-DD
-                return nycStr === todayStr;
-              };
+              // ✅ BUG FIX: isToday — NYC timezone 기준 (toNYCDateStr 사용)
+              const isToday = (p: Participant) => toNYCDateStr(p.signed_up_at) === todayStr;
               const kTotal = participants.klaviyo.length;
               const sTotal = participants.supabase.length;
 
@@ -1162,7 +1165,6 @@ export default function DashboardPage() {
                 });
                 return (
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3">
-                    {/* Total 강조 카드 */}
                     <div className="relative bg-gradient-to-br from-zinc-800/80 to-zinc-900 border-2 border-zinc-600 rounded-xl p-3 sm:p-4 overflow-hidden">
                       <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 rounded-full blur-xl pointer-events-none" />
                       <p className="text-[9px] sm:text-[10px] text-zinc-400 uppercase tracking-widest mb-0.5 font-bold">Total</p>
@@ -1184,9 +1186,9 @@ export default function DashboardPage() {
                 );
               }
 
-              // ✅ Main Teaser: Hot Leads 오늘 신규 + Visitors(Paid/Organic) + CVR(Paid/Organic)
+              // Main Teaser 카드
               const todayA = currentParticipants.filter(p => isToday(p) && p.segment === 'A').length;
-              const otherTotal: number | null = variant === 'main' ? supabaseTotals.type : supabaseTotals.main;
+              const otherTotal: number | null = supabaseTotals.type;
               const combinedTotal = otherTotal !== null
                 ? currentParticipants.length + (otherTotal as number)
                 : currentParticipants.length;
@@ -1195,7 +1197,7 @@ export default function DashboardPage() {
 
               return (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-                  {/* Total 강조 카드 — Main+QuizType Supabase 합산 */}
+                  {/* Total */}
                   <div className="relative bg-gradient-to-br from-zinc-800/80 to-zinc-900 border-2 border-zinc-600 rounded-xl p-4 overflow-hidden flex flex-col items-center justify-center text-center min-h-[160px]">
                     <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 rounded-full blur-xl pointer-events-none" />
                     <p className="text-[9px] text-zinc-400 uppercase tracking-widest font-bold mb-2">Total</p>
@@ -1208,7 +1210,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  {/* Hot Leads (Seg A) — 오늘 신규만 */}
+                  {/* Hot Leads */}
                   <div className="bg-emerald-950/30 border border-emerald-900/30 rounded-xl p-4 flex flex-col items-center justify-center text-center min-h-[160px]">
                     <div className="flex items-center justify-between w-full mb-2">
                       <p className="text-[10px] text-emerald-500 uppercase tracking-widest font-bold">Hot Leads</p>
@@ -1216,8 +1218,12 @@ export default function DashboardPage() {
                     </div>
                     <p className="text-6xl sm:text-7xl font-black text-emerald-400 leading-none">{todayA}</p>
                     {(() => {
+                      // ✅ BUG FIX #2: yesterdayA — NYC timezone 기준
                       const yStr = getNYCDate(-1);
-                      const yesterdayA = currentParticipants.filter(p => p.signed_up_at?.slice(0,10) === yStr && p.segment === 'A').length;
+                      const yesterdayA = currentParticipants.filter(p => {
+                        if (!p.signed_up_at || p.segment !== 'A') return false;
+                        return toNYCDateStr(p.signed_up_at) === yStr;
+                      }).length;
                       if (yesterdayA === 0) return null;
                       const diff = todayA - yesterdayA;
                       const pct = ((diff / yesterdayA) * 100).toFixed(0);
@@ -1230,7 +1236,7 @@ export default function DashboardPage() {
                     })()}
                   </div>
 
-                  {/* ✅ Visitors — Paid / Organic 분리 */}
+                  {/* Visitors */}
                   <div className="bg-sky-950/30 border border-sky-900/30 rounded-xl p-3 sm:p-5">
                     <div className="flex items-center justify-between mb-3">
                       <p className="text-[10px] sm:text-xs text-sky-400 uppercase tracking-widest font-bold">Visitors</p>
@@ -1238,8 +1244,8 @@ export default function DashboardPage() {
                         <button
                           onClick={() => {
                             if (!analyticsData?.rawEvents) return;
-                            const todayStr = getNYCDate(0);
-                            const todayPV = analyticsData.rawEvents.filter((ev: any) => ev.d === todayStr && ev.n === 'page_view');
+                            const todayStr2 = getNYCDate(0);
+                            const todayPV = analyticsData.rawEvents.filter((ev: any) => ev.d === todayStr2 && ev.n === 'page_view');
                             const vidMap = new Map<string, number>();
                             todayPV.forEach((ev: any) => {
                               const vid = ev.v || ev.s || 'no-id';
@@ -1247,7 +1253,6 @@ export default function DashboardPage() {
                             });
                             const multiVisit = Array.from(vidMap.entries()).filter(([,c]) => c > 1);
                             const noV = todayPV.filter((ev: any) => !ev.v).length;
-                            // Paid/Organic 중복 체크
                             const paidVidSet = new Set(todayPV.filter((ev:any)=>ev.um==='paid').map((ev:any)=>ev.v||ev.s).filter(Boolean));
                             const orgVidSet  = new Set(todayPV.filter((ev:any)=>ev.um!=='paid').map((ev:any)=>ev.v||ev.s).filter(Boolean));
                             const overlap = Array.from(paidVidSet).filter(id => orgVidSet.has(id)).length;
@@ -1290,7 +1295,7 @@ export default function DashboardPage() {
                     )}
                   </div>
 
-                  {/* ✅ CVR — Paid / Organic 분리 + 평균 */}
+                  {/* CVR */}
                   <div className="bg-purple-950/30 border border-purple-900/30 rounded-xl p-3 sm:p-5">
                     <div className="flex items-center justify-between mb-3">
                       <p className="text-[10px] sm:text-xs text-purple-400 uppercase tracking-widest font-bold">CVR</p>
@@ -1366,11 +1371,11 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-between"><h3 className="text-sm font-semibold text-white">Advanced Filters</h3>{activeFilterCount > 0 && <button onClick={clearAllFilters} className="text-xs text-purple-400 hover:text-purple-300">Clear all filters</button>}</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   {[
-                    { label: 'Reason',      value: reasonFilter,  onChange: (v:string)=>setReasonFilter(v),  options: [{ v: 'all', l: 'All Reasons' },   ...uniqueReasons.map(r=>({v:r,l:r}))]       },
-                    { label: 'Country',     value: countryFilter, onChange: (v:string)=>setCountryFilter(v), options: [{ v: '', l: 'All Countries' },    ...uniqueCountries.map(c=>({v:c,l:c}))]    },
-                    { label: 'City',        value: cityFilter,    onChange: (v:string)=>setCityFilter(v),    options: [{ v: '', l: 'All Cities' },        ...uniqueCities.map(c=>({v:c,l:c}))]      },
-                    { label: 'Device',      value: deviceFilter,  onChange: (v:string)=>setDeviceFilter(v),  options: [{ v: '', l: 'All Devices' },       ...uniqueDevices.map(d=>({v:d,l:d}))]     },
-                    { label: 'Email Domain',value: domainFilter,  onChange: (v:string)=>setDomainFilter(v),  options: [{ v: '', l: 'All Domains' },       ...uniqueDomains.map(d=>({v:d,l:`@${d}`}))] },
+                    { label: 'Reason',       value: reasonFilter,  onChange: (v:string)=>setReasonFilter(v),  options: [{ v: 'all', l: 'All Reasons'  }, ...uniqueReasons.map(r=>({v:r,l:r}))]         },
+                    { label: 'Country',      value: countryFilter, onChange: (v:string)=>setCountryFilter(v), options: [{ v: '',    l: 'All Countries' }, ...uniqueCountries.map(c=>({v:c,l:c}))]      },
+                    { label: 'City',         value: cityFilter,    onChange: (v:string)=>setCityFilter(v),    options: [{ v: '',    l: 'All Cities'    }, ...uniqueCities.map(c=>({v:c,l:c}))]        },
+                    { label: 'Device',       value: deviceFilter,  onChange: (v:string)=>setDeviceFilter(v),  options: [{ v: '',    l: 'All Devices'   }, ...uniqueDevices.map(d=>({v:d,l:d}))]       },
+                    { label: 'Email Domain', value: domainFilter,  onChange: (v:string)=>setDomainFilter(v),  options: [{ v: '',    l: 'All Domains'   }, ...uniqueDomains.map(d=>({v:d,l:`@${d}`}))] },
                   ].map(f => (
                     <div key={f.label}>
                       <label className="block text-[10px] text-zinc-500 uppercase tracking-widest mb-1.5">{f.label}</label>
@@ -1415,9 +1420,9 @@ export default function DashboardPage() {
                       <thead><tr className="border-b border-zinc-800/80 bg-zinc-900/60">
                         <th className="px-3 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold w-10">#</th>
                         {variant === 'main' && <th className="px-2 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold w-16">LP</th>}
-                        {[{f:'email' as const,l:'Email'},{f:'segment' as const,l:variant === 'type' ? 'Type' : 'Seg'},{f:null,l:'Source'},{f:'country' as const,l:'Location'},{f:null,l:'Device'},{f:'signed_up_at' as const,l:'Date'}].map(col => (
+                        {[{f:'email' as const,l:'Email'},{f:'segment' as const,l:variant==='type'?'Type':'Seg'},{f:null,l:'Source'},{f:'country' as const,l:'Location'},{f:null,l:'Device'},{f:'signed_up_at' as const,l:'Date'}].map(col => (
                           <th key={col.l} className={`px-3 py-3 text-[10px] text-zinc-500 uppercase tracking-widest font-semibold ${col.f ? 'cursor-pointer hover:text-zinc-300 select-none' : ''}`} onClick={() => col.f && handleSort(col.f)}>
-                            <span className="flex items-center gap-1">{col.l}{col.f && sortField === col.f && <span className="text-white">{sortDir === 'asc' ? '↑' : '↓'}</span>}</span>
+                            <span className="flex items-center gap-1">{col.l}{col.f && sortField===col.f && <span className="text-white">{sortDir==='asc'?'↑':'↓'}</span>}</span>
                           </th>
                         ))}
                         <th className="px-3 py-3 w-10"></th>
@@ -1425,24 +1430,30 @@ export default function DashboardPage() {
                       <tbody>
                         {filteredParticipants.map((p, i) => {
                           const vTag = (p as any)._variantTag as 'main' | 'type' | undefined;
+                          // ✅ BUG FIX #5: segColor/segLabel에 vTag 전달
+                          const segKey = vTag === 'type' ? (p.afterfeel_type || p.sub_reason) : p.segment;
                           return (
-                          <tr key={p.id || i} className="border-b border-zinc-800/40 hover:bg-zinc-800/30 transition-colors">
-                            <td className="px-3 py-3 text-xs text-zinc-600 font-mono">{i + 1}</td>
-                            {variant === 'main' && (
-                              <td className="px-2 py-3">
-                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${vTag === 'main' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-purple-500/20 text-purple-400'}`}>
-                                  {vTag === 'main' ? 'Main' : 'Quiz'}
+                            <tr key={p.id || i} className="border-b border-zinc-800/40 hover:bg-zinc-800/30 transition-colors">
+                              <td className="px-3 py-3 text-xs text-zinc-600 font-mono">{i + 1}</td>
+                              {variant === 'main' && (
+                                <td className="px-2 py-3">
+                                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${vTag === 'main' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-purple-500/20 text-purple-400'}`}>
+                                    {vTag === 'main' ? 'Main' : 'Quiz'}
+                                  </span>
+                                </td>
+                              )}
+                              <td className="px-3 py-3 text-sm text-white font-medium max-w-[180px] truncate">{p.email}</td>
+                              <td className="px-3 py-3">
+                                <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-md border ${segColor(segKey, vTag)}`}>
+                                  {segLabel(p.segment, p, vTag)}
                                 </span>
                               </td>
-                            )}
-                            <td className="px-3 py-3 text-sm text-white font-medium max-w-[180px] truncate">{p.email}</td>
-                            <td className="px-3 py-3"><span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-md border ${segColor(vTag === 'type' ? (p.afterfeel_type || p.sub_reason) : p.segment)}`}>{segLabel(p.segment, p)}</span></td>
-                            <td className="px-3 py-3 text-xs text-zinc-400 max-w-[100px] truncate">{(() => { const s = trafficSourceLabel(p); return <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-md border ${s.color}`}>{s.label}</span>; })()}</td>
-                            <td className="px-3 py-3 text-xs text-zinc-300 whitespace-nowrap">{p.city && p.country ? `${p.city}, ${p.country}` : p.country || '—'}</td>
-                            <td className="px-3 py-3 text-sm whitespace-nowrap">{deviceIcon(p.device_type)}</td>
-                            <td className="px-3 py-3 text-xs text-zinc-500 font-mono whitespace-nowrap">{fmtDate(p.signed_up_at)}</td>
-                            <td className="px-3 py-3"><button onClick={() => setSelectedParticipant(p)} className="text-zinc-600 hover:text-white transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></button></td>
-                          </tr>
+                              <td className="px-3 py-3 text-xs max-w-[100px] truncate">{(() => { const s = trafficSourceLabel(p); return <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-md border ${s.color}`}>{s.label}</span>; })()}</td>
+                              <td className="px-3 py-3 text-xs text-zinc-300 whitespace-nowrap">{p.city && p.country ? `${p.city}, ${p.country}` : p.country || '—'}</td>
+                              <td className="px-3 py-3 text-sm whitespace-nowrap">{deviceIcon(p.device_type)}</td>
+                              <td className="px-3 py-3 text-xs text-zinc-500 font-mono whitespace-nowrap">{fmtDate(p.signed_up_at)}</td>
+                              <td className="px-3 py-3"><button onClick={() => setSelectedParticipant(p)} className="text-zinc-600 hover:text-white transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></button></td>
+                            </tr>
                           );
                         })}
                       </tbody>
@@ -1454,17 +1465,18 @@ export default function DashboardPage() {
                 <div className="sm:hidden space-y-2">
                   {filteredParticipants.map((p, i) => {
                     const vTag = (p as any)._variantTag as 'main' | 'type' | undefined;
+                    const segKey = vTag === 'type' ? (p.afterfeel_type || p.sub_reason) : p.segment;
                     return (
-                    <div key={p.id || i} className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-3 space-y-2" onClick={() => setSelectedParticipant(p)}>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1 flex items-center gap-1.5">
-                          {variant === 'main' && <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${vTag === 'main' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-purple-500/20 text-purple-400'}`}>{vTag === 'main' ? 'Main' : 'Quiz'}</span>}
-                          <div className="min-w-0"><p className="text-sm font-medium text-white truncate">{p.email}</p><div className="flex items-center gap-2 mt-0.5">{p.city && <span className="text-[10px] text-zinc-500">{p.city}, {p.country}</span>}{p.device_type && <span className="text-xs">{deviceIcon(p.device_type)}</span>}</div></div>
+                      <div key={p.id || i} className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-3 space-y-2" onClick={() => setSelectedParticipant(p)}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1 flex items-center gap-1.5">
+                            {variant === 'main' && <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${vTag === 'main' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-purple-500/20 text-purple-400'}`}>{vTag === 'main' ? 'Main' : 'Quiz'}</span>}
+                            <div className="min-w-0"><p className="text-sm font-medium text-white truncate">{p.email}</p><div className="flex items-center gap-2 mt-0.5">{p.city && <span className="text-[10px] text-zinc-500">{p.city}, {p.country}</span>}{p.device_type && <span className="text-xs">{deviceIcon(p.device_type)}</span>}</div></div>
+                          </div>
+                          <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-md border shrink-0 ${segColor(segKey, vTag)}`}>{segLabel(p.segment, p, vTag)}</span>
                         </div>
-                        <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-md border shrink-0 ${segColor(vTag === 'type' ? (p.afterfeel_type || p.sub_reason) : p.segment)}`}>{segLabel(p.segment, p)}</span>
+                        <div className="flex items-center justify-between text-[10px]">{(() => { const s = trafficSourceLabel(p); return <span className={`inline-flex items-center px-1.5 py-0.5 text-[9px] font-bold rounded border ${s.color}`}>{s.label}</span>; })()}<span className="text-zinc-600 font-mono whitespace-nowrap ml-auto">{fmtDate(p.signed_up_at)}</span></div>
                       </div>
-                      <div className="flex items-center justify-between text-[10px]">{(() => { const s = trafficSourceLabel(p); return <span className={`inline-flex items-center px-1.5 py-0.5 text-[9px] font-bold rounded border ${s.color}`}>{s.label}</span>; })()}<span className="text-zinc-600 font-mono whitespace-nowrap ml-auto">{fmtDate(p.signed_up_at)}</span></div>
-                    </div>
                     );
                   })}
                 </div>
@@ -1482,25 +1494,34 @@ export default function DashboardPage() {
                 <button onClick={() => setSelectedParticipant(null)} className="text-zinc-500 hover:text-white p-1"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
               </div>
               <div className="flex items-center gap-3">
-                <span className={`inline-flex items-center px-3 py-1 text-xs font-bold rounded-lg border ${segColor(variant === 'type' ? (selectedParticipant.afterfeel_type || selectedParticipant.sub_reason) : selectedParticipant.segment)}`}>{segLabel(selectedParticipant.segment, selectedParticipant)}</span>
-                {(() => { const s = trafficSourceLabel(selectedParticipant); return <span className={`inline-flex items-center px-2.5 py-1 text-xs font-bold rounded-lg border ${s.color}`}>{s.label}</span>; })()}
+                {(() => {
+                  const vTag = (selectedParticipant as any)._variantTag as 'main' | 'type' | undefined;
+                  const segKey = vTag === 'type' ? (selectedParticipant.afterfeel_type || selectedParticipant.sub_reason) : selectedParticipant.segment;
+                  const s = trafficSourceLabel(selectedParticipant);
+                  return (
+                    <>
+                      <span className={`inline-flex items-center px-3 py-1 text-xs font-bold rounded-lg border ${segColor(segKey, vTag)}`}>{segLabel(selectedParticipant.segment, selectedParticipant, vTag)}</span>
+                      <span className={`inline-flex items-center px-2.5 py-1 text-xs font-bold rounded-lg border ${s.color}`}>{s.label}</span>
+                    </>
+                  );
+                })()}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  {l:'Country',      v:selectedParticipant.country},
-                  {l:'Region',       v:selectedParticipant.region},
-                  {l:'City',         v:selectedParticipant.city},
-                  {l:'Device',       v:selectedParticipant.device_type},
-                  {l:'Language',     v:selectedParticipant.language},
-                  {l:'Timezone',     v:selectedParticipant.timezone},
-                  {l:'IP Address',   v:selectedParticipant.ip_address},
-                  {l:'Referrer',     v:selectedParticipant.referrer},
-                  {l:'UTM Source',   v:selectedParticipant.utm_source},
-                  {l:'UTM Medium',   v:selectedParticipant.utm_medium},
-                  {l:'UTM Campaign', v:selectedParticipant.utm_campaign},
-                  {l:'Source',       v:selectedParticipant.source},
+                  {l:'Country',       v:selectedParticipant.country},
+                  {l:'Region',        v:selectedParticipant.region},
+                  {l:'City',          v:selectedParticipant.city},
+                  {l:'Device',        v:selectedParticipant.device_type},
+                  {l:'Language',      v:selectedParticipant.language},
+                  {l:'Timezone',      v:selectedParticipant.timezone},
+                  {l:'IP Address',    v:selectedParticipant.ip_address},
+                  {l:'Referrer',      v:selectedParticipant.referrer},
+                  {l:'UTM Source',    v:selectedParticipant.utm_source},
+                  {l:'UTM Medium',    v:selectedParticipant.utm_medium},
+                  {l:'UTM Campaign',  v:selectedParticipant.utm_campaign},
+                  {l:'Source',        v:selectedParticipant.source},
                   {l:'Afterfeel Type',v:selectedParticipant.afterfeel_type},
-                  {l:'Signed Up',    v:fmtDate(selectedParticipant.signed_up_at)},
+                  {l:'Signed Up',     v:fmtDate(selectedParticipant.signed_up_at)},
                 ].map(item => (
                   <div key={item.l} className="bg-zinc-800/50 rounded-lg p-2.5">
                     <p className="text-[9px] text-zinc-500 uppercase tracking-widest font-semibold mb-0.5">{item.l}</p>
@@ -1555,15 +1576,13 @@ export default function DashboardPage() {
                 </button>
               </div>
 
-              {/* ✅ IP 제외 필터 패널 */}
+              {/* IP 제외 필터 패널 */}
               {showIPFilter && (
                 <div className="bg-zinc-900/60 border border-zinc-700 rounded-xl p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-bold text-white">🚫 제외 IP 관리 <span className="text-zinc-500 font-normal">(테스트/사무실 IP)</span></p>
                     {excludeIPs.length > 0 && <button onClick={() => { setExcludeIPs([]); localStorage.setItem('piilk_exclude_ips', '[]'); }} className="text-[10px] text-red-400 hover:text-red-300">전체 삭제</button>}
                   </div>
-
-                  {/* ✅ 봇 IP 원클릭 추가 */}
                   <div className="flex flex-wrap gap-1.5 items-center">
                     <span className="text-[10px] text-zinc-500">빠른 추가:</span>
                     <button onClick={() => {
@@ -1575,13 +1594,11 @@ export default function DashboardPage() {
                       🤖 DigitalOcean 봇 전체 ({['209.38','64.23','137.184','146.190','24.199','134.199','147.182','165.225','143.110','176.3','172.56'].filter(ip => !excludeIPs.includes(ip)).length}개 추가)
                     </button>
                   </div>
-
                   <div className="flex gap-2">
                     <input
                       type="text" value={excludeIPInput} onChange={e => setExcludeIPInput(e.target.value)}
                       onKeyDown={e => {
                         if (e.key === 'Enter' && excludeIPInput.trim()) {
-                          // 줄바꿈/쉼표로 구분된 여러 IP 한번에 추가
                           const newEntries = excludeIPInput.split(/[\n,\s]+/).map(s => s.trim()).filter(Boolean);
                           const newIPs = Array.from(new Set([...excludeIPs, ...newEntries]));
                           setExcludeIPs(newIPs);
@@ -1635,17 +1652,11 @@ export default function DashboardPage() {
                     const name = r['광고 이름']||r['Ad Name']||'';
                     const nl = name.toLowerCase();
                     return {
-                      adName: name,
-                      date: r['보고 시작']||'',
-                      status: r['광고 게재']||'',
-                      results: Number(r['결과']||0)||0,
-                      reach: Number(r['도달']||0)||0,
-                      spend: Number(r['지출 금액 (USD)']||0)||0,
-                      impressions: Number(r['노출']||0)||0,
-                      linkClicks: Number(r['링크 클릭']||0)||0,
-                      cpc: Number(r['CPC(링크 클릭당 비용) (USD)']||0)||0,
-                      ctrLink: Number(r['CTR(링크 클릭률)']||0)||0,
-                      allClicks: Number(r['클릭(전체)']||0)||0,
+                      adName: name, date: r['보고 시작']||'', status: r['광고 게재']||'',
+                      results: Number(r['결과']||0)||0, reach: Number(r['도달']||0)||0,
+                      spend: Number(r['지출 금액 (USD)']||0)||0, impressions: Number(r['노출']||0)||0,
+                      linkClicks: Number(r['링크 클릭']||0)||0, cpc: Number(r['CPC(링크 클릭당 비용) (USD)']||0)||0,
+                      ctrLink: Number(r['CTR(링크 클릭률)']||0)||0, allClicks: Number(r['클릭(전체)']||0)||0,
                       landingPageViews: Number(r['랜딩 페이지 조회']||0)||0,
                       variant: nl.includes('_main')||nl.includes('main') ? 'main' : nl.includes('_type')||nl.includes('type') ? 'type' : 'unknown'
                     };
@@ -1671,7 +1682,9 @@ export default function DashboardPage() {
                     linkClicks: acc.linkClicks + ad.linkClicks, landingPageViews: acc.landingPageViews + ad.landingPageViews,
                     results: acc.results + ad.results
                   }), { spend:0, impressions:0, linkClicks:0, landingPageViews:0, results:0 });
-                  const ourSubmits = currentParticipants.filter(p => p.signed_up_at?.slice(0,10) === metaAdsDate && normalizeUtmSource(p.utm_source) === 'meta').length;
+                  const ourSubmits = currentParticipants.filter(p =>
+                    toNYCDateStr(p.signed_up_at) === metaAdsDate && normalizeUtmSource(p.utm_source) === 'meta'
+                  ).length; // ✅ BUG FIX: NYC timezone 기준
                   return (
                     <div className="bg-gradient-to-br from-blue-950/30 to-zinc-900/60 border border-blue-900/40 rounded-xl p-4 sm:p-6">
                       <div className="flex items-center justify-between mb-4">
@@ -1688,12 +1701,9 @@ export default function DashboardPage() {
                         <p className="text-[9px] text-zinc-500 uppercase tracking-widest font-semibold mb-2">Full Funnel</p>
                         <div className="flex items-center gap-2 text-xs flex-wrap">
                           <span className="text-zinc-400">Impressions <span className="text-white font-bold">{metaTotal.impressions.toLocaleString()}</span></span>
-                          <span className="text-zinc-600">→</span>
-                          <span className="text-zinc-400">Clicks <span className="text-white font-bold">{metaTotal.linkClicks}</span></span>
-                          <span className="text-zinc-600">→</span>
-                          <span className="text-zinc-400">LP Views <span className="text-amber-400 font-bold">{metaTotal.landingPageViews}</span></span>
-                          <span className="text-zinc-600">→</span>
-                          <span className="text-zinc-400">Submits <span className="text-emerald-400 font-bold">{ourSubmits}</span></span>
+                          <span className="text-zinc-600">→</span><span className="text-zinc-400">Clicks <span className="text-white font-bold">{metaTotal.linkClicks}</span></span>
+                          <span className="text-zinc-600">→</span><span className="text-zinc-400">LP Views <span className="text-amber-400 font-bold">{metaTotal.landingPageViews}</span></span>
+                          <span className="text-zinc-600">→</span><span className="text-zinc-400">Submits <span className="text-emerald-400 font-bold">{ourSubmits}</span></span>
                         </div>
                         <div className="flex items-center gap-4 mt-2 text-[10px]">
                           <span className="text-zinc-500">CTR: <span className="text-white font-bold">{metaTotal.impressions > 0 ? ((metaTotal.linkClicks / metaTotal.impressions) * 100).toFixed(2) : '0'}%</span></span>
@@ -1769,11 +1779,11 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-2 mb-4 sm:mb-6"><span className="text-base">🎯</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Conversion Funnel</h3></div>
                   <div className="space-y-3">
                     {[
-                      {key:'page_view',        label:'Page View',    desc:'Landed on site',         color:'bg-zinc-500'   },
-                      {key:'step1_cta_click',   label:'Get in Line',  desc:'Clicked CTA',            color:'bg-sky-500'    },
-                      {key:'step2_answer',      label:'Answered',     desc:'Selected Yes/No/Never',  color:'bg-amber-500'  },
-                      {key:'step3_email_focus', label:'Email Focus',  desc:'Started typing email',   color:'bg-purple-500' },
-                      {key:'step4_submit',      label:'Submitted',    desc:'Completed signup',        color:'bg-emerald-500'},
+                      {key:'page_view',        label:'Page View',   desc:'Landed on site',        color:'bg-zinc-500'   },
+                      {key:'step1_cta_click',   label:'Get in Line', desc:'Clicked CTA',           color:'bg-sky-500'    },
+                      {key:'step2_answer',      label:'Answered',    desc:'Selected Yes/No/Never', color:'bg-amber-500'  },
+                      {key:'step3_email_focus', label:'Email Focus', desc:'Started typing email',  color:'bg-purple-500' },
+                      {key:'step4_submit',      label:'Submitted',   desc:'Completed signup',       color:'bg-emerald-500'},
                     ].map((step, idx) => {
                       const count = filteredAnalytics?.funnel?.[step.key] || 0;
                       const pv = filteredAnalytics?.funnel?.page_view || 1;
@@ -1878,7 +1888,6 @@ export default function DashboardPage() {
                 {/* Period Breakdown */}
                 <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-6">
                   <div className="flex items-center gap-2 mb-4"><span className="text-base">📅</span><h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">Period Breakdown</h3></div>
-
                   {filteredAnalytics?.daily?.length > 0 && (
                     <div className="mb-6">
                       <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-2">Daily</p>
@@ -1904,7 +1913,6 @@ export default function DashboardPage() {
                       </div>
                     </div>
                   )}
-
                   {filteredAnalytics?.weekly?.length > 0 && (
                     <div className="mb-6">
                       <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-2">Weekly</p>
@@ -1930,7 +1938,6 @@ export default function DashboardPage() {
                       </div>
                     </div>
                   )}
-
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {filteredAnalytics?.weekday && (
                       <div>
