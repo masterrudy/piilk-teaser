@@ -185,10 +185,16 @@ export default function DashboardPage() {
   const [metaAdsDate, setMetaAdsDate] = useState<string>('');
   const metaFileRef = useRef<HTMLInputElement>(null);
 
-  // Participant list
-  const [participants, setParticipants] = useState<{ klaviyo: Participant[]; supabase: Participant[] }>({ klaviyo: [], supabase: [] });
-  const [otherParticipants, setOtherParticipants] = useState<{ klaviyo: Participant[]; supabase: Participant[] }>({ klaviyo: [], supabase: [] });
+  // Participant list (Supabase only — Klaviyo는 통계 카운트만 사용)
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [otherParticipants, setOtherParticipants] = useState<Participant[]>([]);
   const [participantsLoading, setParticipantsLoading] = useState(false);
+
+  // 페이지네이션
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalFiltered, setTotalFiltered] = useState(0);
+  const PAGE_LIMIT = 50;
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -243,39 +249,50 @@ export default function DashboardPage() {
     finally { setLoading(false); }
   }, [variant]);
 
-  const fetchParticipants = useCallback(async () => {
+  const fetchParticipants = useCallback(async (page = 1) => {
     setParticipantsLoading(true);
     const otherVariant = variant === 'main' ? 'type' : 'main';
+
+    const buildUrl = (v: string, p: number) => {
+      const params = new URLSearchParams({
+        variant: v,
+        page: String(p),
+        limit: String(PAGE_LIMIT),
+        ...(searchQuery.trim() ? { search: searchQuery.trim() } : {}),
+        ...(segmentFilter !== 'all' ? { segment: segmentFilter } : {}),
+        ...(dateFrom ? { dateFrom } : {}),
+        ...(dateTo   ? { dateTo }   : {}),
+      });
+      return `/api/dashboard/participants?${params.toString()}`;
+    };
+
     try {
-      const [kRes, sRes, sOtherRes, kOtherRes] = await Promise.all([
-        fetch(`/api/dashboard/participants?source=klaviyo&variant=${variant}`),
-        fetch(`/api/dashboard/participants?source=supabase&variant=${variant}`),
-        fetch(`/api/dashboard/participants?source=supabase&variant=${otherVariant}`),
-        fetch(`/api/dashboard/participants?source=klaviyo&variant=${otherVariant}`),
+      // 현재 variant (페이지네이션) + 반대 variant (총 카운트만 필요 → page=1&limit=1)
+      const [mainRes, otherRes] = await Promise.all([
+        fetch(buildUrl(variant, page)),
+        fetch(`/api/dashboard/participants?variant=${otherVariant}&page=1&limit=1`),
       ]);
-      const kResult: ParticipantsResponse = await kRes.json();
-      const sResult: ParticipantsResponse = await sRes.json();
-      const sOtherResult: ParticipantsResponse = await sOtherRes.json();
-      const kOtherResult: ParticipantsResponse = await kOtherRes.json();
 
-      setParticipants({
-        klaviyo: kResult.success ? kResult.data : [],
-        supabase: sResult.success ? sResult.data : [],
-      });
+      const mainResult = await mainRes.json();
+      const otherResult = await otherRes.json();
 
-      if (sResult.success) setSupabaseTotals(prev => ({ ...prev, [variant]: sResult.total }));
-      if (kResult.success) setKlaviyoTotals(prev => ({ ...prev, [variant]: kResult.total }));
-      if (sOtherResult.success) setSupabaseTotals(prev => ({ ...prev, [otherVariant]: sOtherResult.total }));
-      if (kOtherResult.success) setKlaviyoTotals(prev => ({ ...prev, [otherVariant]: kOtherResult.total }));
+      if (mainResult.success) {
+        setParticipants(mainResult.data || []);
+        setTotalFiltered(mainResult.total ?? 0);
+        setTotalPages(mainResult.totalPages ?? 1);
+        setCurrentPage(page);
+        setSupabaseTotals(prev => ({ ...prev, [variant]: mainResult.totalAll ?? mainResult.total }));
+      }
 
-      setOtherParticipants({
-        klaviyo: kOtherResult.success ? kOtherResult.data : [],
-        supabase: sOtherResult.success ? sOtherResult.data : [],
-      });
+      if (otherResult.success) {
+        setOtherParticipants([]);  // 반대 variant 목록은 표시 안 함 (카운트만)
+        setSupabaseTotals(prev => ({ ...prev, [otherVariant]: otherResult.totalAll ?? otherResult.total }));
+      }
 
     } catch (err) { console.error(err); }
     finally { setParticipantsLoading(false); }
-  }, [variant]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [variant, searchQuery, segmentFilter, dateFrom, dateTo, PAGE_LIMIT]);
 
   const fetchAnalytics = useCallback(async () => {
     setAnalyticsLoading(true);
@@ -293,14 +310,14 @@ export default function DashboardPage() {
       setLoading(true);
       setSupabaseData(null);
       setKlaviyoData(null);
-      setParticipants({ klaviyo: [], supabase: [] });
+      setParticipants([]);
+      setOtherParticipants([]);
+      setCurrentPage(1);
       setAnalyticsData(null);
       fetchData();
-      fetchParticipants();
+      fetchParticipants(1);
       fetchAnalytics();
     }
-  // fetchData/fetchParticipants/fetchAnalytics는 variant를 이미 의존하므로
-  // variant 변경 시 자동으로 최신 버전이 호출됨 — 의도적 eslint-disable
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [variant, fetchData, fetchParticipants, fetchAnalytics]);
 
@@ -311,30 +328,29 @@ export default function DashboardPage() {
     return () => clearInterval(iv);
   }, [authenticated, fetchData]);
 
+  // 필터 변경 시 page=1로 재조회 (디바운스 300ms)
+  useEffect(() => {
+    if (!authenticated) return;
+    const timer = setTimeout(() => {
+      setCurrentPage(1);
+      fetchParticipants(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, segmentFilter, dateFrom, dateTo]);
+
   // Load on first auth
   useEffect(() => {
-    if (authenticated && participants.klaviyo.length === 0 && participants.supabase.length === 0) {
-      fetchParticipants();
+    if (authenticated && participants.length === 0) {
+      fetchParticipants(1);
       fetchAnalytics();
     }
-  }, [authenticated, fetchParticipants, fetchAnalytics, participants.klaviyo.length, participants.supabase.length]);
+  }, [authenticated, fetchParticipants, fetchAnalytics, participants.length]);
 
-  const currentParticipants = activeSource === 'klaviyo' ? participants.klaviyo : participants.supabase;
-  const currentOtherParticipants = activeSource === 'klaviyo' ? otherParticipants.klaviyo : otherParticipants.supabase;
+  const currentParticipants = participants;
+  const currentOtherParticipants = otherParticipants;
 
-  // 통합 리스트: 현재 variant + 반대 variant, 시간순 정렬, variant 태그 추가
-  const mergedParticipants = useMemo(() => {
-    const mainList = (variant === 'main' ? currentParticipants : currentOtherParticipants)
-      .map(p => ({ ...p, _variantTag: 'main' as const }));
-    const typeList = (variant === 'type' ? currentParticipants : currentOtherParticipants)
-      .map(p => ({ ...p, _variantTag: 'type' as const }));
-    return [...mainList, ...typeList].sort((a, b) => {
-      const aDate = a.signed_up_at || '';
-      const bDate = b.signed_up_at || '';
-      return bDate.localeCompare(aDate);
-    });
-  }, [currentParticipants, currentOtherParticipants, variant]);
-
+  // 통합 리스트: main 탭일 때 main + type 합산 (페이지네이션 적용 후 현재 페이지만)
   /* ─────────────────────────────────────────────────────────────────────
    * BUG FIX #1: todaySignups — UTC slice(0,10) → NYC timezone 변환
    * ───────────────────────────────────────────────────────────────────── */
@@ -413,9 +429,14 @@ export default function DashboardPage() {
 
   const activeFilterCount = useMemo(() => {
     let c = 0;
-    if (segmentFilter !== 'all') c++; if (reasonFilter !== 'all') c++;
-    if (domainFilter) c++; if (countryFilter) c++; if (cityFilter) c++;
-    if (deviceFilter) c++; if (dateFrom) c++; if (dateTo) c++;
+    if (segmentFilter !== 'all') c++;
+    if (reasonFilter !== 'all') c++;
+    if (domainFilter) c++;
+    if (countryFilter) c++;
+    if (cityFilter) c++;
+    if (deviceFilter) c++;
+    if (dateFrom) c++;
+    if (dateTo) c++;
     return c;
   }, [segmentFilter, reasonFilter, domainFilter, countryFilter, cityFilter, deviceFilter, dateFrom, dateTo]);
 
@@ -425,38 +446,20 @@ export default function DashboardPage() {
     setDeviceFilter(''); setDateFrom(''); setDateTo('');
   };
 
+  // 서버에서 이미 search/segment/date 필터 + 페이지네이션 적용됨
+  // 클라이언트에서는 현재 페이지 내 추가 필터(domain/country/city/device) + sort만 수행
   const filteredParticipants = useMemo(() => {
-    const baseList = variant === 'main'
-      ? mergedParticipants
-      : currentParticipants.map(p => ({ ...p, _variantTag: 'type' as const }));
-    let list = [...baseList] as (Participant & { _variantTag?: 'main' | 'type' })[];
+    let list = currentParticipants.map(p => ({
+      ...p,
+      _variantTag: (p.variant === 'type' ? 'type' : 'main') as 'main' | 'type',
+    }));
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter(p =>
-        p.email?.toLowerCase().includes(q) || p.name?.toLowerCase().includes(q) ||
-        p.segment?.toLowerCase().includes(q) || p.sub_reason?.toLowerCase().includes(q) ||
-        p.country?.toLowerCase().includes(q) || p.city?.toLowerCase().includes(q) ||
-        p.ip_address?.includes(q)
-      );
-    }
-    if (segmentFilter !== 'all') {
-      if (variant === 'type') {
-        list = list.filter(p => p.sub_reason === segmentFilter || p.afterfeel_type === segmentFilter);
-      } else {
-        list = list.filter(p => p.segment === segmentFilter);
-      }
-    }
+    // 클라이언트 전용 필터 (서버에서 지원 안 하는 것들)
     if (reasonFilter !== 'all') list = list.filter(p => p.sub_reason === reasonFilter);
-    if (domainFilter) list = list.filter(p => p.email?.toLowerCase().endsWith('@' + domainFilter.toLowerCase()));
-    if (countryFilter) list = list.filter(p => p.country === countryFilter);
-    if (cityFilter) list = list.filter(p => p.city === cityFilter);
-    if (deviceFilter) list = list.filter(p => p.device_type === deviceFilter);
-    /* ─────────────────────────────────────────────────────────────────────
-     * BUG FIX #3: dateFrom/dateTo 필터도 NYC timezone 기준으로 비교
-     * ───────────────────────────────────────────────────────────────────── */
-    if (dateFrom) list = list.filter(p => toNYCDateStr(p.signed_up_at) >= dateFrom);
-    if (dateTo)   list = list.filter(p => toNYCDateStr(p.signed_up_at) <= dateTo);
+    if (domainFilter)   list = list.filter(p => p.email?.toLowerCase().endsWith('@' + domainFilter.toLowerCase()));
+    if (countryFilter)  list = list.filter(p => p.country === countryFilter);
+    if (cityFilter)     list = list.filter(p => p.city === cityFilter);
+    if (deviceFilter)   list = list.filter(p => p.device_type === deviceFilter);
 
     list.sort((a, b) => {
       const aVal = (a[sortField] || '').toLowerCase();
@@ -466,7 +469,7 @@ export default function DashboardPage() {
       return 0;
     });
     return list;
-  }, [mergedParticipants, currentParticipants, searchQuery, segmentFilter, reasonFilter, domainFilter, countryFilter, cityFilter, deviceFilter, dateFrom, dateTo, sortField, sortDir, variant]);
+  }, [currentParticipants, reasonFilter, domainFilter, countryFilter, cityFilter, deviceFilter, sortField, sortDir]);
 
   const handleSort = (field: typeof sortField) => {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -948,7 +951,6 @@ export default function DashboardPage() {
 
   const oppositeVariant = variant === 'main' ? 'type' : 'main';
   const oppSupabaseTotal = supabaseTotals[oppositeVariant];
-  const oppKlaviyoTotal  = klaviyoTotals[oppositeVariant];
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-zinc-950 via-black to-zinc-900 text-white">
@@ -964,7 +966,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
             <span className="text-zinc-500 text-[10px] sm:text-xs font-mono">{lastUpdated}</span>
-            <button onClick={() => { fetchData(); fetchParticipants(); fetchAnalytics(); }} className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center hover:bg-zinc-800 active:scale-95">
+            <button onClick={() => { fetchData(); fetchParticipants(currentPage); fetchAnalytics(); }} className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center hover:bg-zinc-800 active:scale-95">
               <svg className="w-3 h-3 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
             </button>
             <button onClick={() => { localStorage.removeItem('piilk_dash'); localStorage.removeItem('piilk_saved_pw'); setAuthenticated(false); setPassword(''); setRememberMe(false); }} className="text-[10px] sm:text-xs text-zinc-500 hover:text-white transition-colors">Logout</button>
@@ -998,32 +1000,16 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* Data Source Tabs */}
-        {viewMode !== 'analytics' && (
+        {/* Data Source Tabs - Participants는 Supabase, 통계는 Klaviyo/Supabase 선택 */}
+        {viewMode === 'overview' && (
           <div className="flex gap-2">
             <button onClick={() => setActiveSource('klaviyo')} className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${activeSource === 'klaviyo' ? 'bg-purple-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>
               📧 Klaviyo
               {klaviyoData && <span className="text-xs opacity-80">({klaviyoData.total})</span>}
-              {oppKlaviyoTotal !== null && (
-                <>
-                  <span className="text-xs opacity-40">+</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold border ${variant === 'main' ? 'bg-purple-900/50 text-purple-300 border-purple-700/40' : 'bg-emerald-900/50 text-emerald-300 border-emerald-700/40'}`} title={`${oppositeVariant === 'main' ? 'Main Teaser' : 'Quiz Type'} Klaviyo`}>
-                    {oppositeVariant === 'main' ? 'Main' : 'Quiz'} {oppKlaviyoTotal}
-                  </span>
-                </>
-              )}
             </button>
             <button onClick={() => setActiveSource('supabase')} className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${activeSource === 'supabase' ? 'bg-emerald-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>
               🗄️ Supabase
               {supabaseData && <span className="text-xs opacity-80">({supabaseData.total})</span>}
-              {oppSupabaseTotal !== null && (
-                <>
-                  <span className="text-xs opacity-40">+</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold border ${variant === 'main' ? 'bg-purple-900/50 text-purple-300 border-purple-700/40' : 'bg-emerald-900/50 text-emerald-300 border-emerald-700/40'}`} title={`${oppositeVariant === 'main' ? 'Main Teaser' : 'Quiz Type'} Supabase`}>
-                    {oppositeVariant === 'main' ? 'Main' : 'Quiz'} {oppSupabaseTotal}
-                  </span>
-                </>
-              )}
             </button>
           </div>
         )}
@@ -1154,8 +1140,7 @@ export default function DashboardPage() {
               const todayStr = getNYCDate(0);
               // ✅ BUG FIX: isToday — NYC timezone 기준 (toNYCDateStr 사용)
               const isToday = (p: Participant) => toNYCDateStr(p.signed_up_at) === todayStr;
-              const kTotal = participants.klaviyo.length;
-              const sTotal = participants.supabase.length;
+              const sTotal = totalFiltered; // 서버 기준 전체 수
 
               if (variant === 'type') {
                 const todayQuizCounts: Record<string, number> = { brick: 0, chalk: 0, zombie: 0, gambler: 0 };
@@ -1168,10 +1153,9 @@ export default function DashboardPage() {
                     <div className="relative bg-gradient-to-br from-zinc-800/80 to-zinc-900 border-2 border-zinc-600 rounded-xl p-3 sm:p-4 overflow-hidden">
                       <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 rounded-full blur-xl pointer-events-none" />
                       <p className="text-[9px] sm:text-[10px] text-zinc-400 uppercase tracking-widest mb-0.5 font-bold">Total</p>
-                      <p className="text-2xl sm:text-3xl font-black text-white">{currentParticipants.length}</p>
+                      <p className="text-2xl sm:text-3xl font-black text-white">{sTotal}</p>
                       <div className="flex gap-1.5 mt-1.5">
-                        <span className="text-[9px] text-purple-400 font-semibold bg-purple-500/10 px-1.5 py-0.5 rounded">K {kTotal}</span>
-                        <span className="text-[9px] text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded">S {sTotal}</span>
+                        <span className="text-[9px] text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded">🗄️ {sTotal}</span>
                       </div>
                       <p className="text-[9px] text-emerald-400 font-bold mt-1">+{currentParticipants.filter(isToday).length} today</p>
                     </div>
@@ -1361,7 +1345,7 @@ export default function DashboardPage() {
               <button onClick={exportToCSV} className="px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-400 text-sm hover:bg-zinc-800 hover:text-white transition-colors flex items-center gap-2 justify-center">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>Export
               </button>
-              <button onClick={fetchParticipants} disabled={participantsLoading} className="px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-400 text-sm hover:bg-zinc-800 hover:text-white transition-colors disabled:opacity-50 flex items-center gap-2 justify-center">
+              <button onClick={() => fetchParticipants(currentPage)} disabled={participantsLoading} className="px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-400 text-sm hover:bg-zinc-800 hover:text-white transition-colors disabled:opacity-50 flex items-center gap-2 justify-center">
                 <svg className={`w-4 h-4 ${participantsLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>Refresh
               </button>
             </div>
@@ -1390,16 +1374,17 @@ export default function DashboardPage() {
               </div>
             )}
 
+            {/* 결과 카운트 + 페이지네이션 상단 */}
             <div className="flex items-center justify-between">
               <p className="text-zinc-500 text-xs sm:text-sm">
-                {filteredParticipants.length === (variant === 'main' ? mergedParticipants.length : currentParticipants.length)
-                  ? `${filteredParticipants.length} participants`
-                  : `${filteredParticipants.length} of ${variant === 'main' ? mergedParticipants.length : currentParticipants.length} participants`}
-                {variant === 'main' && <span className="text-zinc-600 ml-1">(Main {currentParticipants.length} + Quiz {currentOtherParticipants.length})</span>}
+                {totalFiltered > 0
+                  ? <><span className="text-white font-semibold">{((currentPage - 1) * PAGE_LIMIT) + 1}–{Math.min(currentPage * PAGE_LIMIT, totalFiltered)}</span> / {totalFiltered.toLocaleString()} participants</>
+                  : '0 participants'}
+                {activeFilterCount > 0 && <span className="text-purple-400 ml-1">(필터 적용)</span>}
               </p>
               <div className="flex items-center gap-2">
-                <p className={`text-xs px-2 py-0.5 rounded ${variant === 'main' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-purple-500/20 text-purple-400'}`}>{variant === 'main' ? 'Main' : 'Quiz'}</p>
-                <p className={`text-xs px-2 py-0.5 rounded ${activeSource === 'klaviyo' ? 'bg-purple-500/20 text-purple-400' : 'bg-emerald-500/20 text-emerald-400'}`}>{activeSource === 'klaviyo' ? 'Klaviyo' : 'Supabase'}</p>
+                <span className={`text-xs px-2 py-0.5 rounded ${variant === 'main' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-purple-500/20 text-purple-400'}`}>{variant === 'main' ? 'Main' : 'Quiz'}</span>
+                <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">🗄️ Supabase</span>
               </div>
             </div>
 
@@ -1480,6 +1465,60 @@ export default function DashboardPage() {
                     );
                   })}
                 </div>
+
+                {/* ── 페이지네이션 ── */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between pt-3 border-t border-zinc-800/50">
+                    <p className="text-xs text-zinc-500">
+                      Page <span className="text-white font-semibold">{currentPage}</span> / {totalPages}
+                      <span className="ml-2 text-zinc-600">({totalFiltered.toLocaleString()} total)</span>
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => fetchParticipants(1)}
+                        disabled={currentPage === 1 || participantsLoading}
+                        className="px-2 py-1.5 text-xs bg-zinc-800 text-zinc-400 rounded-lg hover:bg-zinc-700 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                      >«</button>
+                      <button
+                        onClick={() => fetchParticipants(currentPage - 1)}
+                        disabled={currentPage === 1 || participantsLoading}
+                        className="px-3 py-1.5 text-xs bg-zinc-800 text-zinc-400 rounded-lg hover:bg-zinc-700 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                      >‹ Prev</button>
+
+                      {/* 페이지 번호 버튼 (최대 5개 표시) */}
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let p: number;
+                        if (totalPages <= 5) p = i + 1;
+                        else if (currentPage <= 3) p = i + 1;
+                        else if (currentPage >= totalPages - 2) p = totalPages - 4 + i;
+                        else p = currentPage - 2 + i;
+                        return (
+                          <button
+                            key={p}
+                            onClick={() => fetchParticipants(p)}
+                            disabled={participantsLoading}
+                            className={`px-3 py-1.5 text-xs rounded-lg transition-all ${
+                              p === currentPage
+                                ? 'bg-white text-black font-bold'
+                                : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'
+                            }`}
+                          >{p}</button>
+                        );
+                      })}
+
+                      <button
+                        onClick={() => fetchParticipants(currentPage + 1)}
+                        disabled={currentPage === totalPages || participantsLoading}
+                        className="px-3 py-1.5 text-xs bg-zinc-800 text-zinc-400 rounded-lg hover:bg-zinc-700 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                      >Next ›</button>
+                      <button
+                        onClick={() => fetchParticipants(totalPages)}
+                        disabled={currentPage === totalPages || participantsLoading}
+                        className="px-2 py-1.5 text-xs bg-zinc-800 text-zinc-400 rounded-lg hover:bg-zinc-700 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                      >»</button>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>
