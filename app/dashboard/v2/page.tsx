@@ -245,6 +245,9 @@ export default function DashboardPage() {
       if (result.success) {
         setSupabaseData(result.supabase);
         setKlaviyoData(result.klaviyo);
+        // ✅ Klaviyo/Supabase totals 캐싱 (탭 버튼 숫자 표시용)
+        if (result.klaviyo?.total != null) setKlaviyoTotals(prev => ({ ...prev, [variant]: result.klaviyo!.total }));
+        if (result.supabase?.total != null) setSupabaseTotals(prev => ({ ...prev, [variant]: result.supabase!.total }));
         setLastUpdated(new Date().toLocaleTimeString('ko-KR'));
       }
     } catch (err) { console.error(err); }
@@ -1003,16 +1006,32 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* Data Source Tabs - Participants는 Supabase, 통계는 Klaviyo/Supabase 선택 */}
-        {viewMode === 'overview' && (
-          <div className="flex gap-2">
+        {/* Data Source Tabs — Overview/Participants 모두 표시 */}
+        {viewMode !== 'analytics' && (
+          <div className="flex gap-2 flex-wrap">
             <button onClick={() => setActiveSource('klaviyo')} className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${activeSource === 'klaviyo' ? 'bg-purple-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>
               📧 Klaviyo
               {klaviyoData && <span className="text-xs opacity-80">({klaviyoData.total})</span>}
+              {klaviyoTotals[oppositeVariant] !== null && (
+                <>
+                  <span className="text-xs opacity-40">+</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold border ${variant === 'main' ? 'bg-purple-900/50 text-purple-300 border-purple-700/40' : 'bg-emerald-900/50 text-emerald-300 border-emerald-700/40'}`}>
+                    {oppositeVariant === 'main' ? 'Main' : 'Quiz'} {klaviyoTotals[oppositeVariant]}
+                  </span>
+                </>
+              )}
             </button>
             <button onClick={() => setActiveSource('supabase')} className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${activeSource === 'supabase' ? 'bg-emerald-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>
               🗄️ Supabase
               {supabaseData && <span className="text-xs opacity-80">({supabaseData.total})</span>}
+              {supabaseTotals[oppositeVariant] !== null && (
+                <>
+                  <span className="text-xs opacity-40">+</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold border ${variant === 'main' ? 'bg-purple-900/50 text-purple-300 border-purple-700/40' : 'bg-emerald-900/50 text-emerald-300 border-emerald-700/40'}`}>
+                    {oppositeVariant === 'main' ? 'Main' : 'Quiz'} {supabaseTotals[oppositeVariant]}
+                  </span>
+                </>
+              )}
             </button>
           </div>
         )}
@@ -1141,9 +1160,10 @@ export default function DashboardPage() {
           <div className="space-y-4">
             {(() => {
               const todayStr = getNYCDate(0);
-              // ✅ BUG FIX: isToday — NYC timezone 기준 (toNYCDateStr 사용)
               const isToday = (p: Participant) => toNYCDateStr(p.signed_up_at) === todayStr;
-              const sTotal = totalFiltered; // 서버 기준 전체 수
+              // Klaviyo / Supabase totals
+              const kTotal = klaviyoTotals[variant] ?? (klaviyoData?.total ?? null);
+              const sTotal = supabaseTotals[variant] ?? totalFiltered;
 
               if (variant === 'type') {
                 const todayQuizCounts: Record<string, number> = { brick: 0, chalk: 0, zombie: 0, gambler: 0 };
@@ -1158,7 +1178,8 @@ export default function DashboardPage() {
                       <p className="text-[9px] sm:text-[10px] text-zinc-400 uppercase tracking-widest mb-0.5 font-bold">Total</p>
                       <p className="text-2xl sm:text-3xl font-black text-white">{sTotal}</p>
                       <div className="flex gap-1.5 mt-1.5">
-                        <span className="text-[9px] text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded">🗄️ {sTotal}</span>
+                        {kTotal !== null && <span className="text-[9px] text-purple-400 font-semibold bg-purple-500/10 px-1.5 py-0.5 rounded">K {kTotal}</span>}
+                        <span className="text-[9px] text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded">S {sTotal}</span>
                       </div>
                       <p className="text-[9px] text-emerald-400 font-bold mt-1">+{currentParticipants.filter(isToday).length} today</p>
                     </div>
@@ -1174,14 +1195,15 @@ export default function DashboardPage() {
               }
 
               // Main Teaser 카드
-              // ✅ todayA: 현재 페이지(50개)에만 의존하지 않고 전체 오늘 submits 사용
-              const todayA = todayAnalytics.submits; // 오늘 전체 submit = segment A 포함 전체
-              // ✅ 전체 수: 서버 기준 totalAll 사용 (현재 페이지 수가 아님)
-              const mainTotal   = supabaseTotals.main  ?? totalFiltered;
-              const typeTotal   = supabaseTotals.type  ?? 0;
-              const combinedTotal = mainTotal + typeTotal;
-              const isCombined  = supabaseTotals.type !== null;
-              // today 카운트는 todaySignups(전체 기준) 사용
+              const todayA = todayAnalytics.submits;
+              const mainSTotal  = supabaseTotals.main  ?? totalFiltered;
+              const mainKTotal  = klaviyoTotals.main   ?? (activeSource === 'klaviyo' ? klaviyoData?.total ?? null : null);
+              const typeSTotal  = supabaseTotals.type  ?? 0;
+              const typeKTotal  = klaviyoTotals.type   ?? null;
+              const combinedSTotal = mainSTotal + typeSTotal;
+              const combinedKTotal = mainKTotal !== null && typeKTotal !== null ? mainKTotal + typeKTotal : null;
+              const combinedTotal  = combinedSTotal;
+              const isCombined     = supabaseTotals.type !== null;
               const combinedTodayAll = todaySignups;
 
               return (
@@ -1193,6 +1215,12 @@ export default function DashboardPage() {
                     <div className="flex items-baseline gap-1.5 justify-center">
                       <p className="text-6xl sm:text-7xl font-black text-white leading-none">{combinedTotal.toLocaleString()}</p>
                       {!isCombined && <span className="text-[9px] text-zinc-600 animate-pulse">…</span>}
+                    </div>
+                    {/* Klaviyo / Supabase 분리 표시 */}
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap justify-center">
+                      {combinedKTotal !== null && <span className="text-[9px] text-purple-400 font-semibold bg-purple-500/10 px-1.5 py-0.5 rounded">K {combinedKTotal.toLocaleString()}</span>}
+                      <span className="text-[9px] text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded">S {combinedSTotal.toLocaleString()}</span>
+                      {isCombined && <span className="text-[9px] text-zinc-600 px-1.5 py-0.5 rounded">(M{mainSTotal}+Q{typeSTotal})</span>}
                     </div>
                     <div className="flex items-center gap-3 mt-2">
                       <span className="text-lg sm:text-xl font-black text-emerald-400">+{combinedTodayAll} today</span>
