@@ -196,6 +196,7 @@ export default function DashboardPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalFiltered, setTotalFiltered] = useState(0);
   const [yesterdayCount, setYesterdayCount] = useState(0); // ✅ 어제 집계
+  const [todayCount, setTodayCount] = useState(0);         // ✅ 오늘 집계 (서버)
   const PAGE_LIMIT = 50;
 
   // Filters
@@ -287,6 +288,7 @@ export default function DashboardPage() {
         setTotalPages(mainResult.totalPages ?? 1);
         setCurrentPage(page);
         setYesterdayCount(mainResult.yesterdayCount ?? 0); // ✅
+        setTodayCount(mainResult.todayCount ?? 0);         // ✅
         setSupabaseTotals(prev => ({ ...prev, [variant]: mainResult.totalAll ?? mainResult.total }));
       }
 
@@ -358,12 +360,9 @@ export default function DashboardPage() {
 
   // 통합 리스트: main 탭일 때 main + type 합산 (페이지네이션 적용 후 현재 페이지만)
   /* ─────────────────────────────────────────────────────────────────────
-   * BUG FIX #1: todaySignups — UTC slice(0,10) → NYC timezone 변환
+   * ✅ todaySignups: 서버 집계값 사용 (currentParticipants 페이지 의존 제거)
    * ───────────────────────────────────────────────────────────────────── */
-  const todaySignups = useMemo(() => {
-    const todayStr = getNYCDate(0);
-    return currentParticipants.filter(p => toNYCDateStr(p.signed_up_at) === todayStr).length;
-  }, [currentParticipants]);
+  const todaySignups = todayCount;
 
   /* ─────────────────────────────────────────────────────────────────────
    * BUG FIX #2: dailySignups — UTC slice(0,10) → NYC timezone 변환
@@ -696,14 +695,18 @@ export default function DashboardPage() {
     const oVisitors = orgVids.size;
 
     /* ─────────────────────────────────────────────────────────────────────
-     * BUG FIX #4: todayAnalytics submits — NYC timezone 기준으로 오늘 판단
+     * ✅ todayAnalytics submits: 서버 집계값 사용 (페이지 의존 제거)
      * ───────────────────────────────────────────────────────────────────── */
-    const todayParticipants = currentParticipants.filter((p: any) =>
+    const submits  = todayCount;
+    // paid/organic 분리는 현재 페이지 비율로 근사 (정확도 낮지만 허용범위)
+    const todayPageParticipants = currentParticipants.filter((p: any) =>
       toNYCDateStr(p.signed_up_at) === todayStr
     );
-    const submits  = todayParticipants.length;
-    const pSubmits = todayParticipants.filter((p: any) => p.utm_medium === 'paid').length;
-    const oSubmits = todayParticipants.filter((p: any) => p.utm_medium !== 'paid').length;
+    const paidRatio  = todayPageParticipants.length > 0
+      ? todayPageParticipants.filter((p: any) => p.utm_medium === 'paid').length / todayPageParticipants.length
+      : 0;
+    const pSubmits = Math.round(submits * paidRatio);
+    const oSubmits = submits - pSubmits;
 
     const cvr  = visitors  > 0 ? `${((submits  / visitors)  * 100).toFixed(1)}%` : '—';
     const pCvr = pVisitors > 0 ? `${((pSubmits / pVisitors) * 100).toFixed(1)}%` : '—';
@@ -1166,11 +1169,15 @@ export default function DashboardPage() {
               const sTotal = supabaseTotals[variant] ?? totalFiltered;
 
               if (variant === 'type') {
+                // 오늘 전체 = 서버 집계값
+                // type별 breakdown은 현재 페이지(최신순 50개) 기준 — 오늘치는 대부분 1페이지에 포함
                 const todayQuizCounts: Record<string, number> = { brick: 0, chalk: 0, zombie: 0, gambler: 0 };
-                currentParticipants.filter(isToday).forEach(p => {
-                  const type = p.afterfeel_type || p.sub_reason || '';
-                  if (Object.prototype.hasOwnProperty.call(todayQuizCounts, type)) todayQuizCounts[type]++;
-                });
+                currentParticipants
+                  .filter(p => toNYCDateStr(p.signed_up_at) === getNYCDate(0))
+                  .forEach(p => {
+                    const type = p.afterfeel_type || p.sub_reason || '';
+                    if (Object.prototype.hasOwnProperty.call(todayQuizCounts, type)) todayQuizCounts[type]++;
+                  });
                 return (
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3">
                     <div className="relative bg-gradient-to-br from-zinc-800/80 to-zinc-900 border-2 border-zinc-600 rounded-xl p-3 sm:p-4 overflow-hidden">
@@ -1181,7 +1188,7 @@ export default function DashboardPage() {
                         {kTotal !== null && <span className="text-[9px] text-purple-400 font-semibold bg-purple-500/10 px-1.5 py-0.5 rounded">K {kTotal}</span>}
                         <span className="text-[9px] text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded">S {sTotal}</span>
                       </div>
-                      <p className="text-[9px] text-emerald-400 font-bold mt-1">+{currentParticipants.filter(isToday).length} today</p>
+                      <p className="text-[9px] text-emerald-400 font-bold mt-1">+{todayCount} today</p>
                     </div>
                     {Object.entries(QUIZ_TYPE_LABELS).map(([key, label]) => (
                       <div key={key} className={`bg-gradient-to-br ${label.bgColor} border ${label.borderColor} rounded-xl p-3 sm:p-4`}>
