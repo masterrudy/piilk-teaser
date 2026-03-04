@@ -195,6 +195,7 @@ export default function DashboardPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalFiltered, setTotalFiltered] = useState(0);
+  const [yesterdayCount, setYesterdayCount] = useState(0); // ✅ 어제 집계
   const PAGE_LIMIT = 50;
 
   // Filters
@@ -282,6 +283,7 @@ export default function DashboardPage() {
         setTotalFiltered(mainResult.total ?? 0);
         setTotalPages(mainResult.totalPages ?? 1);
         setCurrentPage(page);
+        setYesterdayCount(mainResult.yesterdayCount ?? 0); // ✅
         setSupabaseTotals(prev => ({ ...prev, [variant]: mainResult.totalAll ?? mainResult.total }));
       }
 
@@ -1172,13 +1174,15 @@ export default function DashboardPage() {
               }
 
               // Main Teaser 카드
-              const todayA = currentParticipants.filter(p => isToday(p) && p.segment === 'A').length;
-              const otherTotal: number | null = supabaseTotals.type;
-              const combinedTotal = otherTotal !== null
-                ? currentParticipants.length + (otherTotal as number)
-                : currentParticipants.length;
-              const isCombined = otherTotal !== null;
-              const combinedTodayAll = currentParticipants.filter(isToday).length;
+              // ✅ todayA: 현재 페이지(50개)에만 의존하지 않고 전체 오늘 submits 사용
+              const todayA = todayAnalytics.submits; // 오늘 전체 submit = segment A 포함 전체
+              // ✅ 전체 수: 서버 기준 totalAll 사용 (현재 페이지 수가 아님)
+              const mainTotal   = supabaseTotals.main  ?? totalFiltered;
+              const typeTotal   = supabaseTotals.type  ?? 0;
+              const combinedTotal = mainTotal + typeTotal;
+              const isCombined  = supabaseTotals.type !== null;
+              // today 카운트는 todaySignups(전체 기준) 사용
+              const combinedTodayAll = todaySignups;
 
               return (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
@@ -1203,19 +1207,14 @@ export default function DashboardPage() {
                     </div>
                     <p className="text-6xl sm:text-7xl font-black text-emerald-400 leading-none">{todayA}</p>
                     {(() => {
-                      // ✅ BUG FIX #2: yesterdayA — NYC timezone 기준
-                      const yStr = getNYCDate(-1);
-                      const yesterdayA = currentParticipants.filter(p => {
-                        if (!p.signed_up_at || p.segment !== 'A') return false;
-                        return toNYCDateStr(p.signed_up_at) === yStr;
-                      }).length;
-                      if (yesterdayA === 0) return null;
-                      const diff = todayA - yesterdayA;
-                      const pct = ((diff / yesterdayA) * 100).toFixed(0);
+                      // ✅ 서버에서 집계한 어제 수치 사용 (페이지네이션 영향 없음)
+                      if (yesterdayCount === 0) return null;
+                      const diff = todayA - yesterdayCount;
+                      const pct = ((diff / yesterdayCount) * 100).toFixed(0);
                       return (
                         <div className="mt-2 flex items-baseline gap-1.5">
                           <span className={`text-base font-black ${diff >= 0 ? 'text-sky-400' : 'text-red-400'}`}>{diff >= 0 ? '▲' : '▼'}{Math.abs(Number(pct))}%</span>
-                          <span className="text-xs text-zinc-500">vs yesterday ({yesterdayA})</span>
+                          <span className="text-xs text-zinc-500">vs yesterday ({yesterdayCount})</span>
                         </div>
                       );
                     })()}
