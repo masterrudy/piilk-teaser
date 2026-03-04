@@ -155,6 +155,10 @@ async function getSupabaseParticipants({
   const yesterdayStart = `${getNYCDateServer(-1)}T05:00:00Z`;
   const yesterdayEnd   = `${getNYCDateServer(0)}T04:59:59Z`;
 
+  // ── 6. 오늘 카운트 (NYC 기준) ────────────────────────────────
+  const todayStart = `${getNYCDateServer(0)}T05:00:00Z`;  // 오늘 NYC 자정 = UTC 05:00
+  const todayEnd   = `${getNYCDateServer(1)}T04:59:59Z`;  // 내일 NYC 자정 직전
+
   let yesterdayAQuery = supabase
     .from('piilk_subscribers')
     .select('id', { count: 'exact', head: true })
@@ -166,7 +170,23 @@ async function getSupabaseParticipants({
   } else {
     yesterdayAQuery = yesterdayAQuery.neq('variant', 'type').eq('segment', 'A');
   }
-  const { count: yesterdayCount } = await yesterdayAQuery;
+
+  let todayQuery = supabase
+    .from('piilk_subscribers')
+    .select('id', { count: 'exact', head: true })
+    .gte('created_at', todayStart)
+    .lte('created_at', todayEnd);
+
+  if (variant === 'type') {
+    todayQuery = todayQuery.eq('variant', 'type');
+  } else {
+    todayQuery = todayQuery.neq('variant', 'type');
+  }
+
+  const [{ count: yesterdayCount }, { count: todayCount }] = await Promise.all([
+    yesterdayAQuery,
+    todayQuery,
+  ]);
 
   const data = (rows || []).map((row: any) => ({
     id:           row.id?.toString() || '',
@@ -196,7 +216,8 @@ async function getSupabaseParticipants({
     data,
     total:          filteredTotal ?? data.length,
     totalAll:       totalAll      ?? 0,
-    yesterdayCount: yesterdayCount ?? 0,  // ✅ 어제 집계 (main=segA, type=전체)
+    yesterdayCount: yesterdayCount ?? 0,
+    todayCount:     todayCount     ?? 0,  // ✅ 서버 집계 오늘 수
     page,
     limit,
     totalPages:     Math.ceil((filteredTotal ?? data.length) / limit),
