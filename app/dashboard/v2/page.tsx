@@ -64,6 +64,12 @@ interface ParticipantsResponse {
   success: boolean;
   data: Participant[];
   total: number;
+  totalAll?: number;
+  todayCount?: number;       // ✅ DB 직접값
+  yesterdayCount?: number;   // ✅ DB 직접값
+  page?: number;
+  limit?: number;
+  totalPages?: number;
 }
 
 interface UtmSourceStat {
@@ -160,6 +166,9 @@ export default function DashboardPage() {
   // \\ub450 variant\\uc758 supabase/klaviyo total \\uce90\\uc2f1
   const [supabaseTotals, setSupabaseTotals] = useState<{ main: number | null; type: number | null }>({ main: null, type: null });
   const [klaviyoTotals, setKlaviyoTotals] = useState<{ main: number | null; type: number | null }>({ main: null, type: null });
+  // ✅ DB 직접값 — 프론트 filter 대신 사용 (25명 누락 버그 수정)
+  const [apiTodayCount, setApiTodayCount] = useState<number | null>(null);
+  const [apiYesterdayCount, setApiYesterdayCount] = useState<number | null>(null);
 
   // View mode
   const [viewMode, setViewMode] = useState<'overview' | 'participants' | 'analytics'>('participants');
@@ -267,6 +276,9 @@ export default function DashboardPage() {
       if (kResult.success) setKlaviyoTotals(prev => ({ ...prev, [variant]: kResult.total }));
       if (sOtherResult.success) setSupabaseTotals(prev => ({ ...prev, [otherVariant]: sOtherResult.total }));
       if (kOtherResult.success) setKlaviyoTotals(prev => ({ ...prev, [otherVariant]: kOtherResult.total }));
+      // ✅ DB 직접값으로 오늘/어제 카운트 설정
+      if (sResult.success && sResult.todayCount != null) setApiTodayCount(sResult.todayCount);
+      if (sResult.success && sResult.yesterdayCount != null) setApiYesterdayCount(sResult.yesterdayCount);
 
       setOtherParticipants({
         klaviyo: kOtherResult.success ? kOtherResult.data : [],
@@ -338,10 +350,11 @@ export default function DashboardPage() {
   /* \\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500
    * BUG FIX #1: todaySignups \\u2014 UTC slice(0,10) \\u2192 NYC timezone \\ubcc0\\ud658
    * \\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500 */
-  const todaySignups = useMemo(() => {
+  // ✅ DB 직접값 우선, 폴백으로 프론트 filter
+  const todaySignups = apiTodayCount ?? (() => {
     const todayStr = getNYCDate(0);
     return currentParticipants.filter(p => toNYCDateStr(p.signed_up_at) === todayStr).length;
-  }, [currentParticipants]);
+  })();
 
   /* \\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500\\u2500
    * BUG FIX #2: dailySignups \\u2014 UTC slice(0,10) \\u2192 NYC timezone \\ubcc0\\ud658
@@ -1185,13 +1198,14 @@ export default function DashboardPage() {
               }
 
               // Main Teaser \\uce74\\ub4dc
-              const todayA = currentParticipants.filter(p => isToday(p) && p.segment === 'A').length;
+              // \u2705 DB \uc9c1\uc811\uac12 \uc0ac\uc6a9 (\ud504\ub860\ud2b8 filter 25\uba85 \ub204\ub77d \ubc84\uadf8 \uc218\uc815)
+              const todayA = apiTodayCount ?? currentParticipants.filter(p => isToday(p) && p.segment === 'A').length;
               const otherTotal: number | null = supabaseTotals.type;
               const combinedTotal = otherTotal !== null
                 ? currentParticipants.length + (otherTotal as number)
                 : currentParticipants.length;
               const isCombined = otherTotal !== null;
-              const combinedTodayAll = currentParticipants.filter(isToday).length;
+              const combinedTodayAll = apiTodayCount ?? currentParticipants.filter(isToday).length;
 
               return (
                 <div className=\"grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3\">
@@ -1218,7 +1232,8 @@ export default function DashboardPage() {
                     {(() => {
                       // \\u2705 BUG FIX #2: yesterdayA \\u2014 NYC timezone \\uae30\\uc900
                       const yStr = getNYCDate(-1);
-                      const yesterdayA = currentParticipants.filter(p => {
+                      // ✅ DB 직접값 우선 사용
+                      const yesterdayA = apiYesterdayCount ?? currentParticipants.filter(p => {
                         if (!p.signed_up_at || p.segment !== 'A') return false;
                         return toNYCDateStr(p.signed_up_at) === yStr;
                       }).length;
