@@ -300,7 +300,7 @@ export default function DashboardPage() {
     } catch (err) { console.error(err); }
     finally { setParticipantsLoading(false); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [variant, searchQuery, segmentFilter, dateFrom, dateTo, PAGE_LIMIT]);
+  }, [variant, searchQuery, segmentFilter, dateFrom, dateTo]);
 
   const fetchAnalytics = useCallback(async () => {
     setAnalyticsLoading(true);
@@ -336,8 +336,10 @@ export default function DashboardPage() {
     return () => clearInterval(iv);
   }, [authenticated, fetchData]);
 
-  // 필터 변경 시 page=1로 재조회 (디바운스 300ms)
+  // 필터 변경 시 page=1로 재조회 (디바운스 300ms) — 마운트 시 실행 방지
+  const isFilterMounted = useRef(false);
   useEffect(() => {
+    if (!isFilterMounted.current) { isFilterMounted.current = true; return; }
     if (!authenticated) return;
     const timer = setTimeout(() => {
       setCurrentPage(1);
@@ -347,13 +349,8 @@ export default function DashboardPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, segmentFilter, dateFrom, dateTo]);
 
-  // Load on first auth
-  useEffect(() => {
-    if (authenticated && participants.length === 0) {
-      fetchParticipants(1);
-      fetchAnalytics();
-    }
-  }, [authenticated, fetchParticipants, fetchAnalytics, participants.length]);
+  // ✅ 초기 로드는 variant-change useEffect가 처리 (authenticated=true + variant='main' 마운트 시 실행)
+  // Load on first auth useEffect 제거 — 이중 fetch 방지
 
   const currentParticipants = participants;
   const currentOtherParticipants = otherParticipants;
@@ -1202,7 +1199,8 @@ export default function DashboardPage() {
               }
 
               // Main Teaser 카드
-              const todayA = todayAnalytics.submits;
+              // ✅ todayA = 서버 집계 오늘 신규 가입 (todayCount) — currentParticipants 페이지 의존 없음
+              const todayA = todayCount;
               const mainSTotal  = supabaseTotals.main  ?? totalFiltered;
               const mainKTotal  = klaviyoTotals.main   ?? (activeSource === 'klaviyo' ? klaviyoData?.total ?? null : null);
               const typeSTotal  = supabaseTotals.type  ?? 0;
