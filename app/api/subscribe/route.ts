@@ -18,14 +18,13 @@ async function getGeoFromIP(ip: string): Promise<{
 }> {
   const defaultGeo = { country: null, region: null, city: null };
 
-  // 로컬/프라이빗 IP는 스킵
   if (!ip || ip === '127.0.0.1' || ip === '::1' || ip.startsWith('192.168.') || ip.startsWith('10.')) {
     return defaultGeo;
   }
 
   try {
     const res = await fetch(`http://ip-api.com/json/${ip}?fields=status,country,regionName,city`, {
-      signal: AbortSignal.timeout(3000), // 3초 타임아웃
+      signal: AbortSignal.timeout(3000),
     });
     const data = await res.json();
 
@@ -45,22 +44,28 @@ async function getGeoFromIP(ip: string): Promise<{
 
 /* ─── IP 추출 (Vercel/Cloudflare 등 프록시 대응) ─── */
 function getClientIP(request: NextRequest): string {
-  // Vercel
   const xForwardedFor = request.headers.get('x-forwarded-for');
-  if (xForwardedFor) {
-    return xForwardedFor.split(',')[0].trim();
-  }
+  if (xForwardedFor) return xForwardedFor.split(',')[0].trim();
 
-  // Cloudflare
   const cfIP = request.headers.get('cf-connecting-ip');
   if (cfIP) return cfIP;
 
-  // Vercel specific
   const xRealIP = request.headers.get('x-real-ip');
   if (xRealIP) return xRealIP;
 
   return '0.0.0.0';
 }
+
+/* ─── NYC 자정 기준 UTC ISO 변환 ─── */
+const getNYCMidnightUTC = (offsetDays = 0): string => {
+  const now = new Date();
+  const nycStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
+  const nycDate = new Date(nycStr);
+  nycDate.setHours(0, 0, 0, 0);
+  nycDate.setDate(nycDate.getDate() + offsetDays);
+  const utcOffset = now.getTime() - new Date(nycStr).getTime();
+  return new Date(nycDate.getTime() + utcOffset).toISOString();
+};
 
 export async function POST(request: NextRequest) {
   try {
@@ -88,16 +93,18 @@ export async function POST(request: NextRequest) {
     const utmMedium = tracking?.utm_medium || null;
     const utmCampaign = tracking?.utm_campaign || null;
 
+    const now = new Date().toISOString();
+
     // 1. Supabase에 저장
     const { error: dbError } = await supabase
       .from('piilk_subscribers')
       .upsert(
         {
           email: email.toLowerCase().trim(),
+          variant: 'main',          // ✅ FIX 1: variant 명시
           segment,
           sub_reason: subReason,
           source: 'teaser',
-          // ✅ 새 트래킹 컬럼들
           ip_address: ip,
           device_type: deviceType,
           language,
@@ -109,7 +116,8 @@ export async function POST(request: NextRequest) {
           utm_source: utmSource,
           utm_medium: utmMedium,
           utm_campaign: utmCampaign,
-          updated_at: new Date().toISOString(),
+          created_at: now,           // ✅ FIX 2: 신규 가입 시 created_at 명시
+          updated_at: now,
         },
         { onConflict: 'email' }
       );
@@ -139,10 +147,9 @@ export async function POST(request: NextRequest) {
               attributes: {
                 email: emailLower,
                 properties: {
-                  segment: segment,
+                  segment,
                   sub_reason: subReason,
                   source: 'piilk_teaser',
-                  // ✅ Klaviyo에도 트래킹 데이터 저장
                   device_type: deviceType,
                   language,
                   timezone,
@@ -182,12 +189,7 @@ export async function POST(request: NextRequest) {
                 'revision': '2023-12-15',
               },
               body: JSON.stringify({
-                data: [
-                  {
-                    type: 'profile',
-                    id: profileId,
-                  },
-                ],
+                data: [{ type: 'profile', id: profileId }],
               }),
             }
           );
@@ -202,25 +204,21 @@ export async function POST(request: NextRequest) {
     } else {
       console.log('Klaviyo skipped - missing credentials');
     }
-// ── 알림 발송 ──
-// ✅ 수정 (NYC 자정 기준)
-const getNYCMidnightUTC = (offsetDays = 0): string => {
-  const now = new Date();
-  const nycStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
-  const nycDate = new Date(nycStr);
-  nycDate.setHours(0, 0, 0, 0);
-  nycDate.setDate(nycDate.getDate() + offsetDays);
-  const utcOffset = now.getTime() - new Date(nycStr).getTime();
-  return new Date(nycDate.getTime() + utcOffset).toISOString();
-};
 
-const [{ count: todayCount }, { count: totalCount }] = await Promise.all([
-  supabase.from('piilk_subscribers').select('*', { count: 'exact', head: true })
-    .gte('created_at', getNYCMidnightUTC(0))
-    .lt('created_at',  getNYCMidnightUTC(1))
-    .neq('variant', 'type'),
-  supabase.from('piilk_subscribers').select('*', { count: 'exact', head: true }),
-]);
+    // ── 알림 발송 ──
+    // ✅ FIX 3: NYC 자정 기준 todayCount
+    const [{ count: todayCount }, { count: totalCount }] = await Promise.all([
+      supabase
+        .from('piilk_subscribers')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', getNYCMidnightUTC(0))
+        .lt('created_at',  getNYCMidnightUTC(1))
+        .neq('variant', 'type'),
+      supabase
+        .from('piilk_subscribers')
+        .select('*', { count: 'exact', head: true }),
+    ]);
+
     sendNotifications({
       email: email.toLowerCase().trim(),
       variant: 'main',
@@ -234,7 +232,7 @@ const [{ count: todayCount }, { count: totalCount }] = await Promise.all([
       todayCount: todayCount || 0,
       totalCount: totalCount || 0,
     }).catch(() => {});
-    
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Subscribe error:', error);
